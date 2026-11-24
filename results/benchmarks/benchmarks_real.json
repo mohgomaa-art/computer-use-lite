@@ -1,0 +1,118 @@
+{
+  "shot_tokens": 1229,
+  "browser": [
+    {
+      "label": "fixture",
+      "kind": "fixture",
+      "url": "tests/fixtures/form.html",
+      "elements": 4,
+      "blind_regions": 0,
+      "latency_ms": 17.4,
+      "tokens_capped": 54.2,
+      "vs_shot_capped": 0.04,
+      "tokens_uncapped": 54.2,
+      "vs_shot_uncapped": 0.04
+    },
+    {
+      "label": "GitHub Trending",
+      "kind": "real",
+      "url": "https://github.com/trending",
+      "elements": 120,
+      "blind_regions": 0,
+      "latency_ms": 292.2,
+      "tokens_capped": 654.0,
+      "vs_shot_capped": 0.53,
+      "tokens_uncapped": 1263.8,
+      "vs_shot_uncapped": 1.03
+    },
+    {
+      "label": "YouTube",
+      "kind": "real",
+      "url": "https://www.youtube.com/",
+      "elements": 27,
+      "blind_regions": 0,
+      "latency_ms": 143.7,
+      "tokens_capped": 386.8,
+      "vs_shot_capped": 0.31,
+      "tokens_uncapped": 386.8,
+      "vs_shot_uncapped": 0.31
+    },
+    {
+      "label": "Gmail",
+      "kind": "real",
+      "url": "https://accounts.google.com/v3/signin/identifier?continue=https://mail.google.com/mail/u/0/&emr=1&followup=https://mail.google.com/mail/u/0/&osid=1&passive=1209600&service=mail&flowName=WebLiteSignIn&flowEntry=ServiceLogin&dsh=S556334634:1795548348483846",
+      "elements": 14,
+      "blind_regions": 0,
+      "latency_ms": 75.8,
+      "tokens_capped": 187.2,
+      "vs_shot_capped": 0.15,
+      "tokens_uncapped": 187.2,
+      "vs_shot_uncapped": 0.15
+    },
+    {
+      "label": "Google Maps",
+      "kind": "real_canvas",
+      "url": "https://www.google.com/maps/@40.7580,-73.9855,17z",
+      "elements": 64,
+      "blind_regions": 1,
+      "latency_ms": 210.5,
+      "tokens_capped": 697.8,
+      "vs_shot_capped": 0.57,
+      "tokens_uncapped": 719.5,
+      "vs_shot_uncapped": 0.59
+    }
+  ],
+  "desktop": [
+    {
+      "label": "Notepad (Win11)",
+      "elements": 25,
+      "blind_regions": 0,
+      "latency_ms": 82.8,
+      "tokens_capped": 307.0,
+      "vs_shot_capped": 0.25,
+      "tokens_uncapped": 307.0,
+      "vs_shot_uncapped": 0.25
+    },
+    {
+      "label": "File Explorer",
+      "elements": 90,
+      "blind_regions": 0,
+      "latency_ms": 188.0,
+      "tokens_capped": 712.0,
+      "vs_shot_capped": 0.58,
+      "tokens_uncapped": 1036.5,
+      "vs_shot_uncapped": 0.84
+    },
+    {
+      "label": "Chromium shell (before a11y trigger)",
+      "elements": 14,
+      "blind_regions": "-",
+      "latency_ms": "-",
+      "tokens_capped": "-",
+      "vs_shot_capped": "-",
+      "tokens_uncapped": "-",
+      "vs_shot_uncapped": "-",
+      "note": "raw interactive=14, total=36 (renderer inert)"
+    },
+    {
+      "label": "Chromium shell (after B13 WM_GETOBJECT)",
+      "elements": 18,
+      "blind_regions": 0,
+      "latency_ms": 26.7,
+      "tokens_capped": 194.5,
+      "vs_shot_capped": 0.16,
+      "tokens_uncapped": 194.5,
+      "vs_shot_uncapped": 0.16
+    },
+    {
+      "label": "Chromium shell (--force-renderer-accessibility)",
+      "elements": 18,
+      "blind_regions": 0,
+      "latency_ms": 39.3,
+      "tokens_capped": 194.5,
+      "vs_shot_capped": 0.16,
+      "tokens_uncapped": 194.5,
+      "vs_shot_uncapped": 0.16
+    }
+  ]
+}

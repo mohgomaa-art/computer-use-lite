@@ -1,0 +1,44 @@
+# Byte-compiled / Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs, temp files, environment secrets
+*.log
+*.tmp
+*.bak
+.env
+.env.*
+
+# OS & editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+.freebuff/
+
+# Ephemeral runtime outputs, crops, and local screenshots (may contain local usernames or window edges)
+outputs/
+results/crops/
+results/crops_bench/
+results/runtime/
+results/bench_state.json
+results/**/task_state*.json
+archive/screenshots/
+archive/runtime_state/
+*.png

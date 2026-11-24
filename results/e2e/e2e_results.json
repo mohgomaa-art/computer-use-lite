@@ -1,0 +1,73 @@
+{
+  "results": [
+    {
+      "test": "browser_fixture",
+      "discovered": 4,
+      "latency_ms": 19.0,
+      "tokens": 54.2,
+      "shot_tokens": 1229,
+      "token_ratio": "0.04x",
+      "typed_ok": true,
+      "clicked_ok": true,
+      "output": "Found order A-1042",
+      "passed": true
+    },
+    {
+      "test": "desktop_notepad",
+      "discovered": 23,
+      "latency_ms": 80.1,
+      "tokens": 275.2,
+      "shot_tokens": 1229,
+      "token_ratio": "0.22x",
+      "mechanism": {
+        "mechanism": "value_pattern"
+      },
+      "verified_by": "value_pattern",
+      "state_diff_verified": true,
+      "value_before": "''",
+      "value_after": "'computer-use-lite e2e'",
+      "passed": true
+    },
+    {
+      "test": "stale_guard",
+      "revision": true,
+      "covered": true,
+      "moved": true,
+      "removed": true,
+      "passed": true
+    },
+    {
+      "test": "blind_region",
+      "elements": 0,
+      "regions": 1,
+      "kind": "opaque_canvas",
+      "crop": "results/crops/blind_0.png",
+      "crop_ok": true,
+      "passed": true
+    },
+    {
+      "test": "scroll_div_click",
+      "output": "clicked_scrolled_div",
+      "passed": true
+    },
+    {
+      "test": "uia_patterns",
+      "chk_mech": "toggle_pattern",
+      "tab_mech": "selection_item_pattern",
+      "checked": true,
+      "passed": true
+    },
+    {
+      "test": "fg_refusal",
+      "refused": true,
+      "passed": true
+    },
+    {
+      "test": "privacy_no_fp",
+      "no_false_blind": true,
+      "redacted_ok": true,
+      "passed": true
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,2065 @@
+{
+  "target": "H2 canvas probe fixture - Google Chrome for Testing",
+  "settle_ms": 50,
+  "canvas": {
+    "x": 28,
+    "y": 20,
+    "w": 960,
+    "h": 600
+  },
+  "passes": [
+    {
+      "requested": 100,
+      "points": 84,
+      "step": 76,
+      "duration_ms": 4276.6,
+      "ms_per_point": 50.91,
+      "click_hits": 14,
+      "ibeam_hits": 0,
+      "clusters": 7,
+      "score": {
+        "tp": 4,
+        "fp_clusters": 3,
+        "fn": 11,
+        "tp_points": 8,
+        "stray_points": 6,
+        "controls_total": 15,
+        "text_fields_total": 3,
+        "text_fields_hit_by_ibeam": 0,
+        "blind_recall": 0.267,
+        "precision": 0.571
+      },
+      "cursor_classes": {
+        "ARROW": 70,
+        "HAND": 14
+      },
+      "hits": [
+        {
+          "x": 66,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51169
+        },
+        {
+          "x": 142,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50965
+        },
+        {
+          "x": 218,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50800
+        },
+        {
+          "x": 294,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50702
+        },
+        {
+          "x": 370,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50652
+        },
+        {
+          "x": 446,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50626
+        },
+        {
+          "x": 522,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50661
+        },
+        {
+          "x": 598,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50643
+        },
+        {
+          "x": 674,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50698
+        },
+        {
+          "x": 750,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50741
+        },
+        {
+          "x": 826,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50728
+        },
+        {
+          "x": 902,
+          "y": 58,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50741
+        },
+        {
+          "x": 66,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50779
+        },
+        {
+          "x": 142,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50810
+        },
+        {
+          "x": 218,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50810
+        },
+        {
+          "x": 294,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50795
+        },
+        {
+          "x": 370,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50780
+        },
+        {
+          "x": 446,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50761
+        },
+        {
+          "x": 522,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50761
+        },
+        {
+          "x": 598,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50757
+        },
+        {
+          "x": 674,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50755
+        },
+        {
+          "x": 750,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50761
+        },
+        {
+          "x": 826,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50757
+        },
+        {
+          "x": 902,
+          "y": 134,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50764
+        },
+        {
+          "x": 66,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50774
+        },
+        {
+          "x": 142,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50783
+        },
+        {
+          "x": 218,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50790
+        },
+        {
+          "x": 294,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50820
+        },
+        {
+          "x": 370,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50805
+        },
+        {
+          "x": 446,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50815
+        },
+        {
+          "x": 522,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50820
+        },
+        {
+          "x": 598,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50810
+        },
+        {
+          "x": 674,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50805
+        },
+        {
+          "x": 750,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50793
+        },
+        {
+          "x": 826,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50795
+        },
+        {
+          "x": 902,
+          "y": 210,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50792
+        },
+        {
+          "x": 66,
+          "y": 286,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50798
+        },
+        {
+          "x": 142,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50814
+        },
+        {
+          "x": 218,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50812
+        },
+        {
+          "x": 294,
+          "y": 286,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50812
+        },
+        {
+          "x": 370,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50805
+        },
+        {
+          "x": 446,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50801
+        },
+        {
+          "x": 522,
+          "y": 286,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50806
+        },
+        {
+          "x": 598,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50803
+        },
+        {
+          "x": 674,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50805
+        },
+        {
+          "x": 750,
+          "y": 286,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50805
+        },
+        {
+          "x": 826,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50803
+        },
+        {
+          "x": 902,
+          "y": 286,
+          "cursor_class": "HAND",
+          "elapsed_us": 50880
+        },
+        {
+          "x": 66,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50885
+        },
+        {
+          "x": 142,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50880
+        },
+        {
+          "x": 218,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50876
+        },
+        {
+          "x": 294,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50877
+        },
+        {
+          "x": 370,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50872
+        },
+        {
+          "x": 446,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50869
+        },
+        {
+          "x": 522,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50864
+        },
+        {
+          "x": 598,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50865
+        },
+        {
+          "x": 674,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50870
+        },
+        {
+          "x": 750,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50870
+        },
+        {
+          "x": 826,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50873
+        },
+        {
+          "x": 902,
+          "y": 362,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50876
+        },
+        {
+          "x": 66,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50871
+        },
+        {
+          "x": 142,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50871
+        },
+        {
+          "x": 218,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50870
+        },
+        {
+          "x": 294,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50868
+        },
+        {
+          "x": 370,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50868
+        },
+        {
+          "x": 446,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50864
+        },
+        {
+          "x": 522,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50864
+        },
+        {
+          "x": 598,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50931
+        },
+        {
+          "x": 674,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50930
+        },
+        {
+          "x": 750,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50927
+        },
+        {
+          "x": 826,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50923
+        },
+        {
+          "x": 902,
+          "y": 438,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50921
+        },
+        {
+          "x": 66,
+          "y": 514,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50919
+        },
+        {
+          "x": 142,
+          "y": 514,
+          "cursor_class": "HAND",
+          "elapsed_us": 50919
+        },
+        {
+          "x": 218,
+          "y": 514,
+          "cursor_class": "HAND",
+          "elapsed_us": 50918
+        },
+        {
+          "x": 294,
+          "y": 514,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50920
+        },
+        {
+          "x": 370,
+          "y": 514,
+          "cursor_class": "HAND",
+          "elapsed_us": 50922
+        },
+        {
+          "x": 446,
+          "y": 514,
+          "cursor_class": "HAND",
+          "elapsed_us": 50919
+        },
+        {
+          "x": 522,
+          "y": 514,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50915
+        },
+        {
+          "x": 598,
+          "y": 514,
+          "cursor_class": "HAND",
+          "elapsed_us": 50915
+        },
+        {
+          "x": 674,
+          "y": 514,
+          "cursor_class": "HAND",
+          "elapsed_us": 50913
+        },
+        {
+          "x": 750,
+          "y": 514,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50912
+        },
+        {
+          "x": 826,
+          "y": 514,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50914
+        },
+        {
+          "x": 902,
+          "y": 514,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50911
+        }
+      ]
+    },
+    {
+      "requested": 250,
+      "points": 240,
+      "step": 48,
+      "duration_ms": 12237.0,
+      "ms_per_point": 50.99,
+      "click_hits": 56,
+      "ibeam_hits": 34,
+      "clusters": 15,
+      "score": {
+        "tp": 8,
+        "fp_clusters": 7,
+        "fn": 7,
+        "tp_points": 30,
+        "stray_points": 26,
+        "controls_total": 15,
+        "text_fields_total": 3,
+        "text_fields_hit_by_ibeam": 1,
+        "blind_recall": 0.533,
+        "precision": 0.533
+      },
+      "cursor_classes": {
+        "ARROW": 150,
+        "HAND": 56,
+        "IBEAM": 34
+      },
+      "hits": [
+        {
+          "x": 52,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50714
+        },
+        {
+          "x": 100,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50866
+        },
+        {
+          "x": 148,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50806
+        },
+        {
+          "x": 196,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50942
+        },
+        {
+          "x": 244,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50931
+        },
+        {
+          "x": 292,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50915
+        },
+        {
+          "x": 340,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50880
+        },
+        {
+          "x": 388,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50856
+        },
+        {
+          "x": 436,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50854
+        },
+        {
+          "x": 484,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50858
+        },
+        {
+          "x": 532,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50846
+        },
+        {
+          "x": 580,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51543
+        },
+        {
+          "x": 628,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51476
+        },
+        {
+          "x": 676,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51451
+        },
+        {
+          "x": 724,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51403
+        },
+        {
+          "x": 772,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51389
+        },
+        {
+          "x": 820,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51351
+        },
+        {
+          "x": 868,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51331
+        },
+        {
+          "x": 916,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51299
+        },
+        {
+          "x": 964,
+          "y": 44,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51332
+        },
+        {
+          "x": 52,
+          "y": 92,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51294
+        },
+        {
+          "x": 100,
+          "y": 92,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51270
+        },
+        {
+          "x": 148,
+          "y": 92,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51243
+        },
+        {
+          "x": 196,
+          "y": 92,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51227
+        },
+        {
+          "x": 244,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51215
+        },
+        {
+          "x": 292,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51191
+        },
+        {
+          "x": 340,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51172
+        },
+        {
+          "x": 388,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51160
+        },
+        {
+          "x": 436,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51151
+        },
+        {
+          "x": 484,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51145
+        },
+        {
+          "x": 532,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51134
+        },
+        {
+          "x": 580,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51126
+        },
+        {
+          "x": 628,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51107
+        },
+        {
+          "x": 676,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51102
+        },
+        {
+          "x": 724,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51086
+        },
+        {
+          "x": 772,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51069
+        },
+        {
+          "x": 820,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51055
+        },
+        {
+          "x": 868,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51041
+        },
+        {
+          "x": 916,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51029
+        },
+        {
+          "x": 964,
+          "y": 92,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 51018
+        },
+        {
+          "x": 52,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51091
+        },
+        {
+          "x": 100,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51082
+        },
+        {
+          "x": 148,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51076
+        },
+        {
+          "x": 196,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51071
+        },
+        {
+          "x": 244,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51063
+        },
+        {
+          "x": 292,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51059
+        },
+        {
+          "x": 340,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51045
+        },
+        {
+          "x": 388,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51040
+        },
+        {
+          "x": 436,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51031
+        },
+        {
+          "x": 484,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51108
+        },
+        {
+          "x": 532,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51097
+        },
+        {
+          "x": 580,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51093
+        },
+        {
+          "x": 628,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51087
+        },
+        {
+          "x": 676,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51076
+        },
+        {
+          "x": 724,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51077
+        },
+        {
+          "x": 772,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51072
+        },
+        {
+          "x": 820,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51070
+        },
+        {
+          "x": 868,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51116
+        },
+        {
+          "x": 916,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51107
+        },
+        {
+          "x": 964,
+          "y": 140,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51103
+        },
+        {
+          "x": 52,
+          "y": 188,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51098
+        },
+        {
+          "x": 100,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51088
+        },
+        {
+          "x": 148,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51088
+        },
+        {
+          "x": 196,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51084
+        },
+        {
+          "x": 244,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51076
+        },
+        {
+          "x": 292,
+          "y": 188,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51069
+        },
+        {
+          "x": 340,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51067
+        },
+        {
+          "x": 388,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51063
+        },
+        {
+          "x": 436,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51057
+        },
+        {
+          "x": 484,
+          "y": 188,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51059
+        },
+        {
+          "x": 532,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51056
+        },
+        {
+          "x": 580,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51055
+        },
+        {
+          "x": 628,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51056
+        },
+        {
+          "x": 676,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51052
+        },
+        {
+          "x": 724,
+          "y": 188,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51050
+        },
+        {
+          "x": 772,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51047
+        },
+        {
+          "x": 820,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51039
+        },
+        {
+          "x": 868,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51040
+        },
+        {
+          "x": 916,
+          "y": 188,
+          "cursor_class": "HAND",
+          "elapsed_us": 51041
+        },
+        {
+          "x": 964,
+          "y": 188,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51043
+        },
+        {
+          "x": 52,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51046
+        },
+        {
+          "x": 100,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51050
+        },
+        {
+          "x": 148,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51050
+        },
+        {
+          "x": 196,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51046
+        },
+        {
+          "x": 244,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51043
+        },
+        {
+          "x": 292,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51041
+        },
+        {
+          "x": 340,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51036
+        },
+        {
+          "x": 388,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51029
+        },
+        {
+          "x": 436,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51031
+        },
+        {
+          "x": 484,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51028
+        },
+        {
+          "x": 532,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51026
+        },
+        {
+          "x": 580,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51025
+        },
+        {
+          "x": 628,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51027
+        },
+        {
+          "x": 676,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51025
+        },
+        {
+          "x": 724,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51022
+        },
+        {
+          "x": 772,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51023
+        },
+        {
+          "x": 820,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51024
+        },
+        {
+          "x": 868,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51018
+        },
+        {
+          "x": 916,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51017
+        },
+        {
+          "x": 964,
+          "y": 236,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51016
+        },
+        {
+          "x": 52,
+          "y": 284,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51018
+        },
+        {
+          "x": 100,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51021
+        },
+        {
+          "x": 148,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51017
+        },
+        {
+          "x": 196,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51018
+        },
+        {
+          "x": 244,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51016
+        },
+        {
+          "x": 292,
+          "y": 284,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51016
+        },
+        {
+          "x": 340,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51014
+        },
+        {
+          "x": 388,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51012
+        },
+        {
+          "x": 436,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51011
+        },
+        {
+          "x": 484,
+          "y": 284,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51008
+        },
+        {
+          "x": 532,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51005
+        },
+        {
+          "x": 580,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51002
+        },
+        {
+          "x": 628,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51005
+        },
+        {
+          "x": 676,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51007
+        },
+        {
+          "x": 724,
+          "y": 284,
+          "cursor_class": "ARROW",
+          "elapsed_us": 51009
+        },
+        {
+          "x": 772,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51007
+        },
+        {
+          "x": 820,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51002
+        },
+        {
+          "x": 868,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 51000
+        },
+        {
+          "x": 916,
+          "y": 284,
+          "cursor_class": "HAND",
+          "elapsed_us": 50997
+        },
+        {
+          "x": 964,
+          "y": 284,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50996
+        },
+        {
+          "x": 52,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50995
+        },
+        {
+          "x": 100,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 148,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50992
+        },
+        {
+          "x": 196,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 244,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50987
+        },
+        {
+          "x": 292,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50986
+        },
+        {
+          "x": 340,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50985
+        },
+        {
+          "x": 388,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50984
+        },
+        {
+          "x": 436,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50982
+        },
+        {
+          "x": 484,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50982
+        },
+        {
+          "x": 532,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50982
+        },
+        {
+          "x": 580,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50980
+        },
+        {
+          "x": 628,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50979
+        },
+        {
+          "x": 676,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50980
+        },
+        {
+          "x": 724,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50981
+        },
+        {
+          "x": 772,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50981
+        },
+        {
+          "x": 820,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50979
+        },
+        {
+          "x": 868,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50976
+        },
+        {
+          "x": 916,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50974
+        },
+        {
+          "x": 964,
+          "y": 332,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50970
+        },
+        {
+          "x": 52,
+          "y": 380,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50970
+        },
+        {
+          "x": 100,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50969
+        },
+        {
+          "x": 148,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50965
+        },
+        {
+          "x": 196,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50964
+        },
+        {
+          "x": 244,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50962
+        },
+        {
+          "x": 292,
+          "y": 380,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50959
+        },
+        {
+          "x": 340,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50957
+        },
+        {
+          "x": 388,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50957
+        },
+        {
+          "x": 436,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50958
+        },
+        {
+          "x": 484,
+          "y": 380,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50958
+        },
+        {
+          "x": 532,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50969
+        },
+        {
+          "x": 580,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50970
+        },
+        {
+          "x": 628,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50971
+        },
+        {
+          "x": 676,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50968
+        },
+        {
+          "x": 724,
+          "y": 380,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50968
+        },
+        {
+          "x": 772,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50968
+        },
+        {
+          "x": 820,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50989
+        },
+        {
+          "x": 868,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50989
+        },
+        {
+          "x": 916,
+          "y": 380,
+          "cursor_class": "HAND",
+          "elapsed_us": 50986
+        },
+        {
+          "x": 964,
+          "y": 380,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50984
+        },
+        {
+          "x": 52,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50982
+        },
+        {
+          "x": 100,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50980
+        },
+        {
+          "x": 148,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50977
+        },
+        {
+          "x": 196,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50977
+        },
+        {
+          "x": 244,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50977
+        },
+        {
+          "x": 292,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50999
+        },
+        {
+          "x": 340,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50997
+        },
+        {
+          "x": 388,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50996
+        },
+        {
+          "x": 436,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50994
+        },
+        {
+          "x": 484,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 532,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 580,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50989
+        },
+        {
+          "x": 628,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50988
+        },
+        {
+          "x": 676,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50988
+        },
+        {
+          "x": 724,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 772,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 820,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50992
+        },
+        {
+          "x": 868,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 916,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 964,
+          "y": 428,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50987
+        },
+        {
+          "x": 52,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50985
+        },
+        {
+          "x": 100,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50983
+        },
+        {
+          "x": 148,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50984
+        },
+        {
+          "x": 196,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50983
+        },
+        {
+          "x": 244,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50983
+        },
+        {
+          "x": 292,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50996
+        },
+        {
+          "x": 340,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50995
+        },
+        {
+          "x": 388,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50994
+        },
+        {
+          "x": 436,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 484,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 532,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 580,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 628,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50988
+        },
+        {
+          "x": 676,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50987
+        },
+        {
+          "x": 724,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50987
+        },
+        {
+          "x": 772,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50987
+        },
+        {
+          "x": 820,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50989
+        },
+        {
+          "x": 868,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50989
+        },
+        {
+          "x": 916,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 964,
+          "y": 476,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50989
+        },
+        {
+          "x": 52,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50987
+        },
+        {
+          "x": 100,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50986
+        },
+        {
+          "x": 148,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50986
+        },
+        {
+          "x": 196,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50985
+        },
+        {
+          "x": 244,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50984
+        },
+        {
+          "x": 292,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50985
+        },
+        {
+          "x": 340,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50985
+        },
+        {
+          "x": 388,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50983
+        },
+        {
+          "x": 436,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50984
+        },
+        {
+          "x": 484,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50983
+        },
+        {
+          "x": 532,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50980
+        },
+        {
+          "x": 580,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50978
+        },
+        {
+          "x": 628,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50977
+        },
+        {
+          "x": 676,
+          "y": 524,
+          "cursor_class": "HAND",
+          "elapsed_us": 50975
+        },
+        {
+          "x": 724,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50975
+        },
+        {
+          "x": 772,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50975
+        },
+        {
+          "x": 820,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50974
+        },
+        {
+          "x": 868,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 916,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50992
+        },
+        {
+          "x": 964,
+          "y": 524,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 52,
+          "y": 572,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50992
+        },
+        {
+          "x": 100,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 148,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 196,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 244,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50992
+        },
+        {
+          "x": 292,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 340,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50994
+        },
+        {
+          "x": 388,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50994
+        },
+        {
+          "x": 436,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 484,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 532,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 580,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 628,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 676,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50994
+        },
+        {
+          "x": 724,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 772,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50993
+        },
+        {
+          "x": 820,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50991
+        },
+        {
+          "x": 868,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50990
+        },
+        {
+          "x": 916,
+          "y": 572,
+          "cursor_class": "IBEAM",
+          "elapsed_us": 50989
+        },
+        {
+          "x": 964,
+          "y": 572,
+          "cursor_class": "ARROW",
+          "elapsed_us": 50987
+        }
+      ]
+    }
+  ],
+  "stopped_early_on_budget": true,
+  "final_score": {
+    "tp": 8,
+    "fp_clusters": 7,
+    "fn": 7,
+    "tp_points": 30,
+    "stray_points": 26,
+    "controls_total": 15,
+    "text_fields_total": 3,
+    "text_fields_hit_by_ibeam": 1,
+    "blind_recall": 0.533,
+    "precision": 0.533
+  },
+  "final_pass": {
+    "requested": 250,
+    "points": 240,
+    "step": 48,
+    "duration_ms": 12237.0,
+    "ms_per_point": 50.99,
+    "click_hits": 56,
+    "ibeam_hits": 34,
+    "clusters": 15,
+    "score": {
+      "tp": 8,
+      "fp_clusters": 7,
+      "fn": 7,
+      "tp_points": 30,
+      "stray_points": 26,
+      "controls_total": 15,
+      "text_fields_total": 3,
+      "text_fields_hit_by_ibeam": 1,
+      "blind_recall": 0.533,
+      "precision": 0.533
+    },
+    "cursor_classes": {
+      "ARROW": 150,
+      "HAND": 56,
+      "IBEAM": 34
+    }
+  },
+  "overlay": "archive/stale_h2_grid/h2_overlay.png",
+  "gate2b": {
+    "blind_recall": 0.533,
+    "precision": 0.533,
+    "duration_ms": 12237.0,
+    "budget_ms": 5000,
+    "recall_ok": true,
+    "precision_ok": false,
+    "latency_ok": false
+  },
+  "H2": "REJECTED",
+  "_status": "STALE_AND_INVALIDATED \u2014 generated 2026-11-24T20:11 with 87px origin offset and 50ms constant delay; see archive/stale_h2_grid/README.md"
+}
