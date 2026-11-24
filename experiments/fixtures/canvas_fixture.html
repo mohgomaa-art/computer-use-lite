@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>canvas fixture</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0f1115; overflow: hidden; }
+  canvas { display: block; cursor: default; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="720"></canvas>
+<script>
+// A deliberately "opaque" canvas app: the whole UI is painted pixels.
+// The only DOM node of interest is the single <canvas>; no buttons, no roles.
+const c = document.getElementById('c');
+const g = c.getContext('2d');
+
+// Hit regions: only cursor changes, nothing about them is in the DOM.
+const HOT = [
+  // right-side app-bar icon buttons (pointer)
+  { x: 1112, y: 14, w: 34, h: 34, cursor: 'pointer', label: '+' },
+  { x: 1154, y: 14, w: 34, h: 34, cursor: 'pointer', label: 'o' },
+  { x: 1196, y: 14, w: 34, h: 34, cursor: 'pointer', label: '?' },
+  // left tool column (pointer)
+  { x: 20, y: 90, w: 44, h: 44, cursor: 'pointer', label: 'V' },
+  { x: 20, y: 144, w: 44, h: 44, cursor: 'pointer', label: 'P' },
+  { x: 20, y: 198, w: 44, h: 44, cursor: 'pointer', label: 'T' },
+  // primary buttons (pointer)
+  { x: 96, y: 620, w: 148, h: 44, cursor: 'pointer', label: 'RUN' },
+  { x: 262, y: 620, w: 148, h: 44, cursor: 'pointer', label: 'STOP' },
+  { x: 428, y: 620, w: 148, h: 44, cursor: 'pointer', label: 'EXPORT' },
+  // text surfaces (I-beam only, never clickable)
+  { x: 620, y: 96, w: 300, h: 120, cursor: 'text', label: 'notes' },
+  { x: 960, y: 96, w: 280, h: 120, cursor: 'text', label: 'log' },
+  // grab surface (not clickable)
+  { x: 620, y: 470, w: 620, h: 110, cursor: 'grab', label: 'timeline' },
+  // 24x24 control: a 32 px grid can miss it, a finer grid must find it
+  { x: 1076, y: 310, w: 24, h: 24, cursor: 'pointer', label: '+' }
+];
+
+function roundRect(x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+function draw() {
+  g.fillStyle = '#141821';
+  g.fillRect(0, 0, 1280, 720);
+
+  // app bar
+  g.fillStyle = '#1b2230';
+  g.fillRect(0, 0, 1280, 62);
+  g.fillStyle = '#e8edf5';
+  g.font = '600 18px system-ui, sans-serif';
+  g.fillText('Canvas Ops Console', 24, 38);
+
+  // left tool column background
+  g.fillStyle = '#171d28';
+  g.fillRect(0, 62, 84, 658);
+
+  // content panel
+  g.fillStyle = '#10151d';
+  roundRect(96, 96, 540, 480, 12);
+  g.fill();
+  g.strokeStyle = '#2a3446';
+  g.stroke();
+
+  // fake chart lines
+  g.strokeStyle = '#3d7bff';
+  g.lineWidth = 2;
+  g.beginPath();
+  for (let i = 0; i <= 60; i++) {
+    const x = 120 + i * 8;
+    const y = 420 - Math.sin(i / 7) * 90 - i * 1.6;
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke();
+
+  for (const r of HOT) {
+    if (r.cursor === 'pointer') {
+      g.fillStyle = '#233047';
+      roundRect(r.x, r.y, r.w, r.h, 8);
+      g.fill();
+      g.strokeStyle = '#3f5a86';
+      g.stroke();
+      g.fillStyle = '#cdd9ee';
+      g.font = '600 13px system-ui, sans-serif';
+      g.fillText(r.label, r.x + r.w / 2 - g.measureText(r.label).width / 2, r.y + r.h / 2 + 5);
+    } else if (r.cursor === 'text') {
+      g.fillStyle = '#1a2130';
+      g.fillRect(r.x, r.y, r.w, r.h);
+      g.strokeStyle = '#2f3c52';
+      g.strokeRect(r.x, r.y, r.w, r.h);
+      g.fillStyle = '#8d9cb5';
+      g.font = '13px system-ui, sans-serif';
+      g.fillText(r.label, r.x + 12, r.y + 26);
+      g.fillStyle = '#6f7d94';
+      for (let i = 0; i < 4; i++) g.fillRect(r.x + 12, r.y + 44 + i * 16, r.w - 40 - i * 30, 6);
+    } else {
+      g.fillStyle = '#171e2b';
+      g.fillRect(r.x, r.y, r.w, r.h);
+      g.strokeStyle = '#28344a';
+      g.strokeRect(r.x, r.y, r.w, r.h);
+      g.fillStyle = '#6f7d94';
+      g.font = '12px system-ui, sans-serif';
+      g.fillText(r.label, r.x + 10, r.y + 20);
+    }
+  }
+}
+draw();
+
+c.addEventListener('mousemove', (e) => {
+  const b = c.getBoundingClientRect();
+  const x = e.clientX - b.left;
+  const y = e.clientY - b.top;
+  const hit = HOT.find(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+  c.style.cursor = hit ? hit.cursor : 'default';
+});
+</script>
+</body>
+</html>

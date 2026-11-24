@@ -1,0 +1,100 @@
+{
+  "url": "https://www.google.com/maps/@40.7580,-73.9855,17z",
+  "step": 32,
+  "grid_points": 880,
+  "canvas": {
+    "x": 0,
+    "y": 0,
+    "w": 1280,
+    "h": 720
+  },
+  "readiness": {
+    "ms": 573,
+    "paint_stable": true
+  },
+  "passes": {
+    "raf": {
+      "probes": 880,
+      "duration_ms": 29392.3,
+      "ms_per_probe": 33.4,
+      "pointer_hits": 198,
+      "stats": {
+        "auto": 669,
+        "pointer": 198,
+        "text": 8,
+        "default": 4,
+        "grab": 1
+      }
+    },
+    "sync": {
+      "probes": 880,
+      "duration_ms": 14934.2,
+      "ms_per_probe": 16.97,
+      "pointer_hits": 198,
+      "stats": {
+        "auto": 669,
+        "pointer": 198,
+        "text": 8,
+        "default": 4,
+        "grab": 1
+      }
+    },
+    "yield2": {
+      "probes": 880,
+      "duration_ms": 19842.5,
+      "ms_per_probe": 22.55,
+      "pointer_hits": 198,
+      "stats": {
+        "auto": 669,
+        "pointer": 198,
+        "text": 8,
+        "default": 4,
+        "grab": 1
+      }
+    },
+    "pipe_20": {
+      "probes": 880,
+      "duration_ms": 900.1,
+      "ms_per_probe": 1.02,
+      "pointer_hits": 197,
+      "stats": {
+        "auto": 670,
+        "pointer": 197,
+        "text": 8,
+        "default": 4,
+        "grab": 1
+      }
+    },
+    "pipe_80": {
+      "probes": 880,
+      "duration_ms": 768.8,
+      "ms_per_probe": 0.87,
+      "pointer_hits": 189,
+      "stats": {
+        "auto": 678,
+        "pointer": 189,
+        "text": 8,
+        "default": 4,
+        "grab": 1
+      }
+    }
+  },
+  "agreement": {
+    "sync_vs_raf": 1.0,
+    "yield2_vs_raf": 1.0,
+    "pipe_20_vs_raf": 0.3345,
+    "pipe_80_vs_raf": 0.3438
+  },
+  "fastest_accurate_mode": "sync",
+  "fastest_overall_mode": "pipe_80",
+  "regions": 29,
+  "tokens": {
+    "regions_unlabeled": 290,
+    "screenshot": 1229
+  },
+  "gate": {
+    "signal_pass_agreement_ge_0.90": true,
+    "practical_pass_lt_3.0s_with_agreement": false
+  },
+  "H1_PRACTICAL": "SIGNAL-ONLY"
+}

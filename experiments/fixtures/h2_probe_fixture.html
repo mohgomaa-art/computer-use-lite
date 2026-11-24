@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>H2 canvas probe fixture</title>
+<style>html,body{margin:0;padding:0;background:#101418;overflow:hidden}
+canvas{position:absolute;left:0;top:0;cursor:default;display:block}</style></head>
+<body>
+<canvas id="c" width="960" height="600"></canvas>
+<script>
+// Every control is painted into the canvas; the DOM exposes one element only, so
+// UIA/DOM enumeration sees nothing here. Cursor is set per position on mousemove,
+// the way a real canvas app (Flutter/CanvasKit) does it.
+const BTNS = [], TEXTS = [];
+for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++)
+  BTNS.push({x: 40 + c * 230, y: 40 + r * 110, w: 180, h: 56, label: `btn_${r}_${c}`});
+[[40, 370], [270, 370], [500, 370]].forEach(([x, y], i) =>
+  BTNS.push({x, y, w: 180, h: 56, label: `btn_3_${i}`}));
+TEXTS.push({x: 40, y: 460, w: 420, h: 44, label: "field_0"});
+TEXTS.push({x: 500, y: 460, w: 420, h: 44, label: "field_1"});
+TEXTS.push({x: 40, y: 520, w: 420, h: 44, label: "field_2"});
+
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+function paint() {
+  ctx.fillStyle = "#f4f6f8"; ctx.fillRect(0, 0, 960, 600);
+  for (const b of BTNS) {
+    ctx.fillStyle = "#2f6fd0"; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = "#fff"; ctx.font = "16px Segoe UI";
+    ctx.fillText(b.label, b.x + 14, b.y + 34);
+  }
+  for (const t of TEXTS) {
+    ctx.fillStyle = "#fff"; ctx.fillRect(t.x, t.y, t.w, t.h);
+    ctx.strokeStyle = "#9aa5b1"; ctx.strokeRect(t.x, t.y, t.w, t.h);
+    ctx.fillStyle = "#556"; ctx.font = "14px Segoe UI";
+    ctx.fillText(t.label, t.x + 12, t.y + 28);
+  }
+}
+paint();
+const inside = (r, x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+window.__hit = (x, y) => {
+  if (BTNS.some(b => inside(b, x, y))) return "pointer";
+  if (TEXTS.some(t => inside(t, x, y))) return "text";
+  return "default";
+};
+cv.addEventListener("mousemove", e => {
+  const r = cv.getBoundingClientRect();
+  cv.style.cursor = window.__hit(e.clientX - r.left, e.clientY - r.top);
+});
+window.__layout = {buttons: BTNS, texts: TEXTS};
+</script>
+</body></html>

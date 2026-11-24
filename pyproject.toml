@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "computer-use-lite"
+version = "0.1.0"
+description = "Local-first Windows UI automation (UIA) and browser CDP perception/execution engine (work in progress)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+  { name = "[TODO: Copyright Holder]" }
+]
+dependencies = [
+  "playwright>=1.40",
+  "pillow>=10.0",
+  "uiautomation>=2.0.29; sys_platform == 'win32'",
+  "comtypes>=1.5.0; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+]
+benchmarks = [
+  "websockets>=14.0",
+  "psutil>=6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "windows_desktop: requires Windows UIA and/or an active desktop session (skipped on non-Windows or when CUL_SKIP_DESKTOP=1)",
+]

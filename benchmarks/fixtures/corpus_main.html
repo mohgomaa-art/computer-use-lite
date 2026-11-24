@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Computer Use Lite Adversarial Corpus</title>
+  <style>
+    body { margin: 0; padding: 16px; font-family: Segoe UI, sans-serif; background: #f8fafc; height: 1500px; }
+    .row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .custom-div { display: inline-block; padding: 6px 12px; background: #1d4ed8; color: #fff; cursor: pointer; border-radius: 4px; }
+    .scroll-box { width: 320px; height: 90px; overflow-y: auto; border: 1px solid #94a3b8; padding: 8px; background: #fff; }
+    #blocking_modal {
+      display: none; position: fixed; left: 20px; top: 10px; width: 480px; height: 210px;
+      background: #ffffff; border: 2px solid #dc2626; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      z-index: 9999; padding: 16px;
+    }
+    #dynamic_drawer { display: none; padding: 8px; background: #fef3c7; border: 1px solid #d97706; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <button id="submit_btn" data-gt="submit_btn">Submit Order</button>
+    <a id="docs_link" href="#docs" data-gt="docs_link">API Documentation</a>
+    <label for="query_input">Search SKU</label>
+    <input id="query_input" type="text" placeholder="Enter SKU" data-gt="query_input">
+    <select id="tier_select" aria-label="Plan Tier" data-gt="tier_select">
+      <option value="free">Free</option>
+      <option value="pro">Pro</option>
+    </select>
+    <button id="disabled_btn" disabled data-gt="disabled_btn">Locked Action</button>
+    <button id="aria_disabled_btn" aria-disabled="true" data-gt="aria_disabled_btn">Aria Disabled</button>
+  </div>
+
+  <div class="row">
+    <span id="lbl_export">Export Monthly Ledger</span>
+    <button id="aria_lbl_btn" aria-labelledby="lbl_export" data-gt="aria_lbl_btn">Run</button>
+    <div id="custom_div" class="custom-div" tabindex="0" onclick="window.__log('custom_div')" data-gt="custom_div">Custom Div Action</div>
+    <button id="switch_btn" role="switch" aria-checked="false" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true'); window.__log('switch')" data-gt="switch_btn">Auto Sync</button>
+    <button id="svg_icon_btn" aria-label="Settings Trigger" data-gt="svg_icon_btn">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#334155"/></svg>
+    </button>
+  </div>
+
+  <div class="row">
+    <button id="covered_btn" onclick="window.__log('covered')" data-gt="covered_btn">Covered Target</button>
+    <button id="toggle_drawer_btn" onclick="toggleDrawer()" data-gt="toggle_drawer_btn">Toggle Dynamic Drawer</button>
+    <button id="open_modal_btn" onclick="openModal()" data-gt="open_modal_btn">Open Blocking Modal</button>
+    <span id="live_tick" style="font-size:12px;color:#475569">tick:0</span>
+    <button id="start_churn_btn" onclick="startChurn()" data-gt="start_churn_btn">Start DOM Churn</button>
+    <span id="status_out">idle</span>
+  </div>
+
+  <div id="dynamic_drawer">
+    <button id="dyn_btn" onclick="window.__log('dyn_btn')" data-gt="dyn_btn">Dynamic Confirm</button>
+    <input id="dyn_input" aria-label="Dynamic Filter" placeholder="Filter..." data-gt="dyn_input">
+  </div>
+
+  <div class="row">
+    <div id="open_shadow_host"><span>Projected Host Slot</span></div>
+    <div id="closed_shadow_host"></div>
+  </div>
+
+  <div class="row">
+    <div class="scroll-box" id="scroll_box">
+      <button id="inner_top_btn" data-gt="inner_top_btn">Scroll Top Control</button>
+      <div style="height:140px"></div>
+      <button id="inner_bottom_btn" data-gt="inner_bottom_btn">Scroll Inner Hidden</button>
+    </div>
+    <iframe id="oopif_frame" src="__OOPIF_URL__" width="440" height="72" title="Cross Origin Panel"></iframe>
+  </div>
+
+  <div style="height: 820px;"></div>
+  <button id="below_fold_btn" onclick="window.__log('below_fold')" data-gt="below_fold_btn">Below Fold Action</button>
+
+  <div id="blocking_modal" role="dialog" aria-modal="true">
+    <h3>Blocking Modal Dialog</h3>
+    <p>Covers underlying controls cleanly.</p>
+    <button id="modal_confirm_btn" onclick="closeModal(); window.__log('modal_ok')" data-gt="modal_confirm_btn">Confirm Modal</button>
+  </div>
+
+  <script>
+    window.__events = [];
+    window.__log = (v) => { window.__events.push(v); document.getElementById('status_out').textContent = v; };
+    window.__closedShadowControls = [];
+
+    // Open Shadow DOM with <slot>
+    const openHost = document.getElementById('open_shadow_host');
+    const openRoot = openHost.attachShadow({ mode: 'open' });
+    openRoot.innerHTML = `<button id="open_shadow_btn">Inside Open Shadow</button><slot></slot>`;
+    openRoot.getElementById('open_shadow_btn').addEventListener('click', () => window.__log('open_shadow'));
+
+    // Closed Shadow DOM (host exposes nothing via .shadowRoot; private list used ONLY for benchmark ground truth)
+    const closedHost = document.getElementById('closed_shadow_host');
+    const closedRoot = closedHost.attachShadow({ mode: 'closed' });
+    closedRoot.innerHTML = `<button id="closed_shadow_btn">Inside Closed Shadow</button>`;
+    const closedBtn = closedRoot.getElementById('closed_shadow_btn');
+    closedBtn.addEventListener('click', () => window.__log('closed_shadow'));
+    window.__closedShadowControls.push({ el: closedBtn, id: 'closed_shadow_btn', role: 'button', name: 'Inside Closed Shadow' });
+
+    function toggleDrawer() {
+      const d = document.getElementById('dynamic_drawer');
+      d.style.display = (d.style.display === 'block') ? 'none' : 'block';
+    }
+    function openModal() {
+      document.getElementById('blocking_modal').style.display = 'block';
+    }
+    function closeModal() {
+      document.getElementById('blocking_modal').style.display = 'none';
+    }
+    let churnTimer = null;
+    function startChurn() {
+      if (churnTimer) return;
+      let c = 0;
+      churnTimer = setInterval(() => {
+        c += 1;
+        document.getElementById('live_tick').textContent = 'tick:' + c;
+      }, 25);
+    }
+    window.stopChurn = () => { if (churnTimer) { clearInterval(churnTimer); churnTimer = null; } };
+  </script>
+</body>
+</html>

@@ -1,0 +1,1752 @@
+[
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      0,
+      0,
+      1280,
+      720
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      0,
+      0,
+      1280,
+      720
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      0,
+      0,
+      1280,
+      720
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      0,
+      0,
+      1280,
+      720
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      800,
+      4,
+      400,
+      184
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      906,
+      27,
+      262,
+      26
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      906,
+      27,
+      262,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      854,
+      16,
+      48,
+      52
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      866,
+      28,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      866,
+      26,
+      24,
+      28
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      800,
+      16,
+      54,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      815,
+      28,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      815,
+      26,
+      24,
+      28
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      800,
+      76,
+      400,
+      112
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      800,
+      116,
+      392,
+      52
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1120,
+      120,
+      56,
+      40
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1152,
+      128,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      848,
+      120,
+      280,
+      44
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      848,
+      122,
+      280,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      942.0,
+      124,
+      186.0,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      848,
+      146,
+      280,
+      16
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1044.4,
+      146,
+      83.6,
+      15
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      824,
+      130,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      824,
+      128,
+      24,
+      28
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      724,
+      16,
+      33,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      729,
+      32,
+      23,
+      16
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      756,
+      16,
+      19,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      760,
+      32,
+      12,
+      15
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      200,
+      12,
+      524,
+      49
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      627,
+      13,
+      76,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      627,
+      21,
+      76,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      627,
+      21,
+      76,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      627,
+      21,
+      76,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      677,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      677,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      639,
+      27,
+      34,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      639,
+      28,
+      34,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      544.1,
+      13,
+      76.9,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      544.1,
+      21,
+      76.9,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      544.1,
+      21,
+      76.9,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      544.1,
+      21,
+      76.9,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      595,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      595,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      556.1,
+      27,
+      34.9,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      556.1,
+      28,
+      34.9,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      413.1,
+      13,
+      125.1,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      413.1,
+      21,
+      125.1,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      413.1,
+      21,
+      125.1,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      413.1,
+      21,
+      125.1,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      512.1,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      512.1,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      425.1,
+      27,
+      83.1,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      425.1,
+      28,
+      83.1,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      329.4,
+      13,
+      77.7,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      329.4,
+      21,
+      77.7,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      329.4,
+      21,
+      77.7,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      329.4,
+      21,
+      77.7,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      381.1,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      381.1,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      341.4,
+      27,
+      35.7,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      341.4,
+      28,
+      35.7,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      198.9,
+      13,
+      124.5,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      198.9,
+      21,
+      124.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      198.9,
+      21,
+      124.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      198.9,
+      21,
+      124.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      297.4,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      297.4,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      210.9,
+      27,
+      82.5,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      210.9,
+      28,
+      82.5,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      105.4,
+      13,
+      87.5,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      105.4,
+      21,
+      87.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      105.4,
+      21,
+      87.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      105.4,
+      21,
+      87.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      166.9,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      166.9,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      117.4,
+      27,
+      45.5,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      117.4,
+      28,
+      45.5,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      -38.1,
+      13,
+      137.5,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      -38.1,
+      21,
+      137.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      -38.1,
+      21,
+      137.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      -38.1,
+      21,
+      137.5,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      73.4,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      73.4,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      -26.1,
+      27,
+      95.5,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      -26.1,
+      28,
+      95.5,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      206,
+      21,
+      32,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      206,
+      21,
+      32,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      213,
+      28,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      213,
+      26,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1208,
+      16,
+      72,
+      36
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1224,
+      16,
+      40,
+      40
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1224,
+      16,
+      40,
+      40
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1232,
+      24,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1232,
+      22,
+      24,
+      28
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1208,
+      68,
+      72,
+      64
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1220,
+      76,
+      48,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1220,
+      76,
+      48,
+      32
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1232,
+      80,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1232,
+      78,
+      24,
+      28
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1208,
+      112,
+      72,
+      16
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1213,
+      112,
+      62,
+      16
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1223.5,
+      112,
+      40.9,
+      15
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1208,
+      648,
+      72,
+      56
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1208,
+      656,
+      72,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1232,
+      656,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1232,
+      654,
+      24,
+      28
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1208,
+      684,
+      72,
+      16
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1213,
+      684,
+      62,
+      16
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1213.1,
+      684,
+      61.8,
+      15
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      125.3,
+      7.6,
+      44,
+      48
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      129.3,
+      11.6,
+      40,
+      40
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      137.3,
+      19.6,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      141.3,
+      23.6,
+      16,
+      16
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      137.3,
+      19.6,
+      24,
+      24
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      28,
+      12,
+      87.3,
+      40
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      40,
+      22,
+      63.3,
+      17
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      40,
+      22,
+      63.3,
+      17
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      20,
+      577,
+      29,
+      29
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      577,
+      29,
+      29
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      577,
+      29,
+      29
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      25,
+      583,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      25,
+      581,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      49,
+      579,
+      130,
+      50
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      83.8,
+      604,
+      80.2,
+      17
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      83.8,
+      606,
+      80.2,
+      14
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      20,
+      609,
+      29,
+      57
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      609,
+      29,
+      57
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      609,
+      29,
+      29
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      609,
+      29,
+      29
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      25.5,
+      614.5,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      25.5,
+      612.5,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      49,
+      612,
+      114.2,
+      50
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      49,
+      612,
+      114.2,
+      50
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      49,
+      612,
+      114.2,
+      50
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      64,
+      637,
+      84.2,
+      17
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      64.4,
+      637,
+      83.8,
+      17
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      64.4,
+      638,
+      83.8,
+      14
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      64,
+      637,
+      84.2,
+      17
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      64,
+      638,
+      84.2,
+      14
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      38,
+      631,
+      12,
+      12
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      637,
+      29,
+      29
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      637,
+      29,
+      29
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      25.5,
+      642.5,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      25.5,
+      640.5,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      25,
+      637,
+      19,
+      1
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      20,
+      669,
+      144,
+      30
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      669,
+      144,
+      30
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      669,
+      113,
+      30
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      20,
+      669,
+      113,
+      30
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      43,
+      669,
+      90,
+      30
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      27,
+      675,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      27,
+      673,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      0,
+      719,
+      1208,
+      1
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1111,
+      621,
+      75,
+      76
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1162,
+      673,
+      18,
+      18
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1162,
+      671,
+      18,
+      22
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1159.3,
+      681,
+      2.7,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1105,
+      611,
+      12,
+      20
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1087,
+      598,
+      48,
+      48
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      1111,
+      622,
+      75,
+      75
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      169.0,
+      706,
+      370.9,
+      14
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      389.2,
+      707,
+      16.4,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      389.2,
+      707,
+      16.4,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      355.1,
+      707,
+      19.2,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      355.1,
+      707,
+      19.2,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      300.3,
+      707,
+      39.8,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      300.3,
+      707,
+      39.8,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      184.0,
+      707,
+      101.3,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      184.0,
+      707,
+      101.3,
+      13
+    ]
+  },
+  {
+    "source": "isClickable",
+    "name": "",
+    "box": [
+      0,
+      706,
+      169.0,
+      14
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      21,
+      706,
+      148.0,
+      14
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      135,
+      707,
+      2.5,
+      13
+    ]
+  },
+  {
+    "source": "cursor:pointer",
+    "name": "",
+    "box": [
+      22,
+      711,
+      113,
+      6
+    ]
+  },
+  {
+    "source": "ax:button",
+    "name": "\u062a\u0635\u0641\u0651\u064f\u062d \u0635\u0648\u0631 \"\u0627\u0644\u062a\u062c\u0648\u0651\u0644 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a\"",
+    "box": [
+      134,
+      669,
+      30,
+      30
+    ]
+  },
+  {
+    "source": "ax:button",
+    "name": "\u0627\u0644\u0623\u062d\u062f\u062b",
+    "box": [
+      1208,
+      148,
+      72,
+      64
+    ]
+  }
+]

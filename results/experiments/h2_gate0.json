@@ -1,0 +1,334 @@
+{
+  "delays_ms": [
+    2,
+    5,
+    10,
+    15,
+    30,
+    50,
+    80,
+    120
+  ],
+  "reference_delay_ms": 120,
+  "started": "2026-11-24T21:36:08",
+  "original_cursor": [
+    666,
+    467
+  ],
+  "targets": {
+    "canvas": {
+      "by_delay": {
+        "2": {
+          "p_hand_custom_given_clickable": 0.333,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.7,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "ARROW": 10,
+            "HAND": 5
+          },
+          "classes_dead": {
+            "ARROW": 3,
+            "HAND": 7
+          },
+          "agreement_ordered_vs_120ms": 0.68,
+          "agreement_randomized_vs_120ms": 0.32
+        },
+        "5": {
+          "p_hand_custom_given_clickable": 0.733,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.5,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "ARROW": 4,
+            "HAND": 11
+          },
+          "classes_dead": {
+            "ARROW": 5,
+            "HAND": 5
+          },
+          "agreement_ordered_vs_120ms": 0.92,
+          "agreement_randomized_vs_120ms": 0.64
+        },
+        "10": {
+          "p_hand_custom_given_clickable": 0.533,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.7,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "ARROW": 7,
+            "HAND": 8
+          },
+          "classes_dead": {
+            "ARROW": 3,
+            "HAND": 7
+          },
+          "agreement_ordered_vs_120ms": 0.96,
+          "agreement_randomized_vs_120ms": 0.44
+        },
+        "15": {
+          "p_hand_custom_given_clickable": 0.733,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.3,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "ARROW": 4,
+            "HAND": 11
+          },
+          "classes_dead": {
+            "ARROW": 7,
+            "HAND": 3
+          },
+          "agreement_ordered_vs_120ms": 0.92,
+          "agreement_randomized_vs_120ms": 0.72
+        },
+        "30": {
+          "p_hand_custom_given_clickable": 0.6,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.6,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "ARROW": 6,
+            "HAND": 9
+          },
+          "classes_dead": {
+            "ARROW": 4,
+            "HAND": 6
+          },
+          "agreement_ordered_vs_120ms": 0.96,
+          "agreement_randomized_vs_120ms": 0.52
+        },
+        "50": {
+          "p_hand_custom_given_clickable": 1.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "HAND": 15
+          },
+          "classes_dead": {
+            "ARROW": 10
+          },
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "80": {
+          "p_hand_custom_given_clickable": 1.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "HAND": 15
+          },
+          "classes_dead": {
+            "ARROW": 10
+          },
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "120": {
+          "p_hand_custom_given_clickable": 1.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 10,
+          "classes_clickable": {
+            "HAND": 15
+          },
+          "classes_dead": {
+            "ARROW": 10
+          },
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        }
+      },
+      "settle_ms": 50,
+      "settle_ordered_ms": 10,
+      "settle_randomized_ms": 50,
+      "reference_delay_ms": 120,
+      "uia_recall": 0.0,
+      "p_hand_custom_given_clickable": 1.0,
+      "p_hand_custom_given_dead": 0.0,
+      "uia_nodes": 216,
+      "uia_controls": 65,
+      "gt_source": "fixture drawing code (independent of UIA)",
+      "control_group": false,
+      "content_origin": [
+        28,
+        107
+      ],
+      "top_client_origin": null,
+      "capture_method": "image_grab",
+      "window": "H2 canvas probe fixture - Google Chrome for Testing"
+    },
+    "notepad": {
+      "by_delay": {
+        "2": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "5": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "10": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "15": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "30": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "50": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "80": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        },
+        "120": {
+          "p_hand_custom_given_clickable": 0.0,
+          "p_custom_given_clickable": 0.0,
+          "p_hand_custom_given_dead": 0.0,
+          "ibeam_on_dead": 0,
+          "clickable_n": 15,
+          "dead_n": 0,
+          "classes_clickable": {
+            "ARROW": 15
+          },
+          "classes_dead": {},
+          "agreement_ordered_vs_120ms": 1.0,
+          "agreement_randomized_vs_120ms": 1.0
+        }
+      },
+      "settle_ms": 2,
+      "settle_ordered_ms": 2,
+      "settle_randomized_ms": 2,
+      "reference_delay_ms": 120,
+      "uia_recall": 1.0,
+      "p_hand_custom_given_clickable": 0.0,
+      "p_hand_custom_given_dead": 0.0,
+      "uia_nodes": 68,
+      "uia_controls": 25,
+      "control_group": true,
+      "gt_source": "UIA control centres (control group: circular, not a blindness test)",
+      "content_origin": [
+        1685,
+        167
+      ],
+      "window": "notepad"
+    },
+    "libreoffice": {
+      "error": "LibreOffice not installed"
+    }
+  },
+  "gate2a": {
+    "canvas": {
+      "blind": true,
+      "control_group": false,
+      "hand_rate": 1.0,
+      "dead_fp": 0.0,
+      "settle_ms": 50,
+      "passes_gate_2a": true
+    },
+    "notepad": {
+      "blind": false,
+      "control_group": true,
+      "hand_rate": 0.0,
+      "dead_fp": 0.0,
+      "settle_ms": 2,
+      "passes_gate_2a": false
+    }
+  },
+  "gate2a_unlock": true
+}

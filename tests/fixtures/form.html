@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Engine E2E form</title>
+<style>body{font:16px Segoe UI;margin:40px}input{width:320px;height:34px}
+button{height:38px;padding:0 18px} #out{margin-top:18px;color:#1a5}</style></head>
+<body>
+<h1>Order lookup</h1>
+<label for="q">Order number</label>
+<input id="q" name="q" placeholder="e.g. A-1042">
+<button id="go" type="button">Look up</button>
+<a id="help" href="#help">Help</a>
+<div id="out">No search yet.</div>
+<script>
+document.getElementById("go").addEventListener("click", () => {
+  const v = document.getElementById("q").value || "(empty)";
+  document.getElementById("out").textContent = "Found order " + v;
+});
+</script>
+</body></html>
