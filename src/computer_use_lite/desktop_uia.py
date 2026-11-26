@@ -14,6 +14,9 @@ from ctypes import wintypes
 import comtypes
 import comtypes.client
 
+from . import snapshot
+from .resolver import StaleElementError
+
 _u32 = ctypes.WinDLL("user32", use_last_error=True)
 if not _u32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
     _u32.SetProcessDPIAware()
@@ -44,6 +47,9 @@ INTERACTIVE = {
 
 MOUSEEVENTF_MOVE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_VIRTUALDESK = 0x0001, 0x8000, 0x4000
 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
+MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP = 0x0008, 0x0010
+MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP = 0x0020, 0x0040
+MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL = 0x0800, 0x1000
 KEYEVENTF_UNICODE, KEYEVENTF_KEYUP = 0x0004, 0x0002
 SW_RESTORE = 9
 WM_GETOBJECT = 0x003D
@@ -178,20 +184,99 @@ def move_mouse(x, y, hwnd=None, kill_switch=None):
     return sent
 
 
-def click_at(x, y, hwnd=None, kill_switch=None):
+def click_at(x, y, hwnd=None, kill_switch=None, button="left", clicks=1):
+    btn_flags = {
+        "left": (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+        "right": (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
+        "middle": (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
+    }.get(button)
+    if btn_flags is None:
+        raise ValueError(f"Unsupported mouse button: {button!r}")
+    if clicks < 1 or clicks > 3:
+        raise ValueError(f"Unsupported click count: {clicks}")
     move_mouse(x, y, hwnd=hwnd, kill_switch=kill_switch)
     nx, ny = _abs_coords(x, y)
-    arr = (_INPUT * 2)(
-        _INPUT(0, _UN(mi=_MI(nx, ny, 0, MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, 0, 0))),
-        _INPUT(0, _UN(mi=_MI(nx, ny, 0, MOUSEEVENTF_LEFTUP | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, 0, 0))),
-    )
-    sent = _u32.SendInput(2, arr, ctypes.sizeof(_INPUT))
-    if sent != 2:
-        raise OSError(f"SendInput click failed: {ctypes.get_last_error()}")
+    down_f, up_f = btn_flags
+    base = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK
+    for _ in range(int(clicks)):
+        arr = (_INPUT * 2)(
+            _INPUT(0, _UN(mi=_MI(nx, ny, 0, down_f | base, 0, 0))),
+            _INPUT(0, _UN(mi=_MI(nx, ny, 0, up_f | base, 0, 0))),
+        )
+        sent = _u32.SendInput(2, arr, ctypes.sizeof(_INPUT))
+        if sent != 2:
+            raise OSError(f"SendInput click failed: {ctypes.get_last_error()}")
     return "sendinput_click"
 
 
-VK_CONTROL, VK_A, VK_DELETE = 0x11, 0x41, 0x2E
+def wheel_scroll(x, y, dx=0, dy=0, hwnd=None, kill_switch=None):
+    """Send vertical/horizontal mouse wheel events inside the target foreground window."""
+    move_mouse(x, y, hwnd=hwnd, kill_switch=kill_switch)
+    nx, ny = _abs_coords(x, y)
+    base = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK
+    events = []
+    if dy:
+        # Playwright/web convention uses +dy for down; Win32 WHEEL uses negative for down.
+        notches = max(1, round(abs(dy) / 100.0))
+        delta = (-120 * notches) if dy > 0 else (120 * notches)
+        events.append((MOUSEEVENTF_WHEEL | base, wintypes.DWORD(delta & 0xFFFFFFFF)))
+    if dx:
+        notches = max(1, round(abs(dx) / 100.0))
+        delta = (120 * notches) if dx > 0 else (-120 * notches)
+        events.append((MOUSEEVENTF_HWHEEL | base, wintypes.DWORD(delta & 0xFFFFFFFF)))
+    for flags, data in events:
+        inp = _INPUT(0, _UN(mi=_MI(nx, ny, data, flags, 0, 0)))
+        sent = _u32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
+        if sent != 1:
+            raise OSError(f"SendInput wheel failed: {ctypes.get_last_error()}")
+    return {"dx": dx, "dy": dy}
+
+
+VK_SHIFT, VK_CONTROL, VK_MENU, VK_A, VK_DELETE = 0x10, 0x11, 0x12, 0x41, 0x2E
+_BLOCKED_KEY_TOKENS = {"win", "lwin", "rwin", "meta", "super", "command", "cmd"}
+_MODIFIER_VKS = {"ctrl": VK_CONTROL, "control": VK_CONTROL, "alt": VK_MENU, "shift": VK_SHIFT}
+_NAMED_VKS = {
+    "enter": 0x0D, "return": 0x0D, "tab": 0x09, "escape": 0x1B, "esc": 0x1B,
+    "backspace": 0x08, "delete": 0x2E, "del": 0x2E, "insert": 0x2D, "space": 0x20,
+    "home": 0x24, "end": 0x23, "pageup": 0x21, "pagedown": 0x22,
+    "up": 0x26, "arrowup": 0x26, "down": 0x28, "arrowdown": 0x28,
+    "left": 0x25, "arrowleft": 0x25, "right": 0x27, "arrowright": 0x27,
+    **{f"f{i}": 0x6F + i for i in range(1, 13)},
+}
+
+
+def parse_key_combo(key_spec):
+    """Parse a validated key/modifier string into (vk, tuple[mod_vks]), blocking OS/Win keys."""
+    if not isinstance(key_spec, str) or not key_spec.strip():
+        raise ValueError("Key must be a non-empty string")
+    parts = [p.strip() for p in key_spec.split("+") if p.strip()]
+    if not parts:
+        raise ValueError(f"Invalid key specification: {key_spec!r}")
+    mods = []
+    for part in parts[:-1]:
+        low = part.lower()
+        if low in _BLOCKED_KEY_TOKENS:
+            raise ValueError(f"Blocked OS modifier key: {part!r}")
+        vk_mod = _MODIFIER_VKS.get(low)
+        if vk_mod is None:
+            raise ValueError(f"Unsupported modifier key: {part!r}")
+        if vk_mod not in mods:
+            mods.append(vk_mod)
+    main = parts[-1]
+    low_main = main.lower()
+    if low_main in _BLOCKED_KEY_TOKENS:
+        raise ValueError(f"Blocked OS key: {main!r}")
+    if low_main in _NAMED_VKS:
+        return _NAMED_VKS[low_main], tuple(mods)
+    if len(main) == 1:
+        vk_scan = _u32.VkKeyScanW(ord(main))
+        vk = vk_scan & 0xFF
+        shift_flag = (vk_scan >> 8) & 0x07
+        if vk != 0xFF:
+            if (shift_flag & 1) and VK_SHIFT not in mods:
+                mods.append(VK_SHIFT)
+            return vk, tuple(mods)
+    raise ValueError(f"Unsupported key: {key_spec!r}")
 
 
 def type_unicode(text, hwnd=None, kill_switch=None):
@@ -285,6 +370,7 @@ class DesktopSession:
         self._cache = None
         self._err = None
         self._dead = False
+        self._stop = False
         self._init_done = threading.Event()
         self._kill = KillSwitch(enabled=True, tolerance=5)
         self.revision = 0
@@ -301,29 +387,40 @@ class DesktopSession:
 
     # -- worker plumbing --------------------------------------------------------
     def _worker(self):
+        initialized = False
         try:
-            comtypes.CoInitialize()
+            comtypes.CoInitializeEx(getattr(comtypes, "COINIT_MULTITHREADED", 0))
+            initialized = True
             self._init_uia()
+            self._init_done.set()
+            while True:
+                with self._cv:
+                    while not self._q and not self._stop:
+                        self._cv.wait()
+                    if self._stop and not self._q:
+                        return
+                    fn = self._q.pop(0)
+                try:
+                    fn()
+                except Exception as exc:
+                    self._err = exc
+                    self._dead = True
+                    return
         except Exception as exc:
             self._err = exc
             self._dead = True
             self._init_done.set()
-            return
-        self._init_done.set()
-        while True:
-            with self._cv:
-                while not self._q:
-                    self._cv.wait()
-                fn = self._q.pop(0)
-            try:
-                fn()
-            except Exception as exc:
-                self._err = exc
-                self._dead = True
-                return
+        finally:
+            self._cache = None
+            self._uia = None
+            if initialized:
+                try:
+                    comtypes.CoUninitialize()
+                except Exception:
+                    pass
 
     def _call(self, fn):
-        if self._dead or self._err is not None:
+        if self._dead or self._stop or self._err is not None:
             raise self._err or RuntimeError("UIA worker terminated")
         done = threading.Event()
         box = {}
@@ -348,7 +445,14 @@ class DesktopSession:
     def _init_uia(self):
         if UIA is None:
             raise RuntimeError("UIAutomationClient typelib unavailable")
-        self._uia = comtypes.client.CreateObject(UIA.CUIAutomation, interface=UIA.IUIAutomation)
+        if hasattr(UIA, "CUIAutomation8") and hasattr(UIA, "IUIAutomation2"):
+            try:
+                self._uia = comtypes.client.CreateObject(UIA.CUIAutomation8, interface=UIA.IUIAutomation2)
+                self._uia.AutoSetFocus = 0
+            except Exception:
+                self._uia = comtypes.client.CreateObject(UIA.CUIAutomation, interface=UIA.IUIAutomation)
+        else:
+            self._uia = comtypes.client.CreateObject(UIA.CUIAutomation, interface=UIA.IUIAutomation)
         cr = self._uia.CreateCacheRequest()
         for pid in (
             UIA.UIA_NamePropertyId, UIA.UIA_ControlTypePropertyId,
@@ -452,6 +556,45 @@ class DesktopSession:
         if node is None:
             raise LookupError("element not in the last cached snapshot")
         return node["_element"]
+
+    def verify_fresh(self, el, tolerance=2):
+        """Verify live UIA bounds/enabled/offscreen on one element without a full tree scan."""
+        ref = el.get("ref") or {}
+        if not ref.get("runtime_id"):
+            raise StaleElementError(f"{el.get('id') or 'element'} missing runtime_id")
+
+        def run():
+            try:
+                e = self._element(el)
+            except LookupError as exc:
+                raise StaleElementError(f"{el.get('id') or 'element'} is gone from UIA cache") from exc
+            try:
+                r = e.CurrentBoundingRectangle
+                new_box = [int(r.left), int(r.top), int(r.right) - int(r.left), int(r.bottom) - int(r.top)]
+                enabled = bool(e.CurrentIsEnabled)
+                offscreen = bool(e.CurrentIsOffscreen)
+            except Exception as exc:
+                raise StaleElementError(f"{el.get('id') or 'element'} vanished in UIA: {exc}") from exc
+
+            if not enabled or offscreen or new_box[2] <= 1 or new_box[3] <= 1:
+                raise StaleElementError(
+                    f"{el.get('id') or 'element'} is disabled, zero-sized, or offscreen"
+                )
+            old = el["box"]
+            if max(abs(old[i] - new_box[i]) for i in range(4)) > tolerance:
+                raise StaleElementError(
+                    f"{el.get('id') or 'element'} moved {old} -> {new_box} since revision {el.get('revision')}"
+                )
+            key = tuple(ref["runtime_id"])
+            if key in self._last:
+                self._last[key]["box"] = new_box
+                self._last[key]["enabled"] = enabled
+                self._last[key]["offscreen"] = offscreen
+            updated = dict(el)
+            updated.update({"box": new_box, "enabled": enabled, "offscreen": offscreen, "occluded": False})
+            return updated
+
+        return self._call(run)
 
     def perform(self, el, action, value=None):
         def run():
@@ -578,11 +721,22 @@ class DesktopSession:
                 try:
                     te = self._element(target)
                     tv = self._safe_element_value(te) or ""
+                    parts = []
                     if tv == "[REDACTED]":
-                        tgt_fp = "[REDACTED]"
-                    else:
-                        th = hashlib.sha256(tv.encode("utf-8")).hexdigest()[:12] if tv else ""
-                        tgt_fp = f"len={len(tv)}:h={th}"
+                        parts.append("[REDACTED]")
+                    elif tv:
+                        th = hashlib.sha256(tv.encode("utf-8")).hexdigest()[:12]
+                        parts.append(f"len={len(tv)}:h={th}")
+                    for attr, pid, iface, label in (
+                        ("CurrentToggleState", UIA.UIA_TogglePatternId, UIA.IUIAutomationTogglePattern, "toggle"),
+                        ("CurrentIsSelected", UIA.UIA_SelectionItemPatternId, UIA.IUIAutomationSelectionItemPattern, "sel"),
+                        ("CurrentExpandCollapseState", UIA.UIA_ExpandCollapsePatternId, UIA.IUIAutomationExpandCollapsePattern, "exp"),
+                    ):
+                        try:
+                            parts.append(f"{label}={int(getattr(self._pattern(te, pid, iface), attr))}")
+                        except Exception:
+                            pass
+                    tgt_fp = ":".join(parts)
                 except Exception:
                     pass
             return {
@@ -594,8 +748,70 @@ class DesktopSession:
             }
         return self._call(run)
 
+    def scroll(self, dx=0, dy=0):
+        x, y, w, h = self.bounds()
+        cx, cy = int(x + w / 2), int(y + h / 2)
+        return wheel_scroll(cx, cy, dx=dx, dy=dy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
+
+    def press_key(self, key):
+        vk, mods = parse_key_combo(key)
+        press(vk, mods=mods, hwnd=self.hwnd)
+        return {"key": key}
+
+    def click_coordinate(self, x, y, button="left", clicks=1):
+        bx, by, bw, bh = self.bounds()
+        if not (bx <= x < bx + bw and by <= y < by + bh):
+            raise ValueError(
+                f"Coordinate ({x}, {y}) is outside attached window bounds {[bx, by, bw, bh]}"
+            )
+        mech = click_at(int(x), int(y), hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None),
+                        button=button, clicks=clicks)
+        return {"x": int(x), "y": int(y), "button": button, "clicks": clicks, "mechanism": mech}
+
     def close(self):
-        pass
+        with self._cv:
+            self._stop = True
+            self._dead = True
+            self._cv.notify_all()
+        if self._thread.is_alive() and threading.current_thread() is not self._thread:
+            self._thread.join(timeout=2.0)
+
+
+def list_windows(title_contains=None, class_name=None, limit=40):
+    """List currently visible top-level windows with titles for HWND discovery."""
+    rows = []
+    t_needle = title_contains.lower() if title_contains else None
+    c_needle = class_name.lower() if class_name else None
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def cb(hwnd, _):
+        if not _u32.IsWindowVisible(hwnd):
+            return True
+        title = _window_title(hwnd)
+        if not title and not c_needle:
+            return True
+        cls = _window_class(hwnd)
+        if t_needle and t_needle not in title.lower():
+            return True
+        if c_needle and c_needle not in cls.lower():
+            return True
+        pid = wintypes.DWORD()
+        _u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        box = snapshot._window_bounds(hwnd) or [0, 0, 0, 0]
+        rows.append({
+            "hwnd": int(hwnd),
+            "pid": int(pid.value),
+            "process_name": snapshot._process_name(pid.value),
+            "class": cls,
+            "title": title,
+            "box": box,
+        })
+        if limit and len(rows) >= limit:
+            return False
+        return True
+
+    _u32.EnumWindows(cb, 0)
+    return rows
 
 
 def find_by_pid(pid, timeout=15.0):

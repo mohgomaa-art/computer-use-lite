@@ -15,9 +15,14 @@ authors = [
 dependencies = [
   "playwright>=1.40",
   "pillow>=10.0",
+  "websockets>=14.0",
+  "mcp>=1.25.0",
   "uiautomation>=2.0.29; sys_platform == 'win32'",
   "comtypes>=1.5.0; sys_platform == 'win32'",
 ]
+
+[project.scripts]
+computer-use-lite-mcp = "computer_use_lite.mcp_server:main"
 
 [project.optional-dependencies]
 dev = [

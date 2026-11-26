@@ -67,3 +67,22 @@ def test_remote_op_bytecode_builder_smoke():
     assert out_reg > 100
     b_bc, b_reg = bench_remote_ops._build_batch_inspect_bytecode(3)
     assert len(b_bc) > 20 and b_reg > 100
+
+
+def test_agent_20task_harness_contract(tmp_path):
+    from benchmarks import agent_tasks, bench_agent_20tasks
+
+    specs = agent_tasks.TASK_SPECS
+    assert len(specs) == 20
+    assert sum(1 for t in specs if t["surface"] == "browser") == 12
+    assert sum(1 for t in specs if t["surface"] == "desktop") == 8
+    assert len({t["id"] for t in specs}) == 20
+    assert bench_agent_20tasks._extract_json('```json\n{"op":"done","reason":"ok"}\n```')["op"] == "done"
+
+    res = bench_agent_20tasks.run_benchmark(
+        dry_run_oracle=True,
+        task_filter="b01_order_form,b08_closed_shadow_dom,b09_cross_origin_oopif,b12_opaque_canvas_click",
+        out_dir=tmp_path,
+    )
+    assert res["task_count"] == 4
+    assert all(r["cul_oracle_check"]["passed"] for r in res["tasks"])

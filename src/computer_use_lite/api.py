@@ -2,7 +2,7 @@
 """M5 - the three-tool interface and its compact line map."""
 import time
 
-from . import blind_gap, snapshot, state
+from . import blind_gap, hover, snapshot, state
 from .resolver import INTERACTIVE, Resolver, StaleElementError
 
 ACTIONS = {
@@ -92,15 +92,24 @@ class Api:
     def execute_action(self, element_id, action, value=None, revision=None, clear=True):
         rec = self.resolver.get(element_id)
         expected_rev = rec["revision"] if revision is None else revision
+        performed = False
         try:
-            fresh = [e for e in self.session.discover() if e.get("role") in INTERACTIVE]
-            occluded = self.session.is_occluded(rec) if hasattr(self.session, "is_occluded") else False
-            match = self.resolver.assert_fresh(element_id, fresh, expected_rev, occluded=occluded)
+            if expected_rev != self.resolver.revision:
+                raise StaleElementError(
+                    f"{element_id} belongs to revision {expected_rev}, current {self.resolver.revision}"
+                )
+            if hasattr(self.session, "verify_fresh"):
+                match = self.session.verify_fresh(rec, tolerance=2)
+            else:
+                fresh = [e for e in self.session.discover() if e.get("role") in INTERACTIVE]
+                occluded = self.session.is_occluded(rec) if hasattr(self.session, "is_occluded") else False
+                match = self.resolver.assert_fresh(element_id, fresh, expected_rev, occluded=occluded)
             before = _call_sig(self.session, match)
             if action == "type" and hasattr(self.session, "page"):
                 mechanism = self.session.perform(match, action, value, clear=clear)
             else:
                 mechanism = self.session.perform(match, action, value)
+            performed = True
             after = _call_sig(self.session, match)
             result = state.verify(before, after)
             new_rev = snapshot.bump_revision()
@@ -118,12 +127,36 @@ class Api:
                 "state_delta": result["delta"], "revision": new_rev,
             }
         except Exception as exc:
+            if performed:
+                new_rev = snapshot.bump_revision()
+                self.resolver.revision = new_rev
             self.task_state.record_action({
                 "element": element_id, "action": action, "value": value,
                 "ok": False, "error": f"{type(exc).__name__}: {exc}",
                 "revision": self.resolver.revision,
             })
             raise
+
+    def hover_element(self, element_id, wait_ms=350):
+        """Hover an interactive element safely after verifying freshness, reconciling deltas."""
+        rec = self.resolver.get(element_id)
+        if hasattr(self.session, "verify_fresh"):
+            self.session.verify_fresh(rec, tolerance=2)
+        result = hover.hover_and_diff(self.session, self.resolver, element_id, wait_ms=wait_ms)
+        self.task_state.record_action({
+            "element": element_id, "action": "hover", "ok": True,
+            "revision": result["revision"], "added": len(result.get("added", [])),
+        })
+        return result
+
+    def invalidate_revision(self, action, detail=None):
+        """Advance revision after freeform page/window mutation so stale IDs cannot be reused."""
+        new_rev = snapshot.bump_revision()
+        self.resolver.revision = new_rev
+        self.task_state.record_action({
+            "element": detail or "-", "action": action, "ok": True, "revision": new_rev,
+        })
+        return new_rev
 
 
 def _call_sig(session, match):

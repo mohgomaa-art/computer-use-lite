@@ -85,7 +85,7 @@ class TaskState:
 
 def diff(before, after):
     """Field-level diff of two local signatures."""
-    keys = ("title", "text", "focus", "n", "target_value")
+    keys = ("title", "text", "focus", "n", "target_value", "url")
     delta = {k: {"before": str(before.get(k))[:120], "after": str(after.get(k))[:120]}
              for k in keys if before.get(k) != after.get(k)}
     return delta

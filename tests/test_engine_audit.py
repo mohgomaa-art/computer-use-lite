@@ -414,7 +414,7 @@ def test_b10_line_map_cap_filter_and_uia_roles(tmp_path):
     assert desktop_uia.WANTED["TreeItemControl"] == "treeitem"
 
 
-# B11: Desktop perf (lightweight signature, 1 scan on execute_action, accurate CachedIs* patterns)
+# B11: Desktop perf (lightweight signature, 0 full scans on execute_action, targeted freshness + AutoSetFocus=0)
 @pytest.mark.windows_desktop
 @pytest.mark.skipif(_SKIP_DESKTOP, reason="Requires Windows UIA / interactive desktop session")
 def test_b11_desktop_perf_lightweight_signature():
@@ -432,13 +432,22 @@ def test_b11_desktop_perf_lightweight_signature():
         btn = next(r for r in api.resolver.records if r["name"] == "RealBtn")
         # Button should NOT claim value or toggle pattern!
         assert "value" not in btn["patterns"], f"bogus patterns: {btn['patterns']}"
+        t0 = time.perf_counter()
         with mock.patch.object(s, "_scan", wraps=s._scan) as spy_scan:
             api.execute_action(btn["id"], "click")
-            assert spy_scan.call_count == 1, f"expected 1 scan, got {spy_scan.call_count}"
+            assert spy_scan.call_count == 0, f"expected 0 full _scan calls on targeted action, got {spy_scan.call_count}"
+        assert time.perf_counter() - t0 < 0.8, "UIA Invoke stalled unexpectedly (>800ms; AutoSetFocus=0 regression?)"
+
+        # Stale moved > 2px & disabled checks must still reject via verify_fresh
+        api.discover_interactables(export_crops=False)
+        btn = next(r for r in api.resolver.records if r["name"] == "RealBtn")
+        moved_btn = dict(btn, box=[btn["box"][0] + 20, btn["box"][1], btn["box"][2], btn["box"][3]])
+        with pytest.raises(StaleElementError):
+            s.verify_fresh(moved_btn, tolerance=2)
         b.close()
 
 
-# B12: UIA worker fail-fast instead of 20 s timeout
+# B12: UIA worker fail-fast (MTA CoInitializeEx) instead of 20 s timeout
 def test_b12_uia_worker_fail_fast():
     with mock.patch.object(desktop_uia, "UIA", None):
         t0 = time.perf_counter()
@@ -446,7 +455,7 @@ def test_b12_uia_worker_fail_fast():
             DesktopSession(1234)
         assert time.perf_counter() - t0 < 2.0
 
-    with mock.patch.object(desktop_uia.comtypes, "CoInitialize", side_effect=OSError("coinit_boom")):
+    with mock.patch.object(desktop_uia.comtypes, "CoInitializeEx", side_effect=OSError("coinit_boom")):
         t0 = time.perf_counter()
         with pytest.raises(OSError, match="coinit_boom"):
             DesktopSession(1234)
@@ -600,3 +609,159 @@ def test_phase_c_report_integrity_and_win32_types():
     }
     rows_md = h2_desktop_grid._gate0_rows_from_json(sample_gate0)
     assert "0.0% (blind)" in rows_md and "90.0%" in rows_md and "control group" in rows_md
+
+
+# Opt-Merge: Direct CDP WebSocket transport, border-box ablation consistency, zero-discover action, and stale guards
+def test_opt_merge_direct_ws_targeted_freshness_and_reconnect(tmp_path):
+    from engine import browser_cdp
+
+    html = """<!doctype html><html><body style="margin:20px;height:1800px">
+      <button id="b1">NativeBtn</button>
+      <button id="b2">MoveMe</button>
+      <button id="b3">DisableMe</button>
+      <div id="out">0</div>
+      <script>
+        document.getElementById('b1').onclick = () => {
+          const o = document.getElementById('out');
+          o.textContent = String(Number(o.textContent) + 1);
+        };
+      </script>
+    </body></html>"""
+    p_html = tmp_path / "opt_merge.html"
+    p_html.write_text(html, encoding="utf-8")
+    s = BrowserSession(url=p_html.as_uri(), headless=True, viewport=(1280, 720))
+    try:
+        assert isinstance(s.cdp, browser_cdp.DirectCdpClient), f"expected DirectCdpClient, got {type(s.cdp)}"
+        api = Api(s, state_path=tmp_path / "state.json")
+        api.discover_interactables(export_crops=False)
+
+        b1 = next(r for r in api.resolver.records if r["name"] == "NativeBtn")
+        dom_rect = s.page.evaluate("() => { const r=document.getElementById('b1').getBoundingClientRect(); return [r.x,r.y,r.width,r.height]; }")
+        assert max(abs(b1["box"][i] - dom_rect[i]) for i in range(4)) <= 1.0, (
+            f"border-box mismatch: discover={b1['box']} vs dom={dom_rect}"
+        )
+
+        # Simulate transient WS socket drop -> DirectCdpClient must auto-reconnect cleanly
+        s.cdp._loop.call_soon_threadsafe(lambda: s.cdp._loop.create_task(s.cdp._ws.close()))
+        time.sleep(0.1)
+
+        with mock.patch.object(s, "discover", wraps=s.discover) as spy_disc:
+            res = api.execute_action(b1["id"], "click")
+            assert res["ok"] is True and s.page.inner_text("#out") == "1"
+            assert spy_disc.call_count == 0, f"execute_action unexpectedly ran full discover() {spy_disc.call_count} times"
+
+        # Verify moved > 2px, disabled dynamically, and scrolled out of viewport raise StaleElementError via verify_fresh
+        api.discover_interactables(export_crops=False)
+        b2 = next(r for r in api.resolver.records if r["name"] == "MoveMe")
+        s.page.evaluate("() => { document.getElementById('b2').style.marginLeft = '40px'; }")
+        with pytest.raises(StaleElementError):
+            api.execute_action(b2["id"], "click")
+
+        api.discover_interactables(export_crops=False)
+        b3 = next(r for r in api.resolver.records if r["name"] == "DisableMe")
+        s.page.evaluate("() => { document.getElementById('b3').disabled = true; }")
+        with pytest.raises(StaleElementError):
+            api.execute_action(b3["id"], "click")
+
+        api.discover_interactables(export_crops=False)
+        b1 = next(r for r in api.resolver.records if r["name"] == "NativeBtn")
+        s.page.evaluate("() => window.scrollTo(0, 700)")
+        with pytest.raises(StaleElementError):
+            api.execute_action(b1["id"], "click")
+    finally:
+        s.close()
+
+
+# Regressions for live stress-test findings ERR-01, ERR-02, ERR-03, ERR-06, ERR-07, ERR-16
+def test_err01_err03_err06_err07_wrapper_pruning_css_hover_and_clipped_click(tmp_path):
+    html = """<!doctype html><html><body style="margin:0;height:1400px" onclick="void 0">
+      <style>.figure:hover .figcaption{display:block}.figcaption{display:none}</style>
+      <button id="btn" style="margin-top:40px"><span>InnerBtn</span><svg width="16" height="16"></svg></button>
+      <button id="topclip" style="position:fixed;left:220px;top:-12px;width:120px;height:36px"
+              onclick="document.getElementById('out').textContent='clipped_ok'">ClippedBtn</button>
+      <div class="figure" style="width:160px;height:140px;margin-top:40px">
+        <div style="width:160px;height:100px;background:#ccc">Card</div>
+        <div class="figcaption"><a id="vp" href="#vp">View profile</a></div>
+      </div>
+      <div id="out">none</div>
+    </body></html>"""
+    p_html = tmp_path / "err_regress.html"
+    p_html.write_text(html, encoding="utf-8")
+    s = BrowserSession(url=p_html.as_uri(), headless=True, viewport=(1280, 720))
+    try:
+        api = Api(s, state_path=tmp_path / "state.json")
+        api.discover_interactables(export_crops=False)
+        # ERR-01 / ERR-07: No root 1280x720 body wrapper, and nested span/svg inside button collapsed
+        assert all(r["box"][2] * r["box"][3] < 0.85 * 1280 * 720 for r in api.resolver.records)
+        btn_matches = [r for r in api.resolver.records if "InnerBtn" in r.get("name", "")]
+        assert len(btn_matches) == 1 and btn_matches[0]["role"] == "button"
+
+        # ERR-06: CSS :hover descendant reveal container discovered & hovering reveals child link
+        fig = next((r for r in api.resolver.records if r.get("source") == "css:hover"), None)
+        assert fig is not None, f"CSS :hover container missed: {api.resolver.records}"
+        hres = api.hover_element(fig["id"], wait_ms=80)
+        assert any("View profile" in a["name"] for a in hres["added"]), hres
+
+        # ERR-03: Partially top-clipped fixed button clicks inside visible viewport intersection (y >= 0)
+        api.discover_interactables(export_crops=False)
+        clip_btn = next(r for r in api.resolver.records if r.get("name") == "ClippedBtn")
+        cres = api.execute_action(clip_btn["id"], "click")
+        assert cres["mechanism"]["y"] >= 0, f"Clicked above viewport: {cres}"
+        assert s.page.inner_text("#out") == "clipped_ok"
+    finally:
+        s.close()
+
+
+def test_err02_navigation_mid_signature_and_revision_advance(tmp_path):
+    p_b = tmp_path / "b.html"
+    p_b.write_text("<!doctype html><html><title>Page B</title><body><h1>Arrived B</h1></body></html>", encoding="utf-8")
+    p_a = tmp_path / "a.html"
+    p_a.write_text(f"<!doctype html><html><title>Page A</title><body><a id='go' href='{p_b.name}'>NextB</a></body></html>", encoding="utf-8")
+    s = BrowserSession(url=p_a.as_uri(), headless=True)
+    try:
+        api = Api(s, state_path=tmp_path / "state_nav.json")
+        api.discover_interactables(export_crops=False)
+        link = next(r for r in api.resolver.records if r["name"] == "NextB")
+        rev_before = api.resolver.revision
+        # Simulate Playwright throwing mid-navigation on post-action signature evaluate
+        orig_eval = s.page.evaluate
+        call_n = {"n": 0}
+
+        def flaky_eval(expr, *args, **kwargs):
+            call_n["n"] += 1
+            if "activeElement" in expr and call_n["n"] >= 2:
+                raise RuntimeError("Page.evaluate: Execution context was destroyed, most likely because of a navigation")
+            return orig_eval(expr, *args, **kwargs)
+
+        with mock.patch.object(s.page, "evaluate", side_effect=flaky_eval):
+            res = api.execute_action(link["id"], "click")
+        assert res["ok"] is True and api.resolver.revision > rev_before
+    finally:
+        s.close()
+
+
+@pytest.mark.windows_desktop
+@pytest.mark.skipif(_SKIP_DESKTOP, reason="Requires Windows UIA / interactive desktop session")
+def test_err16_desktop_toggle_signature_verified(tmp_path):
+    html = """<!doctype html><html><body>
+      <input id="chk" type="checkbox" aria-label="ToggleVerifyCheck" style="width:28px;height:28px">
+    </body></html>"""
+    before = _windows_by_class("Chrome_WidgetWin_1")
+    with sync_playwright() as p:
+        b = p.chromium.launch(headless=False, args=["--window-position=40,40", "--window-size=640,480",
+                                                    "--force-renderer-accessibility"])
+        pg = b.new_page()
+        pg.set_content(html)
+        pg.wait_for_timeout(400)
+        hwnd = next(iter(_windows_by_class("Chrome_WidgetWin_1") - before))
+        ds = DesktopSession(hwnd)
+        try:
+            api = Api(ds, state_path=tmp_path / "state_uia.json")
+            api.discover_interactables(export_crops=False)
+            chk = next(r for r in api.resolver.records if r["name"] == "ToggleVerifyCheck")
+            res = api.execute_action(chk["id"], "click")
+            assert res["verified"] is True, f"ToggleState delta not detected: {res}"
+            assert "toggle=" in json.dumps(res["state_delta"]), res
+        finally:
+            ds.close()
+            b.close()

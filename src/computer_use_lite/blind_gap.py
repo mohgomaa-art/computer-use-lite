@@ -7,6 +7,7 @@ selective visual fallback hook: find the regions that DOM/UIA cannot describe, a
 export a small cropped PNG an agent can inspect on demand.
 """
 import ctypes
+from ctypes import wintypes
 from pathlib import Path
 
 from .resolver import INTERACTIVE
@@ -78,6 +79,84 @@ def detect(session, elements, viewport):
     return regions
 
 
+class _BITMAPINFOHEADER(ctypes.Structure):
+    _fields_ = [
+        ("biSize", wintypes.DWORD),
+        ("biWidth", wintypes.LONG),
+        ("biHeight", wintypes.LONG),
+        ("biPlanes", wintypes.WORD),
+        ("biBitCount", wintypes.WORD),
+        ("biCompression", wintypes.DWORD),
+        ("biSizeImage", wintypes.DWORD),
+        ("biXPelsPerMeter", wintypes.LONG),
+        ("biYPelsPerMeter", wintypes.LONG),
+        ("biClrUsed", wintypes.DWORD),
+        ("biClrImportant", wintypes.DWORD),
+    ]
+
+
+def _capture_hwnd_printwindow(hwnd, crop_bbox):
+    """Fallback desktop capture via PrintWindow when ImageGrab is blocked (e.g. non-interactive desktop)."""
+    from PIL import Image
+
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
+    rect = wintypes.RECT()
+    if not u32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect)):
+        raise OSError(f"GetWindowRect failed for hwnd={hwnd}")
+    ww = max(1, rect.right - rect.left)
+    wh = max(1, rect.bottom - rect.top)
+    hdc = u32.GetWindowDC(wintypes.HWND(hwnd))
+    if not hdc:
+        raise OSError(f"GetWindowDC failed for hwnd={hwnd}")
+    memdc = gdi32.CreateCompatibleDC(hdc)
+    hbmp = gdi32.CreateCompatibleBitmap(hdc, ww, wh)
+    old = gdi32.SelectObject(memdc, hbmp)
+    try:
+        u32.PrintWindow(wintypes.HWND(hwnd), memdc, 2)
+        bmi = _BITMAPINFOHEADER(ctypes.sizeof(_BITMAPINFOHEADER), ww, -wh, 1, 32, 0, 0, 0, 0, 0, 0)
+        raw = ctypes.create_string_buffer(ww * wh * 4)
+        gdi32.GetDIBits(memdc, hbmp, 0, wh, raw, ctypes.byref(bmi), 0)
+        img = Image.frombuffer("RGBA", (ww, wh), raw, "raw", "BGRA", 0, 1).convert("RGB")
+        cl, ct, cr, cb = crop_bbox
+        rel_l = max(0, min(ww - 1, cl - rect.left))
+        rel_t = max(0, min(wh - 1, ct - rect.top))
+        rel_r = max(rel_l + 1, min(ww, cr - rect.left))
+        rel_b = max(rel_t + 1, min(wh, cb - rect.top))
+        if (rel_l, rel_t, rel_r, rel_b) != (0, 0, ww, wh):
+            return img.crop((rel_l, rel_t, rel_r, rel_b))
+        return img
+    finally:
+        gdi32.SelectObject(memdc, old)
+        gdi32.DeleteObject(hbmp)
+        gdi32.DeleteDC(memdc)
+        u32.ReleaseDC(wintypes.HWND(hwnd), hdc)
+
+
+def capture_desktop_region(box, hwnd=None):
+    """Capture a virtual-screen desktop box using ImageGrab with PrintWindow fallback when hwnd is given."""
+    from PIL import ImageGrab
+
+    x, y, w, h = [int(v) for v in box]
+    w, h = max(w, 1), max(h, 1)
+    vx, vy, vw, vh = _virtual_screen()
+    left = max(x, vx)
+    top = max(y, vy)
+    right = min(x + w, vx + vw)
+    bottom = min(y + h, vy + vh)
+    if right <= left:
+        right = left + 1
+    if bottom <= top:
+        bottom = top + 1
+    bbox = (left, top, right, bottom)
+    try:
+        return ImageGrab.grab(bbox=bbox, all_screens=True), "imagegrab"
+    except Exception:
+        if hwnd is not None:
+            return _capture_hwnd_printwindow(hwnd, bbox), "printwindow"
+        raise
+
+
 def export(session, region, path):
     """Crop the region out of a fresh screenshot and return the file path."""
     path = Path(path)
@@ -92,15 +171,6 @@ def export(session, region, path):
         h = min(h, max(1, vy + vh - y))
         session.page.screenshot(path=str(path), clip={"x": x, "y": y, "width": w, "height": h})
     else:
-        from PIL import ImageGrab
-        vx, vy, vw, vh = _virtual_screen()
-        left = max(x, vx)
-        top = max(y, vy)
-        right = min(x + w, vx + vw)
-        bottom = min(y + h, vy + vh)
-        if right <= left:
-            right = left + 1
-        if bottom <= top:
-            bottom = top + 1
-        ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True).save(path)
+        img, _method = capture_desktop_region([x, y, w, h], hwnd=getattr(session, "hwnd", None))
+        img.save(path)
     return str(path)
