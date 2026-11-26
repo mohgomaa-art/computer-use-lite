@@ -36,8 +36,9 @@ def redact_value(value):
 
 
 class TaskState:
-    def __init__(self, path=None):
+    def __init__(self, path=None, fsync=True):
         self.path = Path(path or DEFAULT_PATH)
+        self.fsync = bool(fsync)
         self.data = {"task": "computer-use-lite", "revision": 0, "actions": []}
         if self.path.exists():
             try:
@@ -61,7 +62,8 @@ class TaskState:
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     f.write(json.dumps(self.data, indent=2, ensure_ascii=False))
                     f.flush()
-                    os.fsync(f.fileno())
+                    if self.fsync:
+                        os.fsync(f.fileno())
                 os.replace(tmp_path, self.path)
             except Exception:
                 tmp_path.unlink(missing_ok=True)

@@ -17,10 +17,10 @@ DEFAULT_LINE_MAP_CAP = 60
 class Api:
     """discover_interactables / inspect_element / execute_action over one session."""
 
-    def __init__(self, session, state_path=None, crops_dir=None):
+    def __init__(self, session, state_path=None, crops_dir=None, state_fsync=True):
         self.session = session
         self.resolver = Resolver()
-        self.task_state = state.TaskState(state_path)
+        self.task_state = state.TaskState(state_path, fsync=state_fsync)
         self.crops_dir = crops_dir
         self.regions = []
         self.last_stats = {}

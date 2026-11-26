@@ -102,6 +102,7 @@ class _SessionWorker:
                 self._session,
                 state_path=self._state_path,
                 crops_dir=self._crops_dir,
+                state_fsync=False,
             )
         except BaseException as exc:  # noqa: BLE001
             self._init_err = exc
