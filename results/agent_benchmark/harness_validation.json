@@ -1,0 +1,366 @@
+{
+  "mode": "oracle_harness_validation_only",
+  "task_count": 20,
+  "tasks": [
+    {
+      "id": "b01_order_form",
+      "surface": "browser",
+      "goal": "Enter Customer Name 'Alice', Order Code 'ORD-77', and click 'Place Order'.",
+      "screenshot_capture_check": {
+        "capture_ms": 28.79,
+        "png_bytes": 8709
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 3,
+        "wall_ms": 154.33,
+        "engine_ms": 151.33,
+        "line_map_est_tokens": 141.6
+      }
+    },
+    {
+      "id": "b02_password_redaction",
+      "surface": "browser",
+      "goal": "Enter Username 'bob' and Secret Token 'S3cr3tPass!', then click 'Submit Auth'.",
+      "screenshot_capture_check": {
+        "capture_ms": 39.1,
+        "png_bytes": 8428
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 3,
+        "wall_ms": 241.12,
+        "engine_ms": 223.12,
+        "line_map_est_tokens": 139.5
+      }
+    },
+    {
+      "id": "b03_scrolled_target",
+      "surface": "browser",
+      "goal": "Scroll down to find 'Confirm Deployment' and click it.",
+      "screenshot_capture_check": {
+        "capture_ms": 47.7,
+        "png_bytes": 5680
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 155.24,
+        "engine_ms": 63.42,
+        "line_map_est_tokens": 37.8
+      }
+    },
+    {
+      "id": "b04_dynamic_drawer",
+      "surface": "browser",
+      "goal": "Open 'Toggle Menu', then click 'Export Audit'.",
+      "screenshot_capture_check": {
+        "capture_ms": 60.9,
+        "png_bytes": 5458
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 297.88,
+        "engine_ms": 293.18,
+        "line_map_est_tokens": 55.8
+      }
+    },
+    {
+      "id": "b05_modal_occlusion",
+      "surface": "browser",
+      "goal": "Dismiss the modal ('Dismiss Notice') and then click 'Confirm Save'.",
+      "screenshot_capture_check": {
+        "capture_ms": 50.47,
+        "png_bytes": 8075
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 108.26,
+        "engine_ms": 105.11,
+        "line_map_est_tokens": 47.4
+      }
+    },
+    {
+      "id": "b06_custom_div_switch",
+      "surface": "browser",
+      "goal": "Turn on 'Dark Mode' switch and click 'Activate Pro'.",
+      "screenshot_capture_check": {
+        "capture_ms": 53.64,
+        "png_bytes": 6810
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 135.82,
+        "engine_ms": 118.08,
+        "line_map_est_tokens": 90.0
+      }
+    },
+    {
+      "id": "b07_open_shadow_dom",
+      "surface": "browser",
+      "goal": "Inside the Shadow DOM widget, type 'ops-win' into 'Workspace Tag' and click 'Sync Shadow Profile'.",
+      "screenshot_capture_check": {
+        "capture_ms": 62.67,
+        "png_bytes": 6810
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 179.39,
+        "engine_ms": 175.17,
+        "line_map_est_tokens": 75.0
+      }
+    },
+    {
+      "id": "b08_closed_shadow_dom",
+      "surface": "browser",
+      "goal": "Click 'Unlock Vault' inside the closed Shadow DOM control.",
+      "screenshot_capture_check": {
+        "capture_ms": 46.7,
+        "png_bytes": 5550
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 70.7,
+        "engine_ms": 67.48,
+        "line_map_est_tokens": 23.2
+      }
+    },
+    {
+      "id": "b09_cross_origin_oopif",
+      "surface": "browser",
+      "goal": "Click 'Acknowledge Alert' inside the embedded cross-origin frame.",
+      "screenshot_capture_check": {
+        "capture_ms": 59.53,
+        "png_bytes": 10031
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 92.72,
+        "engine_ms": 92.7,
+        "line_map_est_tokens": 25.5
+      }
+    },
+    {
+      "id": "b10_hover_reveal_menu",
+      "surface": "browser",
+      "goal": "Hover over 'Hover Options' to reveal 'Download JSON' and click 'Download JSON'.",
+      "screenshot_capture_check": {
+        "capture_ms": 38.16,
+        "png_bytes": 5543
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 198.8,
+        "engine_ms": 194.64,
+        "line_map_est_tokens": 23.5
+      }
+    },
+    {
+      "id": "b11_dense_90_grid_filter",
+      "surface": "browser",
+      "goal": "Locate button 'Task #74' in the 90-button workspace (use filter_query if needed) and click it.",
+      "screenshot_capture_check": {
+        "capture_ms": 52.05,
+        "png_bytes": 23394
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 131.13,
+        "engine_ms": 126.78,
+        "line_map_est_tokens": 664.0
+      }
+    },
+    {
+      "id": "b12_opaque_canvas_click",
+      "surface": "browser",
+      "goal": "Click the green 'START' button inside the opaque canvas region.",
+      "screenshot_capture_check": {
+        "capture_ms": 32.85,
+        "png_bytes": 8370
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 67.22,
+        "engine_ms": 58.79,
+        "line_map_est_tokens": 57.5
+      }
+    },
+    {
+      "id": "d01_notepad_write_report",
+      "surface": "desktop",
+      "goal": "Type 'Audit Pass 2026' into Notepad's editor.",
+      "screenshot_capture_check": {
+        "capture_ms": 180.38,
+        "png_bytes": 18883,
+        "src": "printwindow",
+        "size": [
+          1440,
+          800
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 397.33,
+        "engine_ms": 205.77,
+        "line_map_est_tokens": 469.2
+      }
+    },
+    {
+      "id": "d02_notepad_replace_text",
+      "surface": "desktop",
+      "goal": "Replace Notepad contents with 'FINAL_V2'.",
+      "screenshot_capture_check": {
+        "capture_ms": 47.52,
+        "png_bytes": 19980,
+        "src": "printwindow",
+        "size": [
+          1440,
+          800
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 366.67,
+        "engine_ms": 191.88,
+        "line_map_est_tokens": 466.8
+      }
+    },
+    {
+      "id": "d03_notepad_new_tab",
+      "surface": "desktop",
+      "goal": "Open a new tab in Notepad and type 'Tab2 Note' into its editor.",
+      "screenshot_capture_check": {
+        "capture_ms": 43.3,
+        "png_bytes": 19275,
+        "src": "printwindow",
+        "size": [
+          1440,
+          800
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 759.7,
+        "engine_ms": 251.86,
+        "line_map_est_tokens": 465.2
+      }
+    },
+    {
+      "id": "d04_explorer_view_toggle",
+      "surface": "desktop",
+      "goal": "In File Explorer, select the 'Details' view option.",
+      "screenshot_capture_check": {
+        "capture_ms": 158.61,
+        "png_bytes": 24338,
+        "src": "printwindow",
+        "size": [
+          1442,
+          805
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 1725.4,
+        "engine_ms": 1389.26,
+        "line_map_est_tokens": 704.5
+      }
+    },
+    {
+      "id": "d05_chromium_desktop_checkbox",
+      "surface": "desktop",
+      "goal": "Toggle 'Enable Telemetry' checkbox on.",
+      "screenshot_capture_check": {
+        "capture_ms": 38.2,
+        "png_bytes": 14811,
+        "src": "printwindow",
+        "size": [
+          1296,
+          808
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 105.08,
+        "engine_ms": 62.93,
+        "line_map_est_tokens": 172.0
+      }
+    },
+    {
+      "id": "d06_chromium_desktop_tabs",
+      "surface": "desktop",
+      "goal": "Select the 'Billing' tab.",
+      "screenshot_capture_check": {
+        "capture_ms": 41.85,
+        "png_bytes": 14740,
+        "src": "printwindow",
+        "size": [
+          1296,
+          808
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 108.82,
+        "engine_ms": 75.94,
+        "line_map_est_tokens": 177.8
+      }
+    },
+    {
+      "id": "d07_chromium_desktop_form",
+      "surface": "desktop",
+      "goal": "Type 'BETA-9' into 'Project Code' and activate 'Apply Code'.",
+      "screenshot_capture_check": {
+        "capture_ms": 41.95,
+        "png_bytes": 13876,
+        "src": "printwindow",
+        "size": [
+          1296,
+          808
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 1,
+        "wall_ms": 493.47,
+        "engine_ms": 389.04,
+        "line_map_est_tokens": 182.8
+      }
+    },
+    {
+      "id": "d08_desktop_stale_fg_safety",
+      "surface": "desktop",
+      "goal": "Verify stale revision refusal and then activate 'Execute Safe'.",
+      "screenshot_capture_check": {
+        "capture_ms": 27.6,
+        "png_bytes": 13978,
+        "src": "printwindow",
+        "size": [
+          1296,
+          808
+        ]
+      },
+      "cul_oracle_check": {
+        "passed": true,
+        "steps": 2,
+        "wall_ms": 78.23,
+        "engine_ms": 48.5,
+        "line_map_est_tokens": 170.5
+      }
+    }
+  ]
+}
