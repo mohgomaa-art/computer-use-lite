@@ -446,20 +446,39 @@ def test_mcp_abrupt_eof_leaves_zero_orphan_browser_processes():
     anyio.run(scenario)
 
 
+def _notepad_pids():
+    out = set()
+    for p in psutil.process_iter(["pid", "name"]):
+        try:
+            if (p.info.get("name") or "").lower() == "notepad.exe":
+                out.add(p.info["pid"])
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return out
+
+
 @pytest.mark.windows_desktop
 @pytest.mark.skipif(_SKIP_DESKTOP, reason="Requires Windows UIA / interactive desktop session")
 def test_mcp_windows_desktop_notepad_flow():
-    tmp = Path(tempfile.gettempdir()) / f"cul_mcp_notepad_{int(time.time())}.txt"
+    tmp = Path(tempfile.gettempdir()) / f"cul_mcp_notepad_{int(time.time() * 1000)}.txt"
     tmp.write_text("", encoding="utf-8")
     before = {w["hwnd"] for w in desktop_uia.list_windows(class_name="Notepad", limit=40)}
+    before_pids = _notepad_pids()
     proc = subprocess.Popen(["notepad.exe", str(tmp)])
     hwnd = None
+    reused_existing = False
     try:
         for _ in range(30):
             after = {w["hwnd"] for w in desktop_uia.list_windows(class_name="Notepad", limit=40)}
             new = after - before
             if new:
                 hwnd = new.pop()
+                reused_existing = False
+                break
+            tab_hits = desktop_uia.list_windows(title_contains=tmp.stem, class_name="Notepad", limit=20)
+            if tab_hits:
+                hwnd = tab_hits[0]["hwnd"]
+                reused_existing = hwnd in before
                 break
             time.sleep(0.5)
         assert hwnd, "Notepad window failed to appear"
@@ -494,7 +513,7 @@ def test_mcp_windows_desktop_notepad_flow():
 
         anyio.run(scenario)
     finally:
-        if hwnd:
+        if hwnd and not reused_existing:
             try:
                 desktop_uia._u32.PostMessageW(hwnd, 0x0010, 0, 0)
                 time.sleep(0.4)
@@ -502,8 +521,20 @@ def test_mcp_windows_desktop_notepad_flow():
                 pass
         try:
             proc.terminate()
+            proc.wait(timeout=2.0)
         except Exception:
             pass
+        if not reused_existing:
+            for pid in sorted(_notepad_pids() - before_pids):
+                try:
+                    p = psutil.Process(pid)
+                    p.terminate()
+                    p.wait(timeout=2.0)
+                except (psutil.NoSuchProcess, psutil.TimeoutExpired, psutil.AccessDenied):
+                    try:
+                        psutil.Process(pid).kill()
+                    except Exception:
+                        pass
         tmp.unlink(missing_ok=True)
 
 

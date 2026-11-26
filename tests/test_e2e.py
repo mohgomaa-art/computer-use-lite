@@ -6,6 +6,7 @@ Nothing here is mocked for browser/UIA/crop targets; OS-blocked SendInput/GetFor
 boundaries inside an isolated exebox desktop are tested via explicit Win32 boundary assertions.
 Run with `python tests/test_e2e.py` or `pytest tests/test_e2e.py`.
 """
+import argparse
 import ctypes
 from ctypes import wintypes
 import json
@@ -17,6 +18,7 @@ import time
 from pathlib import Path
 from unittest import mock
 
+import psutil
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -91,27 +93,45 @@ def test_browser_end_to_end():
            output=out, passed=bool(ok))
     assert ok, f"browser E2E failed: output={out!r}"
     assert info["role"] == "textbox"
-    return True
+
+
+def _notepad_pids():
+    out = set()
+    for p in psutil.process_iter(["pid", "name"]):
+        try:
+            if (p.info.get("name") or "").lower() == "notepad.exe":
+                out.add(p.info["pid"])
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return out
 
 
 @pytest.mark.windows_desktop
 @pytest.mark.skipif(_SKIP_DESKTOP, reason="Requires Windows UIA / interactive desktop session")
 def test_windows_desktop_end_to_end():
     print("[2] windows desktop E2E (Notepad)", flush=True)
-    tmp = Path(tempfile.gettempdir()) / f"cul_e2e_notepad_{int(time.time())}.txt"
+    tmp = Path(tempfile.gettempdir()) / f"cul_e2e_notepad_{int(time.time() * 1000)}.txt"
     tmp.write_text("", encoding="utf-8")
-    before = _windows_by_class("Notepad")
+    before_hwnds = _windows_by_class("Notepad")
+    before_pids = _notepad_pids()
     proc = subprocess.Popen(["notepad.exe", str(tmp)])
     hwnd = None
+    reused_existing = False
+    s = None
     try:
         for _ in range(30):
-            new = _windows_by_class("Notepad") - before
+            new = _windows_by_class("Notepad") - before_hwnds
             if new:
                 hwnd = new.pop()
+                reused_existing = False
+                break
+            tab_hits = desktop_uia.list_windows(title_contains=tmp.stem, class_name="Notepad", limit=20)
+            if tab_hits:
+                hwnd = tab_hits[0]["hwnd"]
+                reused_existing = hwnd in before_hwnds
                 break
             time.sleep(0.5)
         if not hwnd:
-            proc.terminate()
             record("desktop_notepad", passed=False, error="notepad window not found")
             raise AssertionError("notepad window not found")
         desktop_uia._u32.SetForegroundWindow(hwnd)
@@ -122,7 +142,6 @@ def test_windows_desktop_end_to_end():
         stats = api.last_stats
         edits = [r for r in api.resolver.records if r["role"] == "textbox"]
         if not edits:
-            desktop_uia._u32.PostMessageW(hwnd, 0x0010, 0, 0)
             record("desktop_notepad", passed=False, error="no textbox in UIA snapshot")
             raise AssertionError("no textbox in UIA snapshot")
         editor = edits[0]
@@ -137,10 +156,34 @@ def test_windows_desktop_end_to_end():
         except Exception:
             pass
         time.sleep(0.2)
-        desktop_uia._u32.PostMessageW(hwnd, 0x0010, 0, 0)
-        time.sleep(0.6)
-        proc.poll()
     finally:
+        if s is not None:
+            try:
+                s.close()
+            except Exception:
+                pass
+        if hwnd and not reused_existing:
+            try:
+                desktop_uia._u32.PostMessageW(hwnd, 0x0010, 0, 0)
+                time.sleep(0.5)
+            except Exception:
+                pass
+        try:
+            proc.terminate()
+            proc.wait(timeout=2.0)
+        except Exception:
+            pass
+        if not reused_existing:
+            for pid in sorted(_notepad_pids() - before_pids):
+                try:
+                    p = psutil.Process(pid)
+                    p.terminate()
+                    p.wait(timeout=2.0)
+                except (psutil.NoSuchProcess, psutil.TimeoutExpired, psutil.AccessDenied):
+                    try:
+                        psutil.Process(pid).kill()
+                    except Exception:
+                        pass
         tmp.unlink(missing_ok=True)
     record("desktop_notepad", discovered=stats["elements"], latency_ms=stats["latency_ms"],
            tokens=stats["tokens"], shot_tokens=SHOT_TOKENS,
@@ -149,7 +192,6 @@ def test_windows_desktop_end_to_end():
            state_diff_verified=result["verified"], value_before=repr((val_before or "")[:20]),
            value_after=repr((val_after or "")[:40]), passed=bool(typed_ok))
     assert typed_ok, f"desktop E2E failed: value={val_after!r}"
-    return True
 
 
 def test_stale_element_guard():
@@ -214,7 +256,6 @@ def test_stale_element_guard():
     record("stale_guard", revision=refused_rev, covered=refused_cov,
            moved=refused_moved, removed=refused_rem, passed=ok)
     assert ok, f"stale guard incomplete: rev={refused_rev} cov={refused_cov} moved={refused_moved} rem={refused_rem}"
-    return True
 
 
 def test_blind_region_handling():
@@ -233,7 +274,6 @@ def test_blind_region_handling():
            kind=regions[0]["kind"] if regions else None,
            crop=rel_crop, crop_ok=crop_ok, passed=crop_ok)
     assert crop_ok, "M2 did not export a blind-region crop"
-    return True
 
 
 def test_scrolled_page_and_roleless_div_click():
@@ -260,7 +300,6 @@ def test_scrolled_page_and_roleless_div_click():
     ok = out == "clicked_scrolled_div"
     record("scroll_div_click", output=out, passed=ok)
     assert ok, f"scrolled div click failed: {out!r}"
-    return True
 
 
 @pytest.mark.windows_desktop
@@ -300,7 +339,6 @@ def test_checkbox_and_tab_uia_patterns():
     record("uia_patterns", chk_mech=r_chk["mechanism"], tab_mech=r_tab["mechanism"],
            checked=checked, passed=ok)
     assert ok, f"UIA Toggle/SelectionItem failed: {r_chk}, {r_tab}, checked={checked}"
-    return True
 
 
 def test_wrong_foreground_refusal():
@@ -315,7 +353,6 @@ def test_wrong_foreground_refusal():
             refused = "Foreground" in str(exc)
     record("fg_refusal", refused=refused, passed=refused)
     assert refused, "click_at did not refuse wrong foreground window"
-    return True
 
 
 def test_secret_redaction_and_normal_small_canvas():
@@ -343,10 +380,22 @@ def test_secret_redaction_and_normal_small_canvas():
     ok = no_false_blind and redacted_ok
     record("privacy_no_fp", no_false_blind=no_false_blind, redacted_ok=redacted_ok, passed=ok)
     assert ok, f"privacy/false-positive check failed: no_false_blind={no_false_blind}, redacted={redacted_ok}"
-    return True
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Live end-to-end tests for computer-use-lite")
+    parser.add_argument(
+        "--write-results",
+        default=None,
+        help="Optional explicit JSON output path (defaults to a temporary file outside tracked results/).",
+    )
+    parser.add_argument(
+        "--tests",
+        default=None,
+        help="Optional comma-separated list of test function names to run.",
+    )
+    args = parser.parse_args(argv)
+    RESULTS.clear()
     print("computer-use-lite engine E2E (live, non-mocked)")
     tests = [
         test_browser_end_to_end,
@@ -367,6 +416,9 @@ def main():
             test_wrong_foreground_refusal,
             test_secret_redaction_and_normal_small_canvas,
         ]
+    if args.tests:
+        wanted = {t.strip() for t in args.tests.split(",") if t.strip()}
+        tests = [t for t in tests if t.__name__ in wanted]
     failed = []
     for t in tests:
         try:
@@ -377,7 +429,11 @@ def main():
         except Exception as exc:  # noqa: BLE001
             failed.append(f"{t.__name__}: {type(exc).__name__}: {exc}")
             print(f"  ERROR {t.__name__}: {type(exc).__name__}: {exc}", flush=True)
-    e2e_out = ROOT / "results" / "e2e" / "e2e_results.json"
+    e2e_out = (
+        Path(args.write_results)
+        if args.write_results
+        else Path(tempfile.gettempdir()) / "computer_use_lite_e2e_results.json"
+    )
     e2e_out.parent.mkdir(parents=True, exist_ok=True)
     e2e_out.write_text(
         json.dumps({"results": RESULTS, "failures": failed}, indent=2), encoding="utf-8")
