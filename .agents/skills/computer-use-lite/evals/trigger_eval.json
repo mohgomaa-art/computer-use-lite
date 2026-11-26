@@ -1,0 +1,82 @@
+[
+  {
+    "query": "can you launch chromium through our local computer-use-lite mcp server, open https://news.ycombinator.com, filter the line map for 'login', and click it cleanly?",
+    "should_trigger": true
+  },
+  {
+    "query": "i keep getting StaleElementError and ForegroundMismatch when automating Notepad Save As dialogs on Windows 11 with DesktopSession — how should the recovery loop attach to the new HWND?",
+    "should_trigger": true
+  },
+  {
+    "query": "write a python script using computer_use_lite Api and BrowserSession to inspect an input box, verify password redaction, hover a menu, and capture blind canvas crops without playwright thread errors",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I use click_at on an opaque_canvas blind region returned by discover() without getting an out-of-bounds ValueError?",
+    "should_trigger": true
+  },
+  {
+    "query": "our headless windows ci runner fails on windows_desktop UIA tests in tests/. what env var skips desktop tests when running pytest here?",
+    "should_trigger": true
+  },
+  {
+    "query": "i want to navigate to a new url inside an existing mcp browser session, scroll down, and make sure old eN element IDs don't cause silent misclicks",
+    "should_trigger": true
+  },
+  {
+    "query": "check the health of active cul sessions, explain why open_browser blocked my file:///C:/temp/test.html or http://127.0.0.1:8080 url, and show what env flags enable them",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I run the standalone E2E suite or the MCP overhead benchmark in computer-use-lite?",
+    "should_trigger": true
+  },
+  {
+    "query": "is press_key allowed to send Win+R on DesktopSession or will KillSwitch / key parser reject it?",
+    "should_trigger": true
+  },
+  {
+    "query": "build a multi-session python coordinator that isolates task_state.json and blind crop PNGs per BrowserSession using computer_use_lite",
+    "should_trigger": true
+  },
+  {
+    "query": "profile Largest Contentful Paint (LCP) and render-blocking resources on my React site using Chrome DevTools Performance trace",
+    "should_trigger": false
+  },
+  {
+    "query": "help me fix a responsive CSS grid overflow and sticky header z-index bug in src/components/Navbar.tsx",
+    "should_trigger": false
+  },
+  {
+    "query": "write a Selenium WebDriver Java test suite with TestNG and Page Object Model for our Jenkins pipeline",
+    "should_trigger": false
+  },
+  {
+    "query": "audit my Express REST API authentication middleware for SQL injection and CSRF token weaknesses",
+    "should_trigger": false
+  },
+  {
+    "query": "build a Figma component library design token sync plugin using open-pencil MCP tools",
+    "should_trigger": false
+  },
+  {
+    "query": "debug why my Playwright Python scraper gets blocked by Cloudflare Turnstile anti-bot check on a public retail site",
+    "should_trigger": false
+  },
+  {
+    "query": "parse a 40-page scanned financial PDF into searchable text using OCR and split pages 10-25",
+    "should_trigger": false
+  },
+  {
+    "query": "debug a Node.js v8 heap memory leak caused by unclosed EventEmitter listeners using Chrome DevTools heap snapshots",
+    "should_trigger": false
+  },
+  {
+    "query": "create a new Unity 2D tilemap palette with rule tiles and PixelPerfectCamera for our retro platformer",
+    "should_trigger": false
+  },
+  {
+    "query": "run a curl request to localhost:8080/healthz and inspect the HTTP headers and TLS certificate chain",
+    "should_trigger": false
+  }
+]
