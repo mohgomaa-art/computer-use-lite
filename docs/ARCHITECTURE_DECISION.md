@@ -1,71 +1,85 @@
-# Architecture Decision - Computer Use Lite
+# Architecture Decision — Computer Use Lite
 
-Re-validated on Windows (Python 3.12, Chromium headless/headful), 2026-11-24.
-Every number below comes from measured runs in `experiments/`, `benchmarks/`, and `tests/`; nothing is estimated except the `~1229`-token 1280x720 screenshot baseline.
-> Note: Paths updated for M2 repository layout (`results/`, `experiments/`, `archive/stale_h2_grid/`). A subsequent `Default`-desktop Gate 0 run passed in `results/experiments/h2_gate0.json` (`21:37`), while no post-fix Grid Scan has run; H2 remains DROPPED / NOT SHIPPED.
+Initial empirical baseline validated on Windows (Python `3.12`, Chromium `1.64`, `2026-11-24`), updated through `HEAD` (`d47b4e9`, `2026-11-26`) to record Workstream A (Cursor Overlay) and Phase 1 (`P0-1..P0-5`) architectural decisions. Every numeric metric below comes from measured runs in `experiments/`, `benchmarks/`, and `tests/`; only the `~1229`-token `1280x720` screenshot proxy and `TOKENS_EST = len/4` are heuristic estimators ([RESEARCH_METHODOLOGY.md](RESEARCH_METHODOLOGY.md)).
 
-## 1. Scorecard
+> **Historical Link Compatibility Note:** `src/computer_use_lite/__init__.py` references `docs/ARCHITECTURE_DECISION.md` for why browser and desktop cursor probing (`H1b` and `H2`) remain dropped/unshipped. Full narrative evidence and archived reports are indexed in [RESEARCH_FINDINGS.md](RESEARCH_FINDINGS.md) and [../research_archive/INDEX.md](../research_archive/INDEX.md).
 
-| hypothesis | what was measured | recall | precision | latency | verdict |
-| --- | --- | --- | --- | --- | --- |
-| **H1** browser canvas cursor probe | 880 probes, step 32, Maps @ Times Sq (`h1_report.md`) | 81.8% | 81.8% | 29.46 s (33.5 ms/probe) | **SIGNAL PASS / PRACTICAL REJECTED** |
-| **H1b** latency + pipelining + clustering (re-validated) | 880 probes, Google Maps: single-rAF vs no-rAF `sync` vs `yield2` vs pipelined `pipe_20`/`pipe_80` (`h1b_report.json`) | 100% agreement (`sync`, `yield2`); 33.5%-34.4% (`pipe_20`/`pipe_80`) | - | `raf` 29.39 s (33.40 ms/pt); `sync` 14.93 s (16.97 ms/pt); `pipe_80` 0.77 s (0.87 ms/pt) | **SIGNAL-ONLY / PRACTICAL REJECTED** |
-| **H2 Gate 0** per-toolkit calibration | Initial run invalidated by `(0, 87)` px offset; subsequent Default-desktop re-run (`results/experiments/h2_gate0.json`, `2026-11-24T21:36:08`) tested canvas + Win11 Notepad controls (`LibreOffice not installed`). Re-running live in isolated `exebox` desktop fails with `ERROR_ACCESS_DENIED` on `GetCursorInfo`. | canvas `hand_rate=1.0`, `dead_fp=0.0`, `settle_ms=50`; notepad `uia_recall=1.0` (`25` controls, `control_group=true`); LibreOffice missing | `dead_fp=0.0` (canvas) | `50 ms` canvas settle | **GATE 2A UNLOCK (`h2_gate0.json`; `BLOCKED` in `exebox`)** |
-| **H2 2B** desktop grid scan | Prior 240-pt run invalidated by ~87 px offset and constant `50 ms` settle; fixed script requires `Default`-desktop re-run (no post-fix grid scan recorded) | *invalidated; no post-fix grid run* | *invalidated* | *invalidated* | **NOT SHIPPED (dropped)** |
-| **H3** hover visual diff | Not run | - | - | - | **NOT BUILT** |
+---
 
-### Why H1b changed in numbers (verdict unchanged: `SIGNAL-ONLY` / DROP browser cursor probe)
+## 1. Exploratory Cursor Probing Scorecard (`H1`–`H3`, `2026-11-24`)
 
-- **Old invalid claim:** `h1b_latency_cluster.py` previously imported `PROBE_JS` (which awaited `requestAnimationFrame` inside JS), causing `"sync"` and `"yield2"` to wait 1 rAF (`33.33 ms/probe`) and `"raf"` to wait 2 rAFs (`50.11 ms/probe`).
-- **Re-validated reality (`h1b_report.json`):** With a synchronous `NO_RAF_PROBE_JS` and a 1-rAF baseline:
-  - Single-rAF wait WAS roughly half the latency (`29.39 s` -> `14.93 s` in `sync`, `16.97 ms/probe`), maintaining `100.0%` agreement.
-  - Sequential CDP round trips (`14.93 s`) still fail the `< 3.0 s` gate by ~5x.
-  - Async CDP pipelining (`pipe_20` = `0.90 s` / `1.02 ms/pt`, `pipe_80` = `0.77 s` / `0.87 ms/pt`) clears `< 3.0 s`, **but hit agreement collapses to `33.5%–34.4%`** (far below `>= 90%`) as Chromium coalesces/drops intermediate `mouseMoved` cursor updates.
-  - No mode passes both `>= 90%` agreement and `< 3.0 s`; **M2 browser cursor probe stays DROPPED**.
+| Hypothesis | What Was Measured | Recall | Precision | Latency | Verdict |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **H1** browser canvas cursor probe | `880` probes, step `32`, Maps @ Times Sq ([`h1_report.md`](../results/experiments/h1_report.md)) | `81.8%` | `81.8%` | `29.46 s` (`33.5 ms/probe`) | **SIGNAL PASS / PRACTICAL REJECTED** |
+| **H1b** latency + pipelining + clustering (re-validated) | `880` probes, Google Maps: `raf` vs no-rAF `sync` vs `yield2` vs pipelined `pipe_20`/`pipe_80` ([`h1b_report.json`](../results/experiments/h1b_report.json)) | `100%` agreement (`sync`, `yield2`); `33.5%–34.4%` (`pipe_20`/`pipe_80`) | — | `raf` `29.39 s` (`33.40 ms/pt`); `sync` `14.93 s` (`16.97 ms/pt`); `pipe_80` `0.77 s` (`0.87 ms/pt`) | **SIGNAL-ONLY / PRACTICAL REJECTED** |
+| **H2 Gate 0** per-toolkit calibration | Initial run invalidated by `(0, 87)` px offset; subsequent `Default`-desktop run ([`h2_gate0.json`](../results/experiments/h2_gate0.json), `2026-11-24T21:36:08`) tested canvas + Win11 Notepad (`LibreOffice not installed`). Fails in `exebox` with `GetCursorInfo ERROR_ACCESS_DENIED`. | Canvas `hand_rate=1.0`, `dead_fp=0.0`; Notepad `uia_recall=1.0` (`25` controls, `hand_rate=0.0`) | `dead_fp=0.0` (canvas) | `50 ms` canvas settle | **GATE 2A UNLOCK (`h2_gate0.json`; `BLOCKED` in `exebox`)** |
+| **H2 2B** desktop grid scan | Prior `240`-pt run invalidated by `~87 px` chrome offset and `50 ms` constant settle ([`archive/stale_h2_grid/`](../archive/stale_h2_grid/h2_report.md)); no post-fix grid scan run | *invalidated; unrun post-fix* | *invalidated* | *invalidated* | **NOT SHIPPED (DROPPED)** |
+| **H3** hover visual diff | Precondition unmet (not built) ([`h3_report.md`](../results/experiments/h3_report.md)) | — | — | — | **NOT BUILT** |
 
-### Why H2 numbers are marked invalidated rather than kept
+### Why H1b Stayed `SIGNAL-ONLY` / Dropped
+- With a corrected synchronous `NO_RAF_PROBE_JS` baseline (`h1b_report.json`), sequential probing still took `14.93 s` (exceeding `< 3.0 s` by ~5x), while pipelined probing (`pipe_80`, `0.77 s`) collapsed hit agreement to `33.5%–34.4%` due to Chromium pointer-event coalescing. Browser cursor probing stays **DROPPED**.
 
-- Visual inspection + `a2_origin_proof.png` proved `client_origin(hwnd)` sat `(0, 87)` px above `Chrome_RenderWidgetHostHWND` (`(28, 20)` vs `(28, 107)`), shifting old Gate 0 and grid points into Chrome's tab/omnibox chrome and invalidating old `26.7%` UIA recall, `73.3%` hand rate, and `53.3%` grid precision/recall.
-- Inside this agent's `exebox` isolated Windows desktop (`GetThreadDesktop = exebox-...`), `GetCursorInfo` / `GetCursorPos` / `SendInput` / `ImageGrab.grab` return `ERROR_ACCESS_DENIED (5)`. Fixed `experiments/h2_desktop_gate0.py`, `experiments/h2_desktop_grid.py`, and `experiments/win32_probe.py` were created, and a subsequent Default-desktop run of Gate 0 (`results/experiments/h2_gate0.json`) recorded `gate2a_unlock=true` (canvas `hand_rate=1.0, dead_fp=0.0`, Notepad `uia_recall=1.0`, LibreOffice not installed). However, no post-fix H2 Grid Scan ran, so **desktop cursor probing remains DROPPED / NOT SHIPPED**.
+### Why Old H2 Numbers Are Marked Invalidated
+- Screenshot inspection (`a2_origin_proof.png`) proved `client_origin(hwnd)` sat `(0, 87)` px above `Chrome_RenderWidgetHostHWND` (`(28, 20)` vs `(28, 107)`), throwing old probes into browser chrome and invalidating old `26.7%` UIA recall, `73.3%` hand rate, and `53.3%` grid precision/recall. Desktop cursor probing remains **DROPPED / NOT SHIPPED**.
 
-## 2. KEEP / DROP
+---
 
-| layer | decision | evidence |
-| --- | --- | --- |
-| M0 `snapshot.py` bounds + monotonic revision | **KEEP** | `window()` no longer bumps revision on `bounds()` calls; `TaskState` keeps revision monotonic across runs |
-| M1-Browser `browser_cdp.py` DOMSnapshot + AXTree | **KEEP** | Captures role-less `clickable`, `switch`, `searchbox`, OOPIF `DOMSnapshot` semantic roles, scroll-ancestor/label pruning, lazy candidate occlusion filtering, `scrollIntoView` + safety check |
-| M1-Windows `desktop_uia.py` `FindAllBuildCache` | **KEEP** | Lightweight O(1) `signature()`, cached `GetCachedPropertyValue` patterns/RuntimeId, `Invoke->Toggle->SelectionItem->ExpandCollapse->SendInput` chain, `WM_GETOBJECT` a11y activation, foreground/kill-switch guards |
-| M2 cursor probe - browser | **DROP** | Re-validated `sync` = `14.93 s` (> 3.0 s); `pipe_80` = `0.77 s` at `34.4%` agreement (< 90%) |
-| M2 cursor probe - desktop | **DROP** | Old grid run invalidated by `(0, 87)` px origin bug; post-fix `h2_gate0.json` ran on Default desktop (`gate2a_unlock=true`), but no post-fix grid scan ran |
-| M2 blind-region crop exporter (`blind_gap.py`) | **KEEP** | Detects `>= 25%` canvas and `>= 5%` sparse canvas without false positives on normal DOM pages; preserves negative virtual-desktop coords; prioritizes `PrintWindow` for covered/non-foreground/minimized/cloaked HWNDs |
-| M3 `resolver.py` dedupe + stale guard | **KEEP** | Enforces revision mismatch, modal occlusion, removal, and > 2 px movement; reconciles disappeared hover elements |
-| M4 `hover.py` on-demand hover | **KEEP** | Single settle wait (removed duplicate 350 ms sleep) + zombie element cleanup |
-| M5 `api.py` line map + `state.py` | **KEEP** | Capped at 60 elements (`filter_query` drill-down), `searchbox` `click,type`/`read_value`, atomic writes (`fsync=False` option for disposable MCP sessions), failed action logging, SHA-256 + length redaction for typed/secret values |
+## 2. Core Engine Layer Matrix (`KEEP` / `DROP`)
+
+| Layer | Decision | Evidence |
+| :--- | :--- | :--- |
+| M0 `snapshot.py` bounds + monotonic revision | **KEEP** | `window()` avoids bumping revision on `bounds()` lookups; `TaskState` keeps revision monotonic across runs |
+| M1-Browser `browser_cdp.py` DOMSnapshot + AXTree | **KEEP** | Captures role-less `clickable`, `switch`, `searchbox`, OOPIF multi-doc discovery + `--site-per-process` test (`P0-1`), multi-tab tracking (`P0-2`), `Fetch` SSRF guard (`P0-4`), exact-port CDP origin (`P0-5`), `overflow`/label pruning, lazy occlusion, `scrollIntoView` + safety check |
+| M1-Windows `desktop_uia.py` `FindAllBuildCache` | **KEEP** | `MTA` + `AutoSetFocus=0` + transient init `COMError` retry, O(1) `signature()`, cached pattern/RuntimeId extraction, `Invoke->Toggle->SelectionItem->ExpandCollapse->SendInput`, `#32770` `_commit_dialog_text` + `DIALOG_ALERT:` (`P0-3`), foreground + `KillSwitch` guards |
+| M2 cursor probe — browser & desktop | **DROP** | `H1b` `sync` `14.93 s` / `pipe_80` `34.4%`; `H2 2B` invalidated `(0, 87)` px origin and unrun post-fix |
+| M2 blind-region crop exporter (`blind_gap.py`) | **KEEP** | Detects `>= 25%` and sparse `>= 5%` canvases without normal-DOM false positives; prioritizes `PrintWindow` for covered/non-foreground/minimized/cloaked HWNDs |
+| M3 `resolver.py` dedupe + stale guard | **KEEP** | Revision mismatch, modal occlusion, removal, `> 2 px` drift checks, hover delta reconciliation |
+| M4 `hover.py` on-demand hover | **KEEP** | Single settle wait + disappeared control cleanup |
+| M5 `api.py` line map + `state.py` | **KEEP** | 60-element cap + `filter_query`, `searchbox` read-back, atomic temp-replace (`fsync=False` option for disposable MCP dirs), full non-`None` action `"value"` SHA-256 redaction |
+| Workstream A `cursor_overlay.py` + `desktop_cursor_overlay.py` | **KEEP** | Opt-in/headful CSP-safe Chromium overlay + `60 Hz` capture-excluded layered desktop overlay without touching physical mouse input or DOM/UIA discovery |
 | H3 hover visual diff | **NOT BUILT** | Precondition unmet |
 
-## 3. Measured Token & Latency Benchmarks (`results/benchmarks/benchmarks_real.json`, vs 1229-token screenshot)
+---
 
-| target | kind | elements | blind regions | latency (ms) | capped line_map (<=60) | uncapped line_map |
-| --- | --- | --- | --- | --- | --- | --- |
-| `tests/fixtures/form.html` | **fixture** | 4 | 0 | 17.8 | 54.2 (0.04x) | 54.2 (0.04x) |
-| GitHub Trending | real browser | 120 | 0 | 215.5 | 654.0 (0.53x) | 1263.8 (1.03x) |
-| YouTube | real browser | 27 | 0 | 125.2 | 386.8 (0.31x) | 386.8 (0.31x) |
-| Gmail (sign-in) | real browser | 14 | 0 | 54.8 | 187.2 (0.15x) | 187.2 (0.15x) |
-| Google Maps (`@40.7580,-73.9855,17z`) | real canvas | 64 | 1 | 273.2 | 690.8 (0.56x) | 712.5 (0.58x) |
-| Notepad (Win11) | real desktop | 36 | 0 | 140.2 | 474.8 (0.39x) | 474.8 (0.39x) |
-| File Explorer | real desktop | 140 | 0 | 387.7 | 711.0 (0.58x) | 1611.0 (1.31x) |
-| Chromium shell (before a11y trigger) | real desktop | 14 interactive (36 total) | - | - | - | - |
-| Chromium shell (after `WM_GETOBJECT`) | real desktop | 18 | 0 | 76.1 | 194.5 (0.16x) | 194.5 (0.16x) |
-| Chromium shell (`--force-renderer-accessibility`) | real desktop | 18 | 0 | 62.8 | 194.5 (0.16x) | 194.5 (0.16x) |
+## 3. Measured Token & Latency Reference (`results/benchmarks/benchmarks_real.json`, vs `1229`-Token Proxy)
 
-Uncapped dense DOM/UIA trees (e.g. GitHub Trending at `1263.8` tokens = `1.03x` and File Explorer at `1611.0` tokens = `1.31x`) can exceed a single viewport screenshot, which is why `Api.line_map()` caps output at 60 elements by default (`0.53x` on GitHub Trending, `0.58x` on File Explorer) with `filter_query=` drill-down.
+| Target | Kind | Elements | Blind Regions | Latency (`ms`) | Capped `line_map` (`<=60`) | Uncapped `line_map` |
+| :--- | :--- | ---: | ---: | ---: | :--- | :--- |
+| [`tests/fixtures/form.html`](../tests/fixtures/form.html) | **fixture** | 4 | 0 | 17.8 | 54.2 (`0.04x`) | 54.2 (`0.04x`) |
+| GitHub Trending | real browser | 120 | 0 | 215.5 | 654.0 (`0.53x`) | 1263.8 (`1.03x`) |
+| YouTube | real browser | 27 | 0 | 125.2 | 386.8 (`0.31x`) | 386.8 (`0.31x`) |
+| Gmail (sign-in) | real browser | 14 | 0 | 54.8 | 187.2 (`0.15x`) | 187.2 (`0.15x`) |
+| Google Maps (`@40.7580,-73.9855,17z`) | real canvas | 64 | 1 | 273.2 | 690.8 (`0.56x`) | 712.5 (`0.58x`) |
+| Notepad (Win11) | real desktop | 36 | 0 | 140.2 | 474.8 (`0.39x`) | 474.8 (`0.39x`) |
+| File Explorer | real desktop | 140 | 0 | 387.7 | 711.0 (`0.58x`) | 1611.0 (`1.31x`) |
+| Chromium shell (`WM_GETOBJECT` / `--force-renderer-accessibility`) | real desktop | 18 | 0 | 76.1 / 62.8 | 194.5 (`0.16x`) | 194.5 (`0.16x`) |
 
-## 4. Isolated 9-Candidate Optimization Study & UIA Diagnostic Addendum (`results/perf_study/BENCHMARK_REPORT.md`)
+Uncapped dense DOM/UIA trees (`1263.8` and `1611.0` tokens) exceed the `1229`-token proxy, motivating `Api.line_map()`'s default `60`-element cap with `filter_query=` drill-down.
 
-- **KEEP (Merged into Core Engine):**
-  - **Dedicated UIA MTA Worker + `CUIAutomation8(AutoSetFocus=0)`** (`desktop_uia.py`): MTA removes STA cold-start latency spikes (`446–861 ms -> 52.6–162.6 ms`), and setting `IUIAutomation2.AutoSetFocus = 0` eliminates the `~2,000 ms` per-action UIA focus-confirmation stall across Notepad (`2,014.3 -> 1.71 ms` `SetValue`), Explorer, Chromium, and Win32 controls without losing background semantic execution.
-  - **Persistent Direct CDP WebSocket** (`browser_cdp.py`): Keeps Playwright for browser/lifecycle management while bypassing Playwright's Node proxy on CDP commands (`-98.2 ms` on GitHub Trending 1.1 MB Snapshot+AX payloads; `1.0–3.1 ms` on small pings).
-  - **CDP Ablation** (`browser_cdp.py`): Replaces separate `scrollX/Y` evaluation and `N * DOM.getBoxModel` RPCs with `DOMSnapshot` bounds + `docs[0].scrollOffsetX/Y`, normalizing AX fallback bounds to `border`-box while preserving paint-order occlusion checks.
-  - **Targeted Freshness Validation** (`api.py` + `verify_fresh`): Eliminates redundant pre-action full `discover()` inside `execute_action()` while keeping `stale_safety_parity_rate = 1.0` across all 6 browser failure modes and desktop stale/moved guards.
-- **DROP:** Caching HWND roots across UIA scans (`ElementFromHandle` is `1.1–1.5 ms`; caching adds overhead), omitting `BoundingRectangle` (`+5–25 ms` N+1 regression), explicit `RawView` (`254` nodes / `0.404` prec on Chromium), and `AutomationElementMode.None` for interactive discovery (`+6.5–38.8 ms` `RuntimeId` re-acquire per action).
-- **HOLD (Deferred pending end-to-end 20-task agent bottleneck evidence):** `UIA Remote Operations`, `One-Call JS Extractor`, `OrCondition` (`TabControl 50018` / pattern omissions), and top-frame `MutationObserver`. Also note real-site Exp 6 comparisons measure `vs_control` (viewport-filtered `Control CDP`), not independent external ground truth.
+---
+
+## 4. Isolated 9-Candidate Optimization Study Decisions (`results/perf_study/BENCHMARK_REPORT.md`)
+
+- **KEEP (Merged):** Dedicated UIA `MTA` Worker + `CUIAutomation8(AutoSetFocus=0)` (eliminates `446–861 ms` cold `STA` hangs and `~2,000 ms` focus stalls), `DirectCdpClient` WebSocket (`-98.2 ms` on GitHub Trending Snapshot+AX), 2-call CDP Ablation (removes `N * DOM.getBoxModel`), and targeted `verify_fresh()` (maintaining `safety_parity = 1.0`, while acknowledging `Exp 8`'s `fsync=False` confound).
+- **DROP:** Caching HWND roots across scans, dropping `BoundingRectangle` (`+5–25 ms` N+1 regression), explicit `RawView` (`0.404` precision on Chrome), and `AutomationElementMode.None` (`+6.5–38.8 ms` `RuntimeId` re-acquire per action).
+- **HOLD (`[PROPOSAL]` / Deferred):** UIA `RemoteOperations` (cross-HWND failure), `One-Call JS Extractor` (closed Shadow DOM & OOPIF drop), `OrCondition` (`TabControl 50018` miss), and top-frame `MutationObserver` (`0.8421` recall).
+
+---
+
+## 5. Post-`0.1.0-alpha` Architectural Decisions (`Workstream A` & `P0-1..P0-5`)
+
+### ADR-A: Decoupled Obsidian-Chrome 3D Cursor Overlay (`7c7b9b4..d47b4e9`)
+- **Decision:** Implement visual cursor feedback strictly as non-interfering side-channel renderers — CSP/Trusted-Types-safe DOM+SVG nodes in `cursor_overlay.py` and a dedicated `60.0 Hz` `WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE` Win32 GUI-thread window in `desktop_cursor_overlay.py` (`_WDA_EXCLUDEFROMCAPTURE`, zero `SendInput` glides), keeping headless CI untouched unless opted in (`show_cursor=True`, `CUL_AGENT_CURSOR=1`, or `CUL_MCP_HEADFUL=1`).
+- **Rationale:** Putting overlay drawing on `DesktopSession`'s COM MTA thread or driving cursor glides via `SendInput` would trigger `KillSwitch` (`5 px` physical pointer excursion guard) or stall UIA IPC; omitting `_WDA_EXCLUDEFROMCAPTURE` would pollute `blind_gap` crops; separating `ok` vs `verified` cues in `api.py` prevents visual green indicators on unverified or no-op dispatches.
+
+### ADR-B: Keep `13`-Tool MCP Surface Across Multi-Tab Support (`P0-2`, `bee026e`)
+- **Decision:** Add `list_tabs`, `switch_tab`, and `close_tab` actions + `tab_index` onto the existing `navigate` MCP tool rather than proliferating separate tab tools.
+- **Rationale:** Preserves compact MCP schema token overhead for client agents while exposing context-level Playwright page management and rebinding `DirectCdpClient` + cursor overlays atomically on switch.
+
+### ADR-C: Win32 `#32770` Physical Commit & Static Alert Surface (`P0-3`, `16465bf`)
+- **Decision:** When `DesktopSession.hwnd` class is `#32770`, intercept `type` via `_commit_dialog_text` (foreground `Ctrl+A` + `Delete` + `SendInput` `KEYEVENTF_UNICODE`, falling back to `EM_SETSEL` + `WM_CHAR` if needed) and surface static `Text` controls via `DIALOG_ALERT:` lines in `Api.line_map()`.
+- **Rationale:** `IFileSaveDialog` on Windows `#32770` dialogs accepts `IValueProvider::SetValue` visually without committing internal path buffers (`M1 #7` / `T15`), while `discover` normally strips static text controls, hiding modal invalid-filename errors.
+
+### ADR-D: Browser-Wide CDP `Fetch` SSRF Guard & Loopback Origin Pinning (`P0-4` / `P0-5`, `965eb66` / `a3291b3`)
+- **Decision:** Enforce URL/IP validation (with IPv4-mapped IPv6, 6to4, Teredo, and NAT64 normalization) on every CDP `Fetch.requestPaused` `Request` and `3xx` `Response` `Location` header when `url_validator` is present; bind self-launched `DirectCdpClient` to `127.0.0.1` + exact port `--remote-allow-origins=http://127.0.0.1:<port>` with `CUL_MCP_DIRECT_WS=0` escape hatch.
+- **Rationale:** Initial entry URL validation (`validate_navigation_url`) missed `HTTP 302 -> 127.0.0.1` hops (`P0-4`); exact origin allowlisting blocks cross-origin browser tab WebSocket upgrades (`P0-5`) while preserving the fast `DirectCdpClient` WebSocket path. **Residual boundary:** OS-level DNS-rebinding TOCTOU between Python resolution and Chromium's socket connection remains unblocked at TCP connect time ([SECURITY.md](../SECURITY.md)).

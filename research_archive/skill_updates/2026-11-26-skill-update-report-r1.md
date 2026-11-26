@@ -1,3 +1,7 @@
+> [!NOTE]
+> **Archival Provenance:** Moved from `SKILL_UPDATE_REPORT.md` (pre-move SHA-256: `AF84136021AE4DD266B32B6F33607A1A5BCB34DDE350C16C2D8F66348059225B`). Archived Skill Update Report (Round 1). Superseded by [Round 2 Final Skill Report](2026-11-26-skill-update-report-final.md). Note: `skill_updates/2026-11-26/verify_report_numbers.py` still expects the original root filename if re-executed unmodified. See also [Archive Index](../INDEX.md) and [README](../../README.md).
+> *(Absolute local workstation URIs and relative paths were normalized for archival portability; original findings, figures, and scope claims below are preserved verbatim.)*
+
 # Skill Update Report — `computer-use-lite` (`2026-11-26`)
 
 ## 1. Executive Summary & Provenance

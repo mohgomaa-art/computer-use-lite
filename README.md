@@ -1,83 +1,82 @@
 # Computer Use Lite (CUL)
 
-**Version:** `0.1.0-alpha`  
+**Author:** Mohamed Gomaa ([`@mohgomaa-art`](https://github.com/mohgomaa-art/) · [AUTHORS.md](AUTHORS.md))  
+**Version Baseline:** `0.1.0-alpha` + post-`0.1.0-alpha` P0 & Cursor Overlay work on `main` (`d47b4e9`)  
 **Release Classification:** `Public Research Preview — Experimental — Not Production Ready`  
-**Creator & Lead Developer:** Mohamed Gomaa ([AUTHORS.md](AUTHORS.md))  
 **License:** [Apache-2.0](LICENSE) ([NOTICE](NOTICE), [CITATION.cff](CITATION.cff))
 
 > [!WARNING]
-> **Experimental Research Preview:** Computer Use Lite is an open research prototype investigating hybrid semantic UI perception and revision-checked control for AI agents. It has verified **open security and platform boundaries** (see [SECURITY.md](SECURITY.md) and [Known Limitations](docs/KNOWN_LIMITATIONS.md)) and is **not production-hardened** for untrusted web navigation or multi-tenant environments.
+> **Experimental Research Preview:** Computer Use Lite is an open research project exploring hybrid semantic UI perception, targeted visual fallbacks, and live visual cursor feedback for AI agents. Verified security boundaries, unrun live VLM evaluations, and open platform limits remain explicitly documented in [SECURITY.md](SECURITY.md) and [Known Limitations](docs/KNOWN_LIMITATIONS.md). **Do not deploy against untrusted multi-tenant hosts or arbitrary untrusted web navigation.**
 
 ---
 
 ## 1. Overview & Research Problem
 
-Visual "computer-use" agents that send full-resolution viewport or desktop screenshots at every interaction step pay recurring token, latency, and grounding costs, even when interacting with structured DOM forms or native Windows controls.
+Purely vision-based computer-use agents that attach full-resolution screenshots on every step incur recurring token, latency, and coordinate-grounding costs even when interacting with structured web DOM forms or native Windows controls.
 
-**Computer Use Lite (CUL)** investigates a narrower hybrid hypothesis:
+**Computer Use Lite (CUL)** investigates a local-first hybrid alternative:
 
-1. **Semantic first:** Extract interactive elements directly from browser accessibility/DOM snapshots (`DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree`) and native Windows UI Automation (`CUIAutomation8`), returning a compact token representation (`REV:N` + short IDs `e1`, `e2`, ...).
-2. **Coordinate-free revision binding:** Bind actions to element IDs validated against revision counters (`REV:N`), pre-action geometry drift (`> 2` px), and hit-test / occlusion checks rather than blind `(x, y)` coordinates.
-3. **Targeted visual fallback:** Crop PNG regions (`blind_N`) **only** for detected opaque `<canvas>` surfaces or low-UIA areas (`blind_gap.py`).
+1. **Semantic-first discovery:** Extract interactive controls via Chromium CDP (`DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree`) and scoped Windows UI Automation (`CUIAutomation8` COM MTA), formatting output as a compact `REV:N` `line_map` (`eN|role|name|x,y,w,h|actions`).
+2. **Revision-checked element resolution:** Bind actions to short element IDs (`e1`, `e2`, ...) validated against monotonic revisions (`REV:N`), `<= 2` px geometry stability, and viewport occlusion/hit-test checks (`StaleElementError`) before clicking or typing.
+3. **Targeted visual fallback:** Export inline PNG crops (`blindN`) **only** when `blind_gap` detects an unmapped opaque `<canvas>` or a sparse-UIA desktop surface (`low_uia`).
+4. **Non-interfering Cursor Overlay:** Render an optional Frosted Obsidian-Glass & Satin Chrome 3D cursor overlay in headful Chromium (CSP-safe DOM+SVG) and Windows desktop sessions (`60 Hz` click-through `WS_EX_LAYERED` HWND excluded from screen capture) without shifting discovery results or tripping pointer safety guards.
 
-The repository preserves **both verified improvements and negative/unsolved findings** (including rejected cursor-grid experiments, cross-origin iframe gaps under strict Chromium site isolation, and unrun live VLM evaluations) so researchers and engineers can evaluate the architecture transparently.
+This repository preserves **positive benchmarks, negative/abandoned hypotheses, audit trails, and open security constraints together** so external researchers and engineers can verify every conclusion from raw artifacts. See [docs/INDEX.md](docs/INDEX.md) for the complete documentation map.
 
 ---
 
-## 2. Implemented Capabilities
+## 2. Implemented Capabilities (`HEAD` `d47b4e9`)
 
-| Layer | Implementation ([src/computer_use_lite/](src/computer_use_lite/)) | Current Scope & Status |
+| Layer | Modules ([src/computer_use_lite/](src/computer_use_lite/)) | Current Scope & Status |
 | :--- | :--- | :--- |
-| **Browser Perception & Control** | [`browser_cdp.py`](src/computer_use_lite/browser_cdp.py), [`hover.py`](src/computer_use_lite/hover.py) | Persistent `DirectCdpClient` WebSocket (`websockets`) + Playwright Chromium launch/attach, 2-call `DOMSnapshot` + `AXTree`, paint-order & `overflow` clipping, hover reveal checks, `elementFromPoint` target checks |
-| **Windows Desktop UIA** | [`desktop_uia.py`](src/computer_use_lite/desktop_uia.py) | **Windows-only:** dedicated COM MTA worker (`CUIAutomation8`, `AutoSetFocus=0`), `FindAllBuildCache`, UIA pattern execution -> `SendInput` fallback, foreground HWND enforcement, `KillSwitch` pointer abort |
-| **Semantic Element API** | [`api.py`](src/computer_use_lite/api.py), [`resolver.py`](src/computer_use_lite/resolver.py), [`snapshot.py`](src/computer_use_lite/snapshot.py) | Unified `Api`, `REV:N` compact `line_map` (default `60`-element cap, `filter_query`), `> 2` px drift/occlusion/removal refusal, `inspect_element()` password redaction |
-| **Targeted Visual Fallback** | [`blind_gap.py`](src/computer_use_lite/blind_gap.py) | Emits PNG crops only when unmatched `<canvas>` (`>= 240x160` px or sparse UI `< 6` controls) or `low_uia` surfaces exist; prioritizes Win32 `PrintWindow` over `ImageGrab` when target windows are covered |
-| **State & Value Redaction** | [`state.py`](src/computer_use_lite/state.py) | Atomic temp-file `TaskState` persistence; strips raw non-`None` action `"value"` fields to `{value_length, value_sha256, value_redacted: true}` |
-| **MCP Server** | [`mcp_server.py`](src/computer_use_lite/mcp_server.py), [`session_manager.py`](src/computer_use_lite/session_manager.py) | `stdio` FastMCP server exposing `13` tools with per-session worker thread isolation, host/scheme SSRF entry checks, viewport/limit clamping, and blocked OS modifier hotkeys |
-| **Compatibility Shims** | [`src/engine/`](src/engine/) | Thin `importlib` module aliases re-exporting `computer_use_lite.*` |
-
-Full component diagrams and module notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+| **Browser CDP Engine** | [`browser_cdp.py`](src/computer_use_lite/browser_cdp.py), [`hover.py`](src/computer_use_lite/hover.py) | Persistent `DirectCdpClient` WebSocket (`websockets`) + Playwright Chromium lifecycle (`direct_ws` optional via `CUL_MCP_DIRECT_WS=0`), 2-call `DOMSnapshot` + `AXTree`, paint-order & ancestor `overflow` clipping, multi-tab context tracking (`list_tabs`, `switch_tab`, `close_tab`), `--site-per-process` multi-doc fixture extraction, hover delta tracking, `elementFromPoint` freshness check, CDP `Fetch` SSRF redirect/sub-request guard |
+| **Windows Desktop UIA** | [`desktop_uia.py`](src/computer_use_lite/desktop_uia.py) | **Windows-only:** dedicated COM MTA worker (`CUIAutomation8`, `AutoSetFocus=0`, transient init `COMError` retry), single-HWND `FindAllBuildCache`, UIA pattern invocation -> `SendInput` fallback, Win32 `#32770` Save As text commit (`_commit_dialog_text`) + `DIALOG_ALERT:` static text extraction, foreground enforcement, 5 px cursor `KillSwitch` |
+| **3D Cursor Overlay** | [`cursor_overlay.py`](src/computer_use_lite/cursor_overlay.py), [`desktop_cursor_overlay.py`](src/computer_use_lite/desktop_cursor_overlay.py) | `64x64` vector cursor registry, CSP/Trusted-Types-safe browser overlay, dedicated `60.0 Hz` Win32 `WS_EX_LAYERED \| WS_EX_TRANSPARENT \| WS_EX_TOPMOST \| WS_EX_NOACTIVATE` desktop overlay (`_WDA_EXCLUDEFROMCAPTURE`, zero `SendInput` animation glide), `CUL_AGENT_CURSOR`, `CUL_AGENT_CURSOR_GLIDE_MS`, `CUL_MCP_HEADFUL` |
+| **Semantic API & Guards** | [`api.py`](src/computer_use_lite/api.py), [`resolver.py`](src/computer_use_lite/resolver.py), [`snapshot.py`](src/computer_use_lite/snapshot.py) | Unified `Api` (`discover_interactables`, `inspect_element`, `execute_action`, `hover_element`, `line_map`), `60`-element default cap with `filter_query`, `searchbox` `read_value()` + password redaction, action outcome cursor cues (`ok` vs `verified`) |
+| **Visual Gap Fallback** | [`blind_gap.py`](src/computer_use_lite/blind_gap.py) | Crops bounded regions only for `opaque_canvas`, `small_opaque_canvas`, or desktop `low_uia` (`< 6` controls); prioritizes Win32 `PrintWindow` over `ImageGrab` when target windows are covered, minimized, or cloaked |
+| **State & Redaction** | [`state.py`](src/computer_use_lite/state.py) | Atomic temp-file `TaskState` persistence (`fsync=False` option for disposable MCP scratch sessions); strips non-`None` action `"value"` payloads to `{value_length, value_sha256, value_redacted: true}` |
+| **MCP Server (`stdio`)** | [`mcp_server.py`](src/computer_use_lite/mcp_server.py), [`session_manager.py`](src/computer_use_lite/session_manager.py) | `FastMCP` `stdio` server exposing `13` tools with per-session thread isolation (`MAX_SESSIONS=16`), SSRF host/scheme/IP normalization checks (`CUL_MCP_ALLOW_PRIVATE_URLS`, `CUL_MCP_ALLOW_FILE_URLS`), `HEADLESS:`/`CURSOR:` headers, bounded inputs, blocked OS Win/Meta hotkeys |
+| **Compatibility Shims** | [`src/engine/`](src/engine/) | Backwards-compatible `importlib` module aliases re-exporting core engine symbols |
 
 ---
 
-## 3. Repository Map
+## 3. Documentation & Repository Structure
 
-- [src/computer_use_lite/](src/computer_use_lite/) — Core engine and `stdio` MCP server (`src/engine/` holds module alias shims).
-- [tests/](tests/) — Unit, audit-fix regression, MCP `stdio`, benchmark-contract, and E2E suites.
-- [benchmarks/](benchmarks/) — Phase D multi-target benchmark, 9-experiment performance study, dual-origin corpus, and 20-task agent harness.
-- [experiments/](experiments/) & [archive/stale_h2_grid/](archive/stale_h2_grid/) — Historical exploratory scripts (`H1`, `H1b`, `H2`, `win32_probe.py`) and explicitly archived invalid experiments preserved as negative evidence.
-- [results/](results/) — Measured JSON/Markdown datasets for `H1`–`H3`, `benchmarks_real`, `e2e_results`, `perf_study`, and `agent_benchmark` oracle validation.
-- [docs/](docs/) — Canonical research and engineering documentation:
-  - [ARCHITECTURE.md](docs/ARCHITECTURE.md)
-  - [ARCHITECTURE_DECISION.md](docs/ARCHITECTURE_DECISION.md) *(historical architecture decision baseline)*
-  - [RESEARCH_METHODOLOGY.md](docs/RESEARCH_METHODOLOGY.md)
-  - [BENCHMARKS.md](docs/BENCHMARKS.md)
-  - [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)
-  - [RESEARCH_HISTORY.md](docs/RESEARCH_HISTORY.md)
+- **Documentation Hub:** [docs/INDEX.md](docs/INDEX.md)
+  - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Engine components, discovery/action lifecycle, Cursor Overlay, and MCP/security flows
+  - [docs/ARCHITECTURE_DECISION.md](docs/ARCHITECTURE_DECISION.md) — Architectural Decision Records & `KEEP`/`DROP`/`HOLD` empirical scorecard
+  - [docs/RESEARCH_FINDINGS.md](docs/RESEARCH_FINDINGS.md) — Consolidated empirical conclusions (positive, negative, and live-probe results)
+  - [docs/RESEARCH_METHODOLOGY.md](docs/RESEARCH_METHODOLOGY.md) — Epistemic tags, proxy metrics (`TOKENS_EST`, `1,229` baseline), and confounds
+  - [docs/BENCHMARKS.md](docs/BENCHMARKS.md) — Test suites, `benchmarks_real`, `perf_study` Exps `1–9`, `20`-task oracle harness, and unrun gaps
+  - [docs/OPTIMIZATION_ROADMAP.md](docs/OPTIMIZATION_ROADMAP.md) — `P0` completed/fixture-verified fixes vs unimplemented `P1`/`P2` proposals
+  - [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — Verified platform, discovery, security, and benchmark boundaries
+  - [docs/RESEARCH_HISTORY.md](docs/RESEARCH_HISTORY.md) — Chronological evolution across all development waves
+- **Historical Archive:** [research_archive/INDEX.md](research_archive/INDEX.md) — Preserved audit reports, stale-process stress runs, skill validation dossiers, release-prep snapshots, and links to anchored raw experiment data ([results/](results/), [archive/](archive/), [experiments/](experiments/)).
+- **Code & Suites:** [src/computer_use_lite/](src/computer_use_lite/), [tests/](tests/), [benchmarks/](benchmarks/), [experiments/](experiments/).
 
 ---
 
 ## 4. Installation
 
 **Requirements:**
-- **OS:** Windows 10/11 required for runtime execution (`desktop_uia.py` and `snapshot.py` load `ctypes.WinDLL("user32")` at import time; see [Known Limitations](docs/KNOWN_LIMITATIONS.md#platform--windows-uia-boundaries)).
-- **Python:** `>=3.10` (verified in CI and local benchmarks on Python `3.12`).
+- **OS:** Windows 10/11 required at runtime (`desktop_uia.py` and `snapshot.py` bind `ctypes.WinDLL("user32")` on module import; see [Known Limitations](docs/KNOWN_LIMITATIONS.md)).
+- **Python:** `>=3.10` (tested in CI and benchmarks on Python `3.12`).
 
-```bash
-git clone <repository-url>
+```powershell
+git clone https://github.com/mohgomaa-art/computer-use-lite.git
 cd computer-use-lite
 
 python -m pip install -e ".[dev,benchmarks]"
 python -m playwright install chromium
 ```
 
-Dependencies installed automatically: `playwright>=1.40`, `pillow>=10.0`, `websockets>=14.0`, `mcp>=1.25.0`, plus Windows extras `uiautomation>=2.0.29` and `comtypes>=1.5.0` (see [NOTICE](NOTICE) for third-party licenses).
+Dependencies declared in [`pyproject.toml`](pyproject.toml): `playwright>=1.40`, `pillow>=10.0`, `websockets>=14.0`, `mcp>=1.25.0`, plus Windows dependencies `uiautomation>=2.0.29` and `comtypes>=1.5.0` (see [NOTICE](NOTICE)).
 
 ---
 
 ## 5. Quick Start
 
-### Python API (Browser Example)
+### Python API (Browser)
 
 ```python
 from pathlib import Path
@@ -96,10 +95,11 @@ try:
     )
     line_map = api.discover_interactables(max_elements=60)
     print(line_map)
-    # Example output header: "REV:1" followed by compact rows such as:
-    # "e1 link 'More information...' [x,y,w,h]"
+    # Example output:
+    # REV:1 | WIN:Example Domain | ELEMENTS:1 | BLIND_REGIONS:0
+    # e1|link|More information...|...,...,...,...|click
 
-    # Execute against explicit revision + element ID from line_map:
+    # Execute against explicit element ID + revision:
     result = api.execute_action("e1", "click", revision=1)
     print(result)
 finally:
@@ -124,114 +124,83 @@ if windows:
 
 ### MCP Server (`stdio`)
 
-Start via console script or module entrypoint:
+Launch via console script or module entrypoint:
 
-```bash
+```powershell
 computer-use-lite-mcp
 # or
-python -m computer_use_lite.mcp_server
+python -u -m computer_use_lite.mcp_server
 ```
 
-Example MCP client configuration:
+Example MCP client snippet:
 
 ```json
 {
   "mcpServers": {
     "computer-use-lite": {
       "command": "python",
-      "args": ["-m", "computer_use_lite.mcp_server"],
+      "args": ["-u", "-m", "computer_use_lite.mcp_server"],
       "env": {}
     }
   }
 }
 ```
 
-Set `"CUL_MCP_ALLOW_PRIVATE_URLS": "1"` in `env` **only** when testing trusted localhost/private network fixtures (`open_browser` / `navigate` block loopback, private, and link-local hosts by default).
+Relevant MCP environment toggles verified in source:
+- `CUL_MCP_HEADFUL=1`: launch `open_browser` headful by default when `headless` is omitted.
+- `CUL_AGENT_CURSOR=0|1`: disable or force the Obsidian-Chrome 3D cursor overlay.
+- `CUL_AGENT_CURSOR_GLIDE_MS=140`: smooth visual glide duration (`0..600` ms).
+- `CUL_MCP_ALLOW_PRIVATE_URLS=1` / `CUL_MCP_ALLOW_FILE_URLS=1`: opt-in overrides for local fixture testing only.
+- `CUL_MCP_DIRECT_WS=0`: disable `--remote-debugging-port` TCP socket and force Playwright's internal `CDPSession` adapter.
 
 **Exposed `13` MCP tools:**  
-`open_browser`, `list_desktop_windows`, `open_desktop`, `close_session`, `list_sessions`, `discover`, `inspect`, `act`, `hover`, `navigate`, `scroll`, `press_key`, `click_at`.
+`open_browser`, `list_desktop_windows`, `open_desktop`, `close_session`, `list_sessions`, `discover`, `inspect`, `act`, `hover`, `navigate` (`goto`, `back`, `list_tabs`, `switch_tab`, `close_tab`), `scroll`, `press_key`, `click_at`.
 
 ---
 
-## 6. Running Tests & Benchmarks
+## 6. Verification & Benchmark Commands
 
-### Test Suite
-
-```bash
+```powershell
 # Headless browser, security, audit-fix, MCP stdio & benchmark-contract tests
-# (Windows desktop tests skipped when CUL_SKIP_DESKTOP=1)
-CUL_SKIP_DESKTOP=1 pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
-
-# Full Windows suite including @pytest.mark.windows_desktop E2E & MCP desktop tests
-# (requires an active, unlocked Windows user session)
+$env:CUL_SKIP_DESKTOP = "1"
 pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
-```
 
-On the pre-release Windows baseline (`HEAD`), the full suite measured **`52 passed in 68.86s`**.
+# Full Windows suite including @pytest.mark.windows_desktop E2E & overlay tests
+# (requires an interactive unlocked Windows user desktop)
+pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
 
-### Benchmark Suites
-
-```bash
-# 1. Compile sanity check across all modules
+# Compile sanity check + benchmark runners
 python -m compileall -q src experiments benchmarks tests
-
-# 2. Multi-target real application token/latency check (browser + desktop)
 python -m benchmarks.benchmark_real
-
-# 3. Isolated 9-experiment performance & accuracy study
 python -m benchmarks.run_all --exp all
-
-# 4. 20-task benchmark harness deterministic oracle check (0 LLM API calls)
 python -m benchmarks.bench_agent_20tasks --dry-run-oracle
 ```
 
-To run an actual live VLM comparison (`screenshot_baseline` vs `computer_use_lite`), pass `--provider openai|gemini|ollama` and `--model <name>` to `benchmarks.bench_agent_20tasks`.
+- **Test Provenance Disclosure:** On the `v0.1.0-alpha` release-prep baseline (`698861d`), the full Windows suite recorded `52 passed in 68.86s`. Subsequent commits added `11` tests in `tests/test_cursor_overlay.py` (`7c7b9b4..4f9bcef`, currently modified locally) and `5` `P0-*` regression tests in `tests/test_audit_fixes.py` (`77cd171..a3291b3`). **No full-suite `pytest` re-run was executed during this documentation-only pass (`HEAD` `d47b4e9`), so post-`698861d` full-suite aggregate counts remain unverified here.**
 
 ---
 
-## 7. Key Verified Findings & Honest Scope
+## 7. Key Findings & Honest Limitations
 
-Detailed tables, environments, confounds, and negative outcomes live in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [docs/RESEARCH_HISTORY.md](docs/RESEARCH_HISTORY.md).
+Detailed datasets and confounds live in [docs/RESEARCH_FINDINGS.md](docs/RESEARCH_FINDINGS.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), and [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md):
 
-- **Verified strengths (`[MEASURED]` on local Windows `3.12` environment):**
-  - Dual-origin fixture discovery (`DualOriginCorpusServer`) reached `recall = 1.0` and `precision = 1.0` after `P-04` pruning (`<label>` dedup, nested container collapsing, ancestor `overflow` clipping), and `P-01` reduced Python occlusion processing on a `2,500`-cell dense DOM from `824.40 ms` to `19.32 ms` `p50`.
-  - Targeted `line_map` output stays compact against the repo's `1,229`-token `1280x720` screenshot proxy across tested targets (`form.html`: `54.2` tokens in `17.8 ms`; Notepad: `474.8` tokens in `140.2 ms`; GitHub Trending capped `60`: `654.0` tokens in `215.5 ms`, uncapped `1,263.8`; Explorer capped `60`: `711.0` tokens in `387.7 ms`, uncapped `1,611.0`).
-  - `DirectCdpClient` WebSocket reduces 2-call CDP `Snapshot+AXTree` serialization latency on heavy DOMs (`220.31 -> 122.10 ms` `p50` on GitHub Trending in `Exp 7`), and dedicated COM `MTA` eliminates `446 ms` Notepad / `861 ms` Explorer cold STA initialization stalls (`Exp 1`).
-- **Explicit caveats & negative results:**
-  - **`H1` / `H1b` / `H2` / `H3` cursor probing rejected/abandoned:** Synchronized cursor probing took `14.93 s`, dropping settle windows to `80` px corrupted canvas accuracy to `34.4%`, and `H3` was never built (`results/experiments/h*_report.md`).
-  - **Cross-origin iframe (`OOPIF`) gap remains open:** Under Chrome strict `--site-per-process` and tested live embeds (e.g., `youtube.com/embed`), `DOMSnapshot` + top-session discovery dropped inner controls (`0` elements, `0` blind regions).
-  - **20-task LLM evaluation unrun:** `results/agent_benchmark/harness_validation.json` contains **deterministic oracle checks only (`20/20`, `0` LLM inference runs)** — no live VLM end-to-end token or task-completion victory is claimed yet.
-  - **`TOKENS_EST` is a heuristic (`len(text) / 4`), not an exact BPE tokenizer count**, and `1,229` tokens is a static baseline proxy rather than a cross-vendor billing exact match.
+- **Compact maps & low discovery latency on structured UIs (`[MEASURED]` pre-P0 baselines):** Dual-origin corpus fixtures reached `recall=1.0, precision=1.0`, `P-01` cut `2,500`-cell Python occlusion CPU `p50` from `824.40 ms -> 19.32 ms`, COM `MTA` + `AutoSetFocus=0` eliminated `446–861 ms` cold `STA` and `~2,000 ms` per-action stalls, and `DirectCdpClient` saved `-98.21 ms` `p50` on GitHub Trending (`1.1 MB` Snapshot+AX payloads).
+- **Documented rejections (`DROP`):** Browser and desktop cursor probing (`H1` `29.46 s`, `H1b` `14.93 s` / `34.4%` pipelined, `H2 2B` invalidated `(0, 87)` px origin, `H3` not built), `CoreAutomationRemoteOperation` UIA subtree walking (`Exp 5`), single-frame JS extraction (`Exp 6`), and top-frame `MutationObserver` (`Exp 9`).
+- **Unverified / open scope:**
+  - `benchmarks/bench_agent_20tasks.py` has **`20/20` deterministic oracle validation (`0` live VLM API calls executed)** — there is **no** comparative end-to-end live VLM win-rate claim over screenshot baselines.
+  - `P0-1` OOPIF support passes deterministic `--site-per-process` unit fixtures, while live third-party cross-origin embeds (e.g., `youtube.com/embed`) remain unverified on restarted MCP.
+  - `P1` and `P2` items (AX `checked`/`value`/`slider`/`readonly` metadata extraction, unified sticky-header clamping, `WS_EX_LAYOUTRTL` un-mirroring, Explorer inactive-tab filtering, Linux/macOS import decoupling, mouse drag-and-drop) remain **unimplemented proposals** ([docs/OPTIMIZATION_ROADMAP.md](docs/OPTIMIZATION_ROADMAP.md)).
+  - `validate_navigation_url` + CDP `Fetch` interception blocks HTTP `3xx` redirect SSRF hops (`P0-4`), **but** OS-level DNS-rebinding TOCTOU between Python pre-check and Chromium socket connect remains open ([SECURITY.md](SECURITY.md)).
 
 ---
 
-## 8. Critical Known Limitations & Security Posture
+## 8. Contributing & Citation
 
-- **Open SSRF Redirect & Loopback CDP Risk (`[MEASURED]`):** `validate_navigation_url()` blocks loopback, private, CGNAT, link-local, obfuscated IPv4/IPv6 literals, and non-HTTP schemes on initial entry, **but** Chromium `page.goto()` still follows HTTP `302` redirects toward `127.0.0.1` once an external host passes initial validation, and Python-side DNS checks cannot eliminate Chromium-internal DNS rebinding. Local `--remote-debugging-port` endpoints also expose unauthenticated `/json/version` and origin-less WebSocket control to local processes (though Chromium `1.64` rejects browser-originated `Origin:` WS upgrades with `HTTP 403`).
-- **`verified=true` != Semantic Task Completion:** Action `verified=true` verifies targeted element pre-checks/dispatch semantics, not downstream business state (e.g., typing into `<input readonly>` or Win32 `#32770` Save As UIA `ValuePattern.SetValue` vs `IFileSaveDialog` desync).
-- **Platform & Desktop Caveats:** Non-Windows Python import fails without Win32 `user32`; Store Notepad async UIA hydration/tab persistence; `WS_EX_LAYOUTRTL` horizontal coordinate mirroring in `PrintWindow` on RTL Notepad windows; no multi-tab `target="_blank"` browser tab switching.
-
-Read [SECURITY.md](SECURITY.md) and [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) before running CUL on any untrusted page or desktop session.
-
----
-
-## 9. Roadmap (`v0.1.0-alpha` -> Beyond)
-
-1. Intercept Chromium navigation redirects / sub-frame hops inside `context.route()` to enforce host validation across `302` chains.
-2. Lazy-load Win32 `user32` / COM bindings so browser-only mode imports cleanly on Linux/macOS.
-3. Implement OOPIF target attachment (`Target.setAutoAttach`) + `<iframe src>` cross-origin blind-region fallback under `--site-per-process`.
-4. Add multi-tab session tracking (`Page` target switching) and `KillSwitch` fail-closed initialization.
-5. Run paired live VLM evaluations on the 20-task benchmark (`benchmarks/bench_agent_20tasks.py`) across open and commercial vision models.
-
----
-
-## 10. Contributing & Citation
-
-Contributions focusing on reproducible bug reports, cross-origin frame tests, platform decoupling, and empirical benchmarks are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). To report security issues responsibly, consult [SECURITY.md](SECURITY.md).
-
-If you cite Computer Use Lite or its empirical methodology in academic or engineering work, see [CITATION.cff](CITATION.cff).
+- **Contributions:** See [CONTRIBUTING.md](CONTRIBUTING.md) and `.github/` templates.
+- **Security Reports:** See [SECURITY.md](SECURITY.md).
+- **Citation:** See [CITATION.cff](CITATION.cff).
 
 ```text
-Copyright 2026 Mohamed Gomaa
+Computer Use Lite — Copyright 2026 Mohamed Gomaa (@mohgomaa-art)
 Licensed under the Apache License, Version 2.0 (LICENSE / NOTICE)
 ```

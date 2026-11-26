@@ -1,9 +1,13 @@
+> [!NOTE]
+> **Archival Provenance:** Moved from `COPYRIGHT_ATTRIBUTION_AUDIT.md` (pre-move SHA-256: `B07C9EAC136A512F34766209CBB4749218004BAE6AAF8D4B7D76765AE59D0A87`). Point-in-time Attribution & License Audit (`66/66` files at `2026-11-26`, pre-Workstream-A Cursor Overlay and pre-P0 additions). Canonical legal/attribution files live at root: [LICENSE](../../LICENSE), [NOTICE](../../NOTICE), [AUTHORS.md](../../AUTHORS.md), [CITATION.cff](../../CITATION.cff), [CONTRIBUTING.md](../../CONTRIBUTING.md). See also [Archive Index](../INDEX.md) and [README](../../README.md).
+> *(Absolute local workstation URIs and relative paths were normalized for archival portability; original findings, figures, and scope claims below are preserved verbatim.)*
+
 # Copyright & AI Attribution Audit Report (`computer-use-lite`)
 
 **Audit Date:** `2026-11-26`  
 **Primary Author & Copyright Holder:** **Mohamed Gomaa**  
 **Repository License:** `Apache License, Version 2.0` (`SPDX-License-Identifier: Apache-2.0`)  
-**Verification Script:** [`scripts/verify_copyright_headers.py`](scripts/verify_copyright_headers.py)
+**Verification Script:** [`scripts/verify_copyright_headers.py`](../../scripts/verify_copyright_headers.py)
 
 ---
 
@@ -11,12 +15,12 @@
 
 | Governance Dimension | Verified Finding | Evidence Source |
 | :--- | :--- | :--- |
-| **Confirmed Repository License** | **Apache License, Version 2.0** (`SPDX-License-Identifier: Apache-2.0`) | [`LICENSE`](LICENSE) (`189` lines), [`NOTICE`](NOTICE), [`pyproject.toml`](pyproject.toml), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CITATION.cff`](CITATION.cff); no `package.json` or `Cargo.toml` present |
-| **Confirmed Copyright Holder** | **Mohamed Gomaa** (`Copyright 2026 Mohamed Gomaa`) | [`LICENSE`](LICENSE#L177), [`NOTICE`](NOTICE#L2), [`pyproject.toml`](pyproject.toml#L12-L14), [`AUTHORS.md`](AUTHORS.md) |
+| **Confirmed Repository License** | **Apache License, Version 2.0** (`SPDX-License-Identifier: Apache-2.0`) | [`LICENSE`](../../LICENSE) (`189` lines), [`NOTICE`](../../NOTICE), [`pyproject.toml`](../../pyproject.toml), [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`CITATION.cff`](../../CITATION.cff); no `package.json` or `Cargo.toml` present |
+| **Confirmed Copyright Holder** | **Mohamed Gomaa** (`Copyright 2026 Mohamed Gomaa`) | [`LICENSE`](../../LICENSE#L177), [`NOTICE`](../../NOTICE#L2), [`pyproject.toml`](../../pyproject.toml#L12-L14), [`AUTHORS.md`](../../AUTHORS.md) |
 | **Verified Copyright Year** | **`2026`** (all `25` reachable Git commits span `2026-11-24` to `2026-11-26`) | `git log --all --format=%H\|%ai\|%an\|%s` (`25` commits) |
 | **Unresolved Source Placeholders** | **`0` remaining** in `LICENSE`, `NOTICE`, `pyproject.toml`, `README.md`, or source files | Updated to `Mohamed Gomaa` / `Apache-2.0` (`[TODO:` = `0` hits) |
 | **Git Commit Author History Caveat** | All `25` historical commits on local `main` retain author/committer `TODO Copyright Holder <todo@example.invalid>` | Preserved unmodified per **No Git history rewriting** constraint (handled via clean orphan release branch on publication) |
-| **Third-Party Dependency Licensing** | `8` direct/optional (`playwright`, `pillow`, `websockets`, `mcp`, `uiautomation`, `comtypes`, `pytest`, `psutil`) + `4` transitive (`anyio`, `pyee`, `greenlet`, `typing-extensions`) — all permissive (`Apache-2.0`, `MIT`, `MIT-CMU`, `BSD-3-Clause`, `PSF-2.0`) | [`NOTICE`](NOTICE) (zero GPL/AGPL copyleft conflicts) |
+| **Third-Party Dependency Licensing** | `8` direct/optional (`playwright`, `pillow`, `websockets`, `mcp`, `uiautomation`, `comtypes`, `pytest`, `psutil`) + `4` transitive (`anyio`, `pyee`, `greenlet`, `typing-extensions`) — all permissive (`Apache-2.0`, `MIT`, `MIT-CMU`, `BSD-3-Clause`, `PSF-2.0`) | [`NOTICE`](../../NOTICE) (zero GPL/AGPL copyleft conflicts) |
 
 ---
 
@@ -44,7 +48,7 @@ Applied in native Python (`# ...`) and HTML (`<!-- ... -->`) comment syntax with
 **Preservation Mechanics:**
 - Python scripts preserve `#!/usr/bin/env python3` shebangs at line 1 (e.g., `benchmark_real.py`, `experiments/h1*.py`, `experiments/h2*.py`, `tests/test_e2e.py`, `tests/test_engine_audit.py`), replace single-line `# SPDX-License-Identifier: Apache-2.0` headers cleanly (no duplicates), and keep module docstrings plus `from __future__ import annotations` intact in valid AST order.
 - HTML fixture files (`tests/fixtures/form.html`, `benchmarks/fixtures/corpus_*.html`, `experiments/fixtures/*.html`) retain `<!DOCTYPE html>` / `<!doctype html>` as line 1 (preventing quirks mode) and place `<!-- ... -->` directly on line 2.
-- [`benchmarks/bench_remote_ops.py`](benchmarks/bench_remote_ops.py) preserves its existing `# Official opcodes from Microsoft-UI-UIAutomation RemoteOperationInstructions.h` line comment and adds an explicit ABI reference note identifying those Windows UIA constants as referencing Microsoft's public specification.
+- [`benchmarks/bench_remote_ops.py`](../../benchmarks/bench_remote_ops.py) preserves its existing `# Official opcodes from Microsoft-UI-UIAutomation RemoteOperationInstructions.h` line comment and adds an explicit ABI reference note identifying those Windows UIA constants as referencing Microsoft's public specification.
 
 ---
 
@@ -52,7 +56,7 @@ Applied in native Python (`# ...`) and HTML (`<!-- ... -->`) comment syntax with
 
 - **Eligible original source files found:** **`66`** (`61` `.py` files including the newly created verification script + `5` `.html` fixtures).
 - **Updated during remediation:** **`65`** existing repository files (`60` `.py` + `5` `.html`). Prior to this update, `64` existing `.py` files contained only a bare `# SPDX-License-Identifier: Apache-2.0` line without copyright holder or AI attribution text, and `1` Python script (`live_runs/2026-11-26/evidence/verify_numbers.py`) plus all `5` `.html` fixtures lacked SPDX/copyright headers completely.
-- **Created already compliant:** **`1`** ([`scripts/verify_copyright_headers.py`](scripts/verify_copyright_headers.py), confirmed `0` updates required on subsequent idempotency check).
+- **Created already compliant:** **`1`** ([`scripts/verify_copyright_headers.py`](../../scripts/verify_copyright_headers.py), confirmed `0` updates required on subsequent idempotency check).
 - **Prior existing files already containing full canonical notice:** **`0`** -> **Now compliant: `66/66` (`100%`)**.
 
 | Directory / Scope | File Types | Eligible Count | Updated / Added | Key Notes |
@@ -65,7 +69,7 @@ Applied in native Python (`# ...`) and HTML (`<!-- ... -->`) comment syntax with
 | `skill_updates/` (`2026-11-26`, `2026-11-26_final`) | `.py` | `6` | `6` updated | First-party skill lint/metric scripts (`from __future__` preserved; `.md`/`.json`/`.png` untouched) |
 | `research_trace/2026-11-26/` | `.py` | `7` | `7` updated | Audit/repro helper scripts (`from __future__` preserved) |
 | `fix_runs/` & `live_runs/` | `.py` | `4` | `4` updated | Added canonical header to `m5`/`m6` & `os_capture.py` / `verify_numbers.py` (`.txt`/`.json`/`.patch`/`.png` untouched) |
-| `scripts/` | `.py` | `1` | `1` new (compliant) | [`scripts/verify_copyright_headers.py`](scripts/verify_copyright_headers.py) |
+| `scripts/` | `.py` | `1` | `1` new (compliant) | [`scripts/verify_copyright_headers.py`](../../scripts/verify_copyright_headers.py) |
 
 ---
 
@@ -88,7 +92,7 @@ No comments were blindly injected into non-source, data, binary, or evidence fil
 
 ## 5. Uncertain Ownership & Licensing Issues Assessment
 
-- **Files with uncertain ownership:** **`0`**. All `66` `.py`/`.html` files are original first-party code authored for `computer-use-lite`. The integer UIA Remote Operations opcodes in [`benchmarks/bench_remote_ops.py`](benchmarks/bench_remote_ops.py) correspond to Microsoft's public WinRT UIA specification (`RemoteOperationInstructions.h`) and are explicitly documented as an external ABI reference rather than claimed as proprietary invention. Note also that the working tree currently contains uncommitted `P0` source/test modifications (`src/computer_use_lite/{browser_cdp.py, session_manager.py, cursor_overlay.py}`, `tests/{test_audit_fixes.py, test_cursor_overlay.py}`) relative to committed `HEAD` `3e67e49`, all authored with `Apache-2.0` SPDX headers for this project.
+- **Files with uncertain ownership:** **`0`**. All `66` `.py`/`.html` files are original first-party code authored for `computer-use-lite`. The integer UIA Remote Operations opcodes in [`benchmarks/bench_remote_ops.py`](../../benchmarks/bench_remote_ops.py) correspond to Microsoft's public WinRT UIA specification (`RemoteOperationInstructions.h`) and are explicitly documented as an external ABI reference rather than claimed as proprietary invention. Note also that the working tree currently contains uncommitted `P0` source/test modifications (`src/computer_use_lite/{browser_cdp.py, session_manager.py, cursor_overlay.py}`, `tests/{test_audit_fixes.py, test_cursor_overlay.py}`) relative to committed `HEAD` `3e67e49`, all authored with `Apache-2.0` SPDX headers for this project.
 - **Files with unresolved source licensing conflicts:** **`0`** (all declared dependencies in `NOTICE` are permissive Apache-2.0 compatible). Unresolved `.git` commit history metadata (`TODO Copyright Holder <todo@example.invalid>`) remains documented for clean orphan export prior to public GitHub hosting.
 
 ---
@@ -117,5 +121,5 @@ All verification checks ran **after** the final header edits:
 ## 7. Remaining Technical & Legal Limitations
 
 1. **Provenance Notice vs. Technical Enforcement:** As explicitly stated inside every notice, copyright and AI attribution headers document legal/provenance obligations consistent with `Apache License, Version 2.0` (Sections 4(a), 4(c), 4(d)) and do **not** implement technical read/copy blocking or machine-enforced DRM.
-2. **Line-Number Offset Relative to Pre-Header Forensic Trace:** Inserting 13–14 comment lines at the top of `src/computer_use_lite/*.py` shifts source line numbers compared to historical point-in-time `LINE_CHECKS` hardcoded for committed `HEAD` (`3e67e49`) in [`research_trace/2026-11-26/verify_dossier.py`](research_trace/2026-11-26/verify_dossier.py).
+2. **Line-Number Offset Relative to Pre-Header Forensic Trace:** Inserting 13–14 comment lines at the top of `src/computer_use_lite/*.py` shifts source line numbers compared to historical point-in-time `LINE_CHECKS` hardcoded for committed `HEAD` (`3e67e49`) in ``research_trace/2026-11-26/verify_dossier.py`` (`research_trace/2026-11-26/verify_dossier.py`, local-only).
 3. **Unwritten Git Commit Identity on Existing Local `main` History:** Historical commit metadata (`TODO Copyright Holder <todo@example.invalid>`) remains intentionally unaltered in local `.git` objects (`No Git history rewriting`); create a fresh clean orphan branch/tag with verified `user.name = "Mohamed Gomaa"` before pushing to a public remote.

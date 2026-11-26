@@ -1,8 +1,12 @@
+> [!NOTE]
+> **Archival Provenance:** Moved from `FINAL_SKILL_UPDATE_REPORT.md` (pre-move SHA-256: `3A6CED85EC3505D6E8FC095BCF8E89CFA0D85DF135F88D91756FC1346DD968F0`). Archived Skill Update Report (Round 2 / Final at `3e67e49`). Pre-dates Workstream A Cursor Overlay (`7c7b9b4..d47b4e9`) and Phase 1 `P0-1..P0-5` (`77cd171..a3291b3`). Note: `skill_updates/2026-11-26_final/verify_report_numbers.py` still references the original root filename if re-executed unmodified. See also [Archive Index](../INDEX.md) and [README](../../README.md).
+> *(Absolute local workstation URIs and relative paths were normalized for archival portability; original findings, figures, and scope claims below are preserved verbatim.)*
+
 # Final Skill Update Report (`computer-use-lite`)
 
 ## 1. Executive Summary & Environment Provenance
 
-This update revises the [computer-use-lite skill](.agents/skills/computer-use-lite/SKILL.md) and its references using primary repository evidence across source code (`src/computer_use_lite/*.py`), the `13` MCP `.json` schemas, headless/mocked post-fix checks (`tests/test_audit_fixes.py`, `fix_runs/`), raw M5 `transcript_full.jsonl` logs from `HT1`–`HT3`, `8` newly executed live gap probes (`M1`) on `WinSta0\Default`, and `18` fresh non-overlapping held-out validation runs (`M5` `F1`–`F3`).
+This update revises the [computer-use-lite skill](../../.agents/skills/computer-use-lite/SKILL.md) and its references using primary repository evidence across source code (`src/computer_use_lite/*.py`), the `13` MCP `.json` schemas, headless/mocked post-fix checks (`tests/test_audit_fixes.py`, `fix_runs/`), raw M5 `transcript_full.jsonl` logs from `HT1`–`HT3`, `8` newly executed live gap probes (`M1`) on `WinSta0\Default`, and `18` fresh non-overlapping held-out validation runs (`M5` `F1`–`F3`).
 
 - **Pre-update Repository `HEAD`:** `b4ca9b54aefc025eaf5ce7984fec5ae195ac30e9`
 - **Latest `src/` Code Commit:** `6a2f0fbbf2c4198871b7d1a60ac556d609382b46` (`2026-11-26T12:09:59+02:00`, covered-window `PrintWindow` priority)
@@ -14,7 +18,7 @@ This update revises the [computer-use-lite skill](.agents/skills/computer-use-li
 ### Strict Evidence Separation
 1. **Stale Pre-Fix Live Suite (`live_runs/2026-11-26/`, `T01`–`T18`):** Executed against `PID 4076` (`2026-11-26T10:06:13+02:00`), predating commits `47bea1bb..6a2f0fbb`. Treated strictly as pre-fix baseline unless re-verified live on `HEAD`.
 2. **Post-Fix Headless/Mocked Suite (`HEAD` `abebcff`–`6a2f0fbb`):** Verified `5/5` consecutive runs (`52` pytest + `8/8` CLI E2E, `0` warnings, `0` leaked PIDs) using headless Chromium fixtures and `CreateWindowExW` mocks (`P-09` live `Default`-desktop contrast previously `BLOCKED` in `exebox`).
-3. **Post-Restart Live Browser + Desktop Verification (`PID 18036`, `HEAD`):** Confirmed live via `18` `HT1`–`HT3` runs, `8` `M1` live probes ([m1_gap_probes/RESULTS.md](skill_updates/2026-11-26_final/m1_gap_probes/RESULTS.md)), and `18` fresh `F1`–`F3` held-out runs ([M5_RESULTS.md](skill_updates/2026-11-26_final/m5_runs/M5_RESULTS.md)).
+3. **Post-Restart Live Browser + Desktop Verification (`PID 18036`, `HEAD`):** Confirmed live via `18` `HT1`–`HT3` runs, `8` `M1` live probes (`m1_gap_probes/RESULTS.md` (`skill_updates/2026-11-26_final/m1_gap_probes/RESULTS.md`, local-only)), and `18` fresh `F1`–`F3` held-out runs (`skill_updates/2026-11-26_final/m5_runs/M5_RESULTS.md` *(local-only, excluded from public git)*).
 
 ---
 
@@ -23,7 +27,7 @@ This update revises the [computer-use-lite skill](.agents/skills/computer-use-li
 | Conflict Identified | Report Claim | Primary Raw Truth | Resolution Recorded in Skill / Ledger |
 | :--- | :--- | :--- | :--- |
 | **`TaskState` plaintext leak (`P-19(c)`)** | `AUDIT_REPORT.md` claimed non-password `value` stayed plaintext | `src/computer_use_lite/state.py:L72-76`, `test_audit_fixes.py` pop & redact **all** non-`None` `value` fields | Documented accurate full redaction (`value_redacted: true`). |
-| **Step 6 baseline sum** | Iteration-1 walkthrough stated `13/15` | Raw `benchmark.json` evals `0, 1, 2` sum to `14/16` (`5/5`, `3/5`, `6/6`) | Recorded walkthrough arithmetic error in [M0_CORPUS_LEDGER.md](skill_updates/2026-11-26_final/M0_CORPUS_LEDGER.md). |
+| **Step 6 baseline sum** | Iteration-1 walkthrough stated `13/15` | Raw `benchmark.json` evals `0, 1, 2` sum to `14/16` (`5/5`, `3/5`, `6/6`) | Recorded walkthrough arithmetic error in `skill_updates/2026-11-26_final/M0_CORPUS_LEDGER.md` *(local-only, excluded from public git)*. |
 | **`Exp 8` freshness numbers** | Early note mixed `9.543 ms` / `2013.98 ms` | Confounded by mismatched `os.fsync` durability & pre-`AutoSetFocus=0` desktop run | Disqualified confounded benchmark citation. |
 | **`benchmarks_real` GitHub latency** | Old doc stated `292 ms` & `"BLOCKED IN exebox"` | Raw `results/benchmarks/benchmarks_real.json` measures `215.5 ms` | Followed raw benchmark artifact. |
 | **VLM speedup claims (`~300–700` vs `100k`)** | Prior V1 skill claimed huge token reduction over screenshots | `HARNESS_VALIDATION.md` ran `0` LLM calls; no live multi-turn VLM screenshot baseline exists | Removed all uncalibrated VLM claims cleanly. |
@@ -47,17 +51,17 @@ This update revises the [computer-use-lite skill](.agents/skills/computer-use-li
 
 ## 4. Changes Applied Under `/skill-creator`, `/code-simplification`, and `/code-review-and-quality`
 
-All `5` updated skill files under `.agents/skills/computer-use-lite/` trace 1-to-1 via [EVIDENCE_MAP.md](skill_updates/2026-11-26_final/EVIDENCE_MAP.md) to [LESSONS.md](skill_updates/2026-11-26_final/LESSONS.md):
-- **[SKILL.md](.agents/skills/computer-use-lite/SKILL.md) (`126` -> `111` lines):** Consolidated redundant `Runtime Capability Detection` repetition into orthogonal workflow sections without losing behavior, integrated native `<select>` keyboard selection, `open_browser` initial SPA hydration settle awareness, `readonly` `inspect()` verification, unlabeled `<label>` vertical-geometry disambiguation, `button`/`clickable` duplicate `<label>` quirks, File Explorer multi-cell/multi-monitor/mixed-locale notes, live third-party site-isolated embed `BLIND_REGIONS:0` reporting, Win32 file-save `inspect()` vs disk desync, covered `PrintWindow` RTL/Mica notes, and non-blocking `list_sessions()` navigation lag.
-- **[references/mcp_tools.md](.agents/skills/computer-use-lite/references/mcp_tools.md) (`73` lines):** Updated parameter behavior notes for `open_browser`, `list_desktop_windows`, `discover`, `inspect`, and `act` using only schema-verbatim constants (`13`, `1280`, `720`, `40`, `60`, `350`, `400`, `1`, `0`, `>2 px`) and non-numeric internal cap wording.
-- **[references/python_api_and_safety.md](.agents/skills/computer-use-lite/references/python_api_and_safety.md) (`103` lines):** Updated `BrowserSession` boundaries (local-origin fixture pass vs live third-party embed omission, shared `.value` signature cause) and `DesktopSession` boundaries (`ValuePattern` Save As desync, live covered `PrintWindow` behavior, RTL mirroring asymmetry, dark Mica backdrop).
-- **[evals/evals.json](.agents/skills/computer-use-lite/evals/evals.json) & [evals/trigger_eval.json](.agents/skills/computer-use-lite/evals/trigger_eval.json):** Updated expectations cleanly to test `<select>` keyboard handling, `readonly` `inspect()` verification, Save As disk-vs-`inspect()` desync, and covered `PrintWindow`/RTL caveats without overlapping `M5` held-out targets.
+All `5` updated skill files under `.agents/skills/computer-use-lite/` trace 1-to-1 via `skill_updates/2026-11-26_final/EVIDENCE_MAP.md` *(local-only, excluded from public git)* to `skill_updates/2026-11-26_final/LESSONS.md` *(local-only, excluded from public git)*:
+- **[SKILL.md](../../.agents/skills/computer-use-lite/SKILL.md) (`126` -> `111` lines):** Consolidated redundant `Runtime Capability Detection` repetition into orthogonal workflow sections without losing behavior, integrated native `<select>` keyboard selection, `open_browser` initial SPA hydration settle awareness, `readonly` `inspect()` verification, unlabeled `<label>` vertical-geometry disambiguation, `button`/`clickable` duplicate `<label>` quirks, File Explorer multi-cell/multi-monitor/mixed-locale notes, live third-party site-isolated embed `BLIND_REGIONS:0` reporting, Win32 file-save `inspect()` vs disk desync, covered `PrintWindow` RTL/Mica notes, and non-blocking `list_sessions()` navigation lag.
+- **[references/mcp_tools.md](../../.agents/skills/computer-use-lite/references/mcp_tools.md) (`73` lines):** Updated parameter behavior notes for `open_browser`, `list_desktop_windows`, `discover`, `inspect`, and `act` using only schema-verbatim constants (`13`, `1280`, `720`, `40`, `60`, `350`, `400`, `1`, `0`, `>2 px`) and non-numeric internal cap wording.
+- **[references/python_api_and_safety.md](../../.agents/skills/computer-use-lite/references/python_api_and_safety.md) (`103` lines):** Updated `BrowserSession` boundaries (local-origin fixture pass vs live third-party embed omission, shared `.value` signature cause) and `DesktopSession` boundaries (`ValuePattern` Save As desync, live covered `PrintWindow` behavior, RTL mirroring asymmetry, dark Mica backdrop).
+- **[evals/evals.json](../../.agents/skills/computer-use-lite/evals/evals.json) & [evals/trigger_eval.json](../../.agents/skills/computer-use-lite/evals/trigger_eval.json):** Updated expectations cleanly to test `<select>` keyboard handling, `readonly` `inspect()` verification, Save As disk-vs-`inspect()` desync, and covered `PrintWindow`/RTL caveats without overlapping `M5` held-out targets.
 
 ---
 
 ## 5. M4 Mechanical Hardcode & Validation Verification
 
-From [lint_output.txt](skill_updates/2026-11-26_final/lint_output.txt) (`lint_skill.py` `rc=0`) and `quick_validate.py` (`rc=0`):
+From `skill_updates/2026-11-26_final/lint_output.txt` *(local-only, excluded from public git)* (`lint_skill.py` `rc=0`) and `quick_validate.py` (`rc=0`):
 - **Instruction files scanned:** `references/mcp_tools.md`, `references/python_api_and_safety.md`, `SKILL.md`
 - **Unjustified instruction hardcode / site / app / locale / banned-word flags:** `0` (`0` URLs, `0` domains, `0` site/app names, `0` locale strings, `0` forbidden words)
 - **Schema/packaging-justified hits:** `68` (strictly schema defaults, section headings, SPDX/dependency bounds, `SHA-256`, `>2 px`)
@@ -67,7 +71,7 @@ From [lint_output.txt](skill_updates/2026-11-26_final/lint_output.txt) (`lint_sk
 
 ## 6. M5 Held-Out Live Validation (`prior_skill` vs `final_skill` on `HEAD` `PID 18036`)
 
-All `18` sequential alternating subagent executions across `3` repeats of `3` brand-new held-out tasks (`F1`: `docs.python.org/3/` `<select>` version switcher + `Quick search`; `F2`: `httpbin.org/forms/post` + `scrapethissite.com/pages/forms/`; `F3`: non-destructive `File Explorer` multi-monitor/multi-cell/mixed-locale `Address Bar` + covered `Settings` `PrintWindow` crop) ran against `PID 18036` with `0` headless violations, `0` shell GUI launches, `0` contamination reads, and `0` leaked sessions (`list_sessions().count == 0`). Raw counts from [m5_summary.json](skill_updates/2026-11-26_final/m5_runs/m5_summary.json) & [M5_RESULTS.md](skill_updates/2026-11-26_final/m5_runs/M5_RESULTS.md):
+All `18` sequential alternating subagent executions across `3` repeats of `3` brand-new held-out tasks (`F1`: `docs.python.org/3/` `<select>` version switcher + `Quick search`; `F2`: `httpbin.org/forms/post` + `scrapethissite.com/pages/forms/`; `F3`: non-destructive `File Explorer` multi-monitor/multi-cell/mixed-locale `Address Bar` + covered `Settings` `PrintWindow` crop) ran against `PID 18036` with `0` headless violations, `0` shell GUI launches, `0` contamination reads, and `0` leaked sessions (`list_sessions().count == 0`). Raw counts from `skill_updates/2026-11-26_final/m5_runs/m5_summary.json` *(local-only, excluded from public git)* & `skill_updates/2026-11-26_final/m5_runs/M5_RESULTS.md` *(local-only, excluded from public git)*:
 
 | Arm | Repeat | Pass | MCP Calls | Discover Calls | Crop-Suppress Flags | Combobox `act(type)` | Stale Retries | MCP Unexp Err | Non-MCP Err | Wall s | Lat Med ms | Map `TOKENS_EST` | Subagent Non-Cached Tok |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -86,7 +90,7 @@ All `18` sequential alternating subagent executions across `3` repeats of `3` br
 - **Explicit Crop-Suppression Flag Usage (`include_blind_images=False` / `export_crops=False`):** `prior_skill` `[4, 0, 0]` (`4` calls total) vs `final_skill` `[9, 5, 12]` (`26` calls total across `F1`, `F2`, `F3`).
 - **Wall Time s, Discover Latency Med ms, and Subagent Non-Cached Tokens:** `prior_skill` (`401.0..443.0 s`, `51.5..54.4 ms`, `330233..334091` tok) vs `final_skill` (`413.0..441.0 s`, `50.1..53.6 ms`, `320358..352306` tok) -> **no measurable change (overlaps run-to-run spread)**.
 - **Error Transparency:** `0` unexpected MCP tool errors (`"ok":false`) across all `18` runs; `1` non-MCP `read_file` error (`file does not exist`) occurred in `final_skill` Repeat `3` `F1` (`6d620462` step `29`) before inspecting the final OS capture cleanly on `PASS`.
-- *(Historical M5 context from [skill_updates/2026-11-26/m5_runs/M5_RESULTS.md](skill_updates/2026-11-26/m5_runs/M5_RESULTS.md): earlier comparison between V1 `old_skill` and `prior_skill` on `HT1`–`HT3` already established the non-overlapping shift in `navigate(auto_discover=True)` from `9/9` to `0/9` alongside non-overlapping MCP Calls `72..76` vs `56..70` and `TOKENS_EST` `4765.3..4824.5` vs `4495.9..4593.7`, which `final_skill` preserved.)*
+- *(Historical M5 context from `skill_updates/2026-11-26/m5_runs/M5_RESULTS.md` *(local-only, excluded from public git)*: earlier comparison between V1 `old_skill` and `prior_skill` on `HT1`–`HT3` already established the non-overlapping shift in `navigate(auto_discover=True)` from `9/9` to `0/9` alongside non-overlapping MCP Calls `72..76` vs `56..70` and `TOKENS_EST` `4765.3..4824.5` vs `4495.9..4593.7`, which `final_skill` preserved.)*
 
 ---
 
