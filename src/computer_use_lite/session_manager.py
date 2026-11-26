@@ -352,7 +352,10 @@ class SessionManager:
 
     @staticmethod
     def _with_busy_cursor(sess, fn):
-        active = bool(getattr(sess, "show_cursor", False) and hasattr(sess, "set_cursor_busy"))
+        active = bool(
+            getattr(sess, "show_cursor", False) is True
+            and callable(getattr(sess, "set_cursor_busy", None))
+        )
         if active:
             sess.set_cursor_busy(True)
         try:
@@ -434,6 +437,7 @@ class SessionManager:
         title_contains: str | None = None,
         process_name: str | None = None,
         auto_discover: bool = True,
+        show_cursor: bool | None = None,
     ) -> dict:
         if sys.platform != "win32":
             raise RuntimeError("Desktop UIA automation is only supported on Windows.")
@@ -479,7 +483,9 @@ class SessionManager:
         )
 
         def factory():
-            return DesktopSession(int(target_hwnd))
+            if show_cursor is None:
+                return DesktopSession(int(target_hwnd))
+            return DesktopSession(int(target_hwnd), show_cursor=show_cursor)
 
         worker = await asyncio.to_thread(lambda: _SessionWorker(sid, "desktop", summary, factory))
 
@@ -493,7 +499,9 @@ class SessionManager:
                 "bounds": list(sess.bounds()),
             }
             if auto_discover:
-                payload["discovery"] = self._discover_inside_worker(api)
+                payload["discovery"] = self._with_busy_cursor(
+                    sess, lambda: self._discover_inside_worker(api)
+                )
             return payload
 
         return await self._run_post_open(worker, post_open, timeout=45.0)

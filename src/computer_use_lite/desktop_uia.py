@@ -28,6 +28,12 @@ import comtypes
 import comtypes.client
 
 from . import snapshot
+from .cursor_overlay import cursor_for_action
+from .desktop_cursor_overlay import (
+    DesktopCursorOverlay,
+    is_overlay_hwnd,
+    resolve_desktop_overlay_enabled,
+)
 from .resolver import StaleElementError
 
 _u32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -375,7 +381,7 @@ class DesktopSession:
 
     name = "desktop"
 
-    def __init__(self, hwnd):
+    def __init__(self, hwnd, show_cursor=None, cursor_glide_ms=None):
         self.hwnd = hwnd
         self._q = []
         self._cv = threading.Condition()
@@ -390,6 +396,9 @@ class DesktopSession:
         self._last = {}
         self._a11y_tried = False
         self.last_warning = None
+        self.show_cursor = False
+        self._overlay = None
+        self._last_cursor_xy = (0.0, 0.0)
 
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
@@ -397,6 +406,20 @@ class DesktopSession:
             raise TimeoutError("UIA worker failed to initialize within 5 s")
         if self._err is not None:
             raise self._err
+
+        if resolve_desktop_overlay_enabled(show_cursor):
+            try:
+                bx, by, bw, bh = self.bounds()
+                ix, iy = bx + bw / 2.0, by + bh / 2.0
+            except Exception:
+                ix, iy = 0.0, 0.0
+            self._last_cursor_xy = (float(ix), float(iy))
+            try:
+                self._overlay = DesktopCursorOverlay(initial_xy=(ix, iy), glide_ms=cursor_glide_ms)
+                self.show_cursor = True
+            except Exception:
+                self._overlay = None
+                self.show_cursor = False
 
     # -- worker plumbing --------------------------------------------------------
     def _worker(self):
@@ -609,7 +632,48 @@ class DesktopSession:
 
         return self._call(run)
 
+    def _overlay_move(self, x, y, cursor_id, box=None, wait=True):
+        self._last_cursor_xy = (float(x), float(y))
+        ov = getattr(self, "_overlay", None)
+        if ov is not None:
+            try:
+                ov.move_to(x, y, cursor_id, box=box, wait=wait)
+            except Exception:
+                pass
+
+    def _overlay_click(self, x, y, cursor_id):
+        ov = getattr(self, "_overlay", None)
+        if ov is not None:
+            try:
+                ov.click(x, y, cursor_id)
+            except Exception:
+                pass
+
+    def set_cursor_busy(self, flag: bool):
+        ov = getattr(self, "_overlay", None)
+        if ov is not None:
+            try:
+                ov.set_busy(bool(flag))
+            except Exception:
+                pass
+
+    def show_action_outcome(self, *, ok: bool, verified: bool = False, x=None, y=None, reason: str = ""):
+        ov = getattr(self, "_overlay", None)
+        if ov is not None:
+            try:
+                cx, cy = (x, y) if (x is not None and y is not None) else self._last_cursor_xy
+                ov.outcome(ok=ok, verified=verified, x=cx, y=cy, reason=reason)
+            except Exception:
+                pass
+
     def perform(self, el, action, value=None):
+        box = el.get("box") or [0, 0, 0, 0]
+        cx, cy = int(box[0] + box[2] / 2), int(box[1] + box[3] / 2)
+        cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
+        self._overlay_move(cx, cy, cid, box=box, wait=(action in ("hover", "click", "invoke")))
+        if action in ("click", "invoke", "type", "focus"):
+            self._overlay_click(cx, cy, cid)
+
         def run():
             e = self._element(el)
             if action == "type":
@@ -666,6 +730,7 @@ class DesktopSession:
     def hover(self, el):
         x, y, w, h = el["box"]
         cx, cy = int(x + w / 2), int(y + h / 2)
+        self._overlay_move(cx, cy, cursor_for_action("hover", role=el.get("role")), box=el["box"], wait=True)
         move_mouse(cx, cy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
         return {"x": cx, "y": cy}
 
@@ -764,6 +829,7 @@ class DesktopSession:
     def scroll(self, dx=0, dy=0):
         x, y, w, h = self.bounds()
         cx, cy = int(x + w / 2), int(y + h / 2)
+        self._overlay_move(cx, cy, cursor_for_action("scroll", dx=dx, dy=dy), wait=True)
         return wheel_scroll(cx, cy, dx=dx, dy=dy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
 
     def press_key(self, key):
@@ -777,11 +843,19 @@ class DesktopSession:
             raise ValueError(
                 f"Coordinate ({x}, {y}) is outside attached window bounds {[bx, by, bw, bh]}"
             )
+        cid = cursor_for_action("click_at", is_blind_coord=True)
+        self._overlay_move(x, y, cid, wait=True)
+        self._overlay_click(x, y, cid)
         mech = click_at(int(x), int(y), hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None),
                         button=button, clicks=clicks)
         return {"x": int(x), "y": int(y), "button": button, "clicks": clicks, "mechanism": mech}
 
     def close(self):
+        if getattr(self, "_overlay", None) is not None:
+            try:
+                self._overlay.close()
+            finally:
+                self._overlay = None
         with self._cv:
             self._stop = True
             self._dead = True
@@ -798,6 +872,8 @@ def list_windows(title_contains=None, class_name=None, limit=40):
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     def cb(hwnd, _):
+        if is_overlay_hwnd(hwnd):
+            return True
         if not _u32.IsWindowVisible(hwnd):
             return True
         title = _window_title(hwnd)

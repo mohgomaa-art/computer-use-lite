@@ -437,7 +437,14 @@ def build_overlay_init_script() -> str:
   let hostSvg = null, shapeLayer = null, dropShadow = null, halo = null, ripples = null, wake = null, wakeCtx = null;
   let activeId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
   let prevX = 640, prevY = 360, rafId = 0, busy = false, lastShDx = '2.2', lastShDy = '3.0';
+  let lastOutcome = null, lastOutcomeReason = '', clickCount = 0, outcomeCount = 0;
   const particles = [];
+  const RING_TONES = {{
+    input: ['rgba(56,189,248,0.85)', 'rgba(56,189,248,0.22)'],
+    verified: ['rgba(16,185,129,0.92)', 'rgba(16,185,129,0.24)'],
+    unverified: ['rgba(245,158,11,0.92)', 'rgba(245,158,11,0.24)'],
+    error: ['rgba(244,63,94,0.95)', 'rgba(244,63,94,0.26)'],
+  }};
 
   function svgEl(tag, attrs) {{
     const el = document.createElementNS(SVG_NS, tag);
@@ -617,13 +624,14 @@ def build_overlay_init_script() -> str:
     }}
   }}
 
-  function spawnRipple(x, y) {{
+  function spawnRipple(x, y, tone = 'input') {{
     if (!ripples || reduced) return;
+    const [edge, glow] = RING_TONES[tone] || RING_TONES.input;
     const el = document.createElement('div');
     Object.assign(el.style, {{
       position:'fixed', left:`${{x}}px`, top:`${{y}}px`, width:'28px', height:'28px',
-      borderRadius:'9999px', border:'1.5px solid rgba(56,189,248,0.85)',
-      background:'radial-gradient(circle, rgba(56,189,248,0.22) 0%, rgba(56,189,248,0) 70%)',
+      borderRadius:'9999px', border:`1.5px solid ${{edge}}`,
+      background:`radial-gradient(circle, ${{glow}} 0%, rgba(56,189,248,0) 70%)`,
       pointerEvents:'none',
     }});
     ripples.appendChild(el);
@@ -638,12 +646,15 @@ def build_overlay_init_script() -> str:
     }}
   }}
 
-  function setHalo(box) {{
+  function setHalo(box, tone = 'input') {{
     if (!halo) return;
     if (!box || box.length < 4) {{ halo.style.opacity = '0'; return; }}
+    const [edge, glow] = RING_TONES[tone] || RING_TONES.input;
+    halo.style.borderColor = edge;
+    halo.style.background = glow.replace(/[\\d.]+\\)$/, '0.09)');
     halo.style.width = `${{box[2] + 8}}px`;
     halo.style.height = `${{box[3] + 8}}px`;
-    halo.style.transform = `translate3d(${{box[0] - 4}}px, ${{box[1] - 4}}px, 0)`;
+    halo.style.transform = `translate3d(${{box[0] - 4}}px, ${{box[1] - 4}}px, 0px)`;
     halo.style.opacity = '1';
   }}
 
@@ -651,7 +662,7 @@ def build_overlay_init_script() -> str:
     moveTo(x, y, cursorId, opts = {{}}) {{
       if (!ensureMounted()) return;
       applyShape(cursorId || activeId, true);
-      setHalo(opts.halo || null);
+      setHalo(opts.halo || null, 'input');
       const glideMs = reduced ? 0 : Math.max(0, Number(opts.glideMs || 0));
       const sx = curX, sy = curY, ex = Number(x), ey = Number(y);
       if (glideMs <= 0 || Math.hypot(ex - sx, ey - sy) < 0.5) {{
@@ -672,13 +683,35 @@ def build_overlay_init_script() -> str:
     }},
     click(x, y, cursorId, opts = {{}}) {{
       if (!ensureMounted()) return;
+      lastOutcome = null;
+      lastOutcomeReason = '';
+      clickCount += 1;
       applyShape(cursorId || activeId, true);
       place(x, y, true);
       if (press) {{
         press.style.transform = 'scale(0.90) translateZ(-6px)';
         setTimeout(() => {{ if (press) press.style.transform = 'scale(1) translateZ(0px)'; }}, 110);
       }}
-      spawnRipple(x, y);
+      spawnRipple(x, y, 'input');
+    }},
+    outcome(kind, opts = {{}}) {{
+      if (!ensureMounted()) return;
+      const k = (kind === 'verified' || kind === 'unverified' || kind === 'error') ? kind : 'unverified';
+      lastOutcome = k;
+      lastOutcomeReason = String(opts.reason || '');
+      outcomeCount += 1;
+      const ox = opts.x !== undefined && opts.x !== null ? Number(opts.x) : curX;
+      const oy = opts.y !== undefined && opts.y !== null ? Number(opts.y) : curY;
+      place(ox, oy, true);
+      if (k === 'error') {{
+        applyShape('not-allowed', true);
+      }}
+      if (halo && halo.style.opacity === '1') {{
+        const [edge, glow] = RING_TONES[k];
+        halo.style.borderColor = edge;
+        halo.style.background = glow.replace(/[\\d.]+\\)$/, '0.11)');
+      }}
+      spawnRipple(ox, oy, k);
     }},
     setBusy(flag) {{
       if (!ensureMounted()) return;
@@ -696,6 +729,10 @@ def build_overlay_init_script() -> str:
         y: curY,
         busy,
         reducedMotion: Boolean(reduced),
+        lastOutcome,
+        lastOutcomeReason,
+        clickCount,
+        outcomeCount,
         pressOrigin: press ? press.style.transformOrigin : '',
         morphOrigin: morph ? morph.style.transformOrigin : '',
         offsetTransform: offset ? offset.style.transform : '',

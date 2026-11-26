@@ -23,6 +23,7 @@ import ctypes
 from ctypes import wintypes
 from pathlib import Path
 
+from .desktop_cursor_overlay import is_overlay_hwnd, temporarily_hidden_overlays
 from .resolver import INTERACTIVE
 
 MIN_CANVAS_FRACTION = 0.25      # a canvas this big dominates the surface
@@ -105,17 +106,18 @@ def _is_window_occluded_or_bg(hwnd, bbox):
     while cur and int(cur) not in seen and steps < 256:
         cur_int = int(cur)
         seen.add(cur_int)
-        if u32.IsWindowVisible(cur) and not u32.IsIconic(cur) and not _is_window_cloaked(cur_int):
-            if u32.GetWindowRect(cur, ctypes.byref(rect)):
-                if (
-                    rect.right > rect.left
-                    and rect.bottom > rect.top
-                    and rect.left < right
-                    and rect.right > left
-                    and rect.top < bottom
-                    and rect.bottom > top
-                ):
-                    return True
+        if not is_overlay_hwnd(cur_int):
+            if u32.IsWindowVisible(cur) and not u32.IsIconic(cur) and not _is_window_cloaked(cur_int):
+                if u32.GetWindowRect(cur, ctypes.byref(rect)):
+                    if (
+                        rect.right > rect.left
+                        and rect.bottom > rect.top
+                        and rect.left < right
+                        and rect.right > left
+                        and rect.top < bottom
+                        and rect.bottom > top
+                    ):
+                        return True
         cur = u32.GetWindow(cur, _GW_HWNDPREV)
         steps += 1
     return False
@@ -237,7 +239,8 @@ def capture_desktop_region(box, hwnd=None):
         if _is_window_cloaked(hwnd) or _is_window_occluded_or_bg(hwnd, bbox):
             return _capture_hwnd_printwindow(hwnd, bbox), "printwindow"
     try:
-        return ImageGrab.grab(bbox=bbox, all_screens=True), "imagegrab"
+        with temporarily_hidden_overlays():
+            return ImageGrab.grab(bbox=bbox, all_screens=True), "imagegrab"
     except Exception:
         if hwnd is not None:
             return _capture_hwnd_printwindow(hwnd, bbox), "printwindow"

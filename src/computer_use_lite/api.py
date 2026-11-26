@@ -106,6 +106,9 @@ class Api:
         rec = self.resolver.get(element_id)
         expected_rev = rec["revision"] if revision is None else revision
         performed = False
+        box = rec.get("box") or [0, 0, 0, 0]
+        tx = round(float(box[0]) + float(box[2]) / 2.0, 1)
+        ty = round(float(box[1]) + float(box[3]) / 2.0, 1)
         try:
             if expected_rev != self.resolver.revision:
                 raise StaleElementError(
@@ -117,14 +120,20 @@ class Api:
                 fresh = [e for e in self.session.discover() if e.get("role") in INTERACTIVE]
                 occluded = self.session.is_occluded(rec) if hasattr(self.session, "is_occluded") else False
                 match = self.resolver.assert_fresh(element_id, fresh, expected_rev, occluded=occluded)
+            mbox = match.get("box") or box
+            tx = round(float(mbox[0]) + float(mbox[2]) / 2.0, 1)
+            ty = round(float(mbox[1]) + float(mbox[3]) / 2.0, 1)
             before = _call_sig(self.session, match)
             if action == "type" and hasattr(self.session, "page"):
                 mechanism = self.session.perform(match, action, value, clear=clear)
             else:
                 mechanism = self.session.perform(match, action, value)
+            if isinstance(mechanism, dict) and "x" in mechanism and "y" in mechanism:
+                tx, ty = mechanism["x"], mechanism["y"]
             performed = True
             after = _call_sig(self.session, match)
             result = state.verify(before, after)
+            _notify_cursor_outcome(self.session, ok=True, verified=bool(result["changed"]), x=tx, y=ty)
             new_rev = snapshot.bump_revision()
             self.resolver.revision = new_rev
             rec["revision"] = new_rev
@@ -140,6 +149,7 @@ class Api:
                 "state_delta": result["delta"], "revision": new_rev,
             }
         except Exception as exc:
+            _notify_cursor_outcome(self.session, ok=False, verified=False, x=tx, y=ty, reason=type(exc).__name__)
             if performed:
                 new_rev = snapshot.bump_revision()
                 self.resolver.revision = new_rev
@@ -177,6 +187,17 @@ def _call_sig(session, match):
         return session.signature(match)
     except TypeError:
         return session.signature()
+
+
+def _notify_cursor_outcome(session, *, ok: bool, verified: bool, x: float, y: float, reason: str = "") -> None:
+    if getattr(session, "show_cursor", False) is not True:
+        return
+    hook = getattr(session, "show_action_outcome", None)
+    if callable(hook):
+        try:
+            hook(ok=ok, verified=verified, x=x, y=y, reason=reason)
+        except Exception:
+            pass
 
 
 def _window_name(session):

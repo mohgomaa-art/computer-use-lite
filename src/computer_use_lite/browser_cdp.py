@@ -1548,6 +1548,7 @@ class BrowserSession:
     def _move_cursor(self, x: float, y: float, cursor_id: str, halo=None) -> None:
         if not self.show_cursor:
             return
+        self._last_cursor_xy = (float(x), float(y))
         opts = {"glideMs": self.cursor_glide_ms}
         if halo is not None:
             opts["halo"] = [round(float(v), 1) for v in halo[:4]]
@@ -1555,6 +1556,26 @@ class BrowserSession:
 
     def set_cursor_busy(self, flag: bool) -> None:
         self._dispatch_cursor("setBusy", bool(flag))
+
+    def show_action_outcome(
+        self,
+        *,
+        ok: bool,
+        verified: bool = False,
+        x: float | None = None,
+        y: float | None = None,
+        reason: str = "",
+    ) -> None:
+        """Render postcondition-separated outcome cue (never pre-claimed before Api verifies)."""
+        if not self.show_cursor:
+            return
+        kind = "verified" if (ok and verified) else ("unverified" if ok else "error")
+        cx, cy = (x, y) if (x is not None and y is not None) else getattr(self, "_last_cursor_xy", (640.0, 360.0))
+        self._dispatch_cursor(
+            "outcome",
+            kind,
+            {"x": round(float(cx), 1), "y": round(float(cy), 1), "reason": str(reason or "")[:80]},
+        )
 
     def _center(self, el):
         bx = el["box"]

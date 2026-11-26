@@ -16,10 +16,12 @@
 from __future__ import annotations
 
 import http.server
+import os
 import socketserver
 from pathlib import Path
 import sys
 import threading
+import time
 
 import pytest
 
@@ -31,7 +33,8 @@ for _p in (str(ROOT), str(SRC)):
 
 from benchmarks import common  # noqa: E402
 from benchmarks.corpus import DualOriginCorpusServer, extract_corpus_ground_truth  # noqa: E402
-from computer_use_lite import Api, BrowserSession, cursor_overlay  # noqa: E402
+from computer_use_lite import Api, BrowserSession, DesktopSession, StaleElementError, blind_gap, cursor_overlay  # noqa: E402
+from computer_use_lite import desktop_cursor_overlay, desktop_uia  # noqa: E402
 from computer_use_lite.session_manager import SessionManager  # noqa: E402
 
 
@@ -205,7 +208,14 @@ def test_zero_discovery_leakage_and_16x16_hotspot_precision(tmp_path):
             inp = next(r for r in api.resolver.records if r.get("role") == "textbox")
             api.execute_action(inp["id"], "type", "x")
 
-            # Click exact center of 16x16 canvas
+            # Click exact center of 16x16 canvas and confirm elementFromPoint never hits overlay
+            for sel, expected_id in [("#t_btn", "t_btn"), ("#t_inp", "t_inp"), ("#t_cvs", "t_cvs")]:
+                box = s.page.locator(sel).bounding_box()
+                hit_id = s.page.evaluate(
+                    "([x, y]) => { const el = document.elementFromPoint(x, y); return el ? el.id : null; }",
+                    [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2],
+                )
+                assert hit_id == expected_id
             cvs_box = s.page.locator("#t_cvs").bounding_box()
             s.click_coordinate(int(cvs_box["x"] + 8), int(cvs_box["y"] + 8))
 
@@ -273,3 +283,213 @@ def test_session_manager_cursor_env_opt_out_and_opt_in(monkeypatch):
 
         asyncio.run(_run_opt_out())
         asyncio.run(_run_opt_in())
+
+
+def test_browser_outcome_feedback_separation(tmp_path):
+    html = """<!doctype html><html><body>
+      <button id="mut">Mutate</button>
+      <button id="inert">Inert</button>
+      <button id="occlude_target">Covered</button>
+      <div id="cover"></div>
+      <div id="out">Initial</div>
+    </body></html>"""
+    with _CspServer(html, strict_csp=True) as srv:
+        s = BrowserSession(url=srv.url, headless=True, viewport=(1280, 720), show_cursor=True, cursor_glide_ms=0)
+        errors = []
+        s.page.on("pageerror", lambda err: errors.append(f"pageerror: {err}"))
+        s.page.on("console", lambda msg: errors.append(f"console:{msg.type}:{msg.text}") if msg.type == "error" else None)
+        try:
+            s.page.evaluate(
+                """() => {
+                  const cov = document.getElementById('cover');
+                  Object.assign(cov.style, {
+                    display: 'none', position: 'fixed', inset: '0px',
+                    background: 'rgba(0,0,0,0.4)', zIndex: '9999'
+                  });
+                  document.getElementById('mut').addEventListener('click', () => {
+                    document.getElementById('out').textContent = 'Changed';
+                  });
+                }"""
+            )
+            api = Api(s, state_path=tmp_path / "outcomes.json")
+            api.discover_interactables(export_crops=False)
+
+            mut = next(r for r in api.resolver.records if r.get("name") == "Mutate")
+            # Direct perform() triggers neutral click visual without pre-claiming verified-success
+            s.perform(mut, "click")
+            st_raw = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")
+            assert st_raw["clickCount"] >= 1
+            assert st_raw["lastOutcome"] is None
+            assert st_raw["outcomeCount"] == 0
+
+            # Api.execute_action with changed DOM -> verified=True -> verified outcome
+            api.discover_interactables(export_crops=False)
+            mut2 = next(r for r in api.resolver.records if r.get("name") == "Mutate")
+            s.page.evaluate("() => { document.getElementById('out').textContent = 'Initial'; }")
+            res_ok = api.execute_action(mut2["id"], "click")
+            assert res_ok["verified"] is True
+            st_ok = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")
+            assert st_ok["lastOutcome"] == "verified"
+            assert st_ok["outcomeCount"] == 1
+
+            # Api.execute_action on no-op button -> verified=False -> unverified warning (never verified!)
+            api.discover_interactables(export_crops=False)
+            inert = next(r for r in api.resolver.records if r.get("name") == "Inert")
+            res_noop = api.execute_action(inert["id"], "click")
+            assert res_noop["verified"] is False
+            st_noop = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")
+            assert st_noop["lastOutcome"] == "unverified"
+            assert st_noop["cursorId"] != "not-allowed"
+
+            # Occlude button before execute_action -> StaleElementError -> error + not-allowed cursor
+            api.discover_interactables(export_crops=False)
+            cov = next(r for r in api.resolver.records if r.get("name") == "Covered")
+            s.page.evaluate("() => { document.getElementById('cover').style.display = 'block'; }")
+            with pytest.raises(StaleElementError):
+                api.execute_action(cov["id"], "click")
+            st_err = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")
+            assert st_err["lastOutcome"] == "error"
+            assert st_err["cursorId"] == "not-allowed"
+            assert errors == []
+        finally:
+            s.close()
+
+
+# ---------------------------------------------------------------------------
+# 4. Phase B Desktop Overlay Guards, Thread Isolation & Capture/KillSwitch Safety
+# ---------------------------------------------------------------------------
+def test_desktop_overlay_policy_guards_and_sprite_rasterizer(monkeypatch):
+    monkeypatch.setenv("CUL_AGENT_CURSOR", "1")
+    monkeypatch.delenv("CUL_SKIP_DESKTOP", raising=False)
+    monkeypatch.setattr(desktop_cursor_overlay.sys, "platform", "linux")
+    assert desktop_cursor_overlay.resolve_desktop_overlay_enabled() is False
+
+    monkeypatch.setattr(desktop_cursor_overlay.sys, "platform", "win32")
+    assert desktop_cursor_overlay.resolve_desktop_overlay_enabled(show_cursor=False) is False
+    monkeypatch.setenv("CUL_AGENT_CURSOR", "0")
+    assert desktop_cursor_overlay.resolve_desktop_overlay_enabled() is False
+    monkeypatch.setenv("CUL_AGENT_CURSOR", "1")
+    monkeypatch.setenv("CUL_SKIP_DESKTOP", "1")
+    assert desktop_cursor_overlay.resolve_desktop_overlay_enabled() is False
+
+    # Confirm Pillow 3D Obsidian-Chrome sprite rasterizer handles all canonical desktop shapes cleanly
+    for cid in cursor_overlay.CURSOR_SPECS:
+        im, hx, hy = desktop_cursor_overlay._render_cursor_sprite(cid, 32)
+        assert im.size == (64, 64)
+        assert 0 <= hx <= 64 and 0 <= hy <= 64
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
+    reason="Interactive Win32 desktop overlay test skipped when CUL_SKIP_DESKTOP=1",
+)
+def test_desktop_overlay_win32_thread_isolation_capture_and_killswitch(monkeypatch):
+    import ctypes
+    from ctypes import wintypes
+
+    monkeypatch.delenv("CUL_AGENT_CURSOR", raising=False)
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    hinst = ctypes.c_void_p(0)
+    ws_popup_vis = 0x80000000 | 0x10000000
+    target_hwnd = u32.CreateWindowExW(
+        0, "STATIC", "CULTargetWindowForOverlayQA", ws_popup_vis,
+        140, 140, 320, 220, 0, 0, hinst, 0,
+    )
+    assert target_hwnd
+    u32.SetWindowPos(wintypes.HWND(target_hwnd), 0, 140, 140, 320, 220, 0x0040)
+    u32.SetForegroundWindow(wintypes.HWND(target_hwnd))
+    time.sleep(0.05)
+    fg_before = int(u32.GetForegroundWindow() or 0)
+
+    try:
+        sess = DesktopSession(int(target_hwnd), show_cursor=True, cursor_glide_ms=40)
+        try:
+            ov = sess._overlay
+            assert ov is not None and ov.hwnd
+            ov_hwnd = int(ov.hwnd)
+
+            # 1. Thread isolation: overlay runs on its own Win32 GUI pump thread
+            assert ov.thread_ident != sess._thread.ident
+            assert ov.thread_ident != threading.get_ident()
+
+            # 2. Required non-activating click-through topmost styles
+            ex_style = u32.GetWindowLongW(wintypes.HWND(ov_hwnd), -20)
+            expected_bits = 0x00080000 | 0x00000020 | 0x00000008 | 0x00000080 | 0x08000000
+            assert (ex_style & expected_bits) == expected_bits
+
+            # 3. Physical cursor & SendInput untouched by overlay glide -> KillSwitch never false-triggers
+            send_calls = []
+            orig_send_mouse = desktop_uia._send_mouse
+            monkeypatch.setattr(desktop_uia, "_send_mouse", lambda *a, **kw: send_calls.append(a) or orig_send_mouse(*a, **kw))
+
+            ks = desktop_uia.KillSwitch(enabled=True, tolerance=5)
+            try:
+                pos_before = desktop_uia.cursor_pos()
+                ks.moved(pos_before)
+            except OSError:
+                pos_before = None
+
+            ov.move_to(280, 230, "pointer", box=[160, 160, 120, 44], wait=True)
+            if pos_before is not None:
+                assert desktop_uia.cursor_pos() == pos_before
+                ks.pre_move()  # Must not raise HUMAN TAKEOVER
+
+            # 4. Emit click + verification outcome cues + busy toggle (with zero SendInput traffic)
+            ov.click(280, 230, "pointer")
+            assert ov.get_state()["last_outcome"] is None
+            ov.outcome(ok=True, verified=True, x=280, y=230)
+            assert ov.get_state()["last_outcome"] == "verified"
+            ov.outcome(ok=True, verified=False, x=280, y=230)
+            assert ov.get_state()["last_outcome"] == "unverified"
+            ov.outcome(ok=False, verified=False, x=280, y=230, reason="StaleElementError")
+            st = ov.get_state()
+            assert st["last_outcome"] == "error"
+            assert st["cursor_id"] == "not-allowed"
+            sess.set_cursor_busy(True)
+            assert ov.get_state()["busy"] is True
+            sess.set_cursor_busy(False)
+            assert ov.get_state()["busy"] is False
+            assert send_calls == []
+
+            # 5. Zero focus stealing throughout all overlay lifecycle transitions
+            fg_now = int(u32.GetForegroundWindow() or 0)
+            assert fg_now == fg_before, f"Foreground shifted from {fg_before} to {fg_now}"
+
+            # 6. Zero list_windows() or occlusion/capture pollution (even over foreground box)
+            listed_hwnds = {w["hwnd"] for w in desktop_uia.list_windows(limit=200)}
+            assert ov_hwnd not in listed_hwnds
+            assert desktop_cursor_overlay.is_overlay_hwnd(ov_hwnd) is True
+            if fg_before == int(target_hwnd):
+                assert blind_gap._is_window_occluded_or_bg(int(target_hwnd), (140, 140, 460, 360)) is False
+            assert st["excluded_from_capture"] is True
+
+            # Verify temporarily_hidden_overlays hides non-capture-excluded fallback overlays cleanly
+            ov.excluded_from_capture = False
+            with desktop_cursor_overlay.temporarily_hidden_overlays():
+                assert ov.get_state()["capture_suppressed"] is True
+            assert ov.get_state()["capture_suppressed"] is False
+            ov.excluded_from_capture = True
+        finally:
+            sess.close()
+
+        # 7. Clean window destruction & thread teardown on close()
+        time.sleep(0.05)
+        assert u32.IsWindow(wintypes.HWND(ov_hwnd)) == 0
+        assert not ov._thread.is_alive()
+        assert not desktop_cursor_overlay.is_overlay_hwnd(ov_hwnd)
+
+        # 8. SessionManager._with_busy_cursor must remain safe for minimal mocks like FakeDesktop
+        class FakeDesktop:
+            hwnd = 1234
+            def bounds(self):
+                return [0, 0, 800, 600]
+            def close(self):
+                pass
+
+        from unittest.mock import MagicMock
+        called = [0]
+        assert SessionManager._with_busy_cursor(FakeDesktop(), lambda: called.__setitem__(0, 1) or "ok") == "ok"
+        assert called[0] == 1
+        assert SessionManager._with_busy_cursor(MagicMock(), lambda: "mock_ok") == "mock_ok"
+    finally:
+        u32.DestroyWindow(wintypes.HWND(target_hwnd))
