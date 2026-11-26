@@ -32,9 +32,80 @@ def _overlaps(a, b):
     return ax < bx + bw and ax + aw > bx and ay < by + bh and ay + ah > by
 
 
+_DWMWA_CLOAKED = 14
+_GW_HWNDPREV = 3
+
+
 def _virtual_screen():
     u32 = ctypes.WinDLL("user32", use_last_error=True)
     return u32.GetSystemMetrics(76), u32.GetSystemMetrics(77), u32.GetSystemMetrics(78), u32.GetSystemMetrics(79)
+
+
+def _is_window_cloaked(hwnd):
+    """Return True if DWM reports the window is currently cloaked (hidden workspace / virtual desktop)."""
+    try:
+        dwmapi = ctypes.WinDLL("dwmapi")
+        dwmapi.DwmGetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
+        dwmapi.DwmGetWindowAttribute.restype = ctypes.c_long
+        cloaked = wintypes.DWORD(0)
+        hr = dwmapi.DwmGetWindowAttribute(
+            wintypes.HWND(hwnd),
+            wintypes.DWORD(_DWMWA_CLOAKED),
+            ctypes.byref(cloaked),
+            wintypes.DWORD(ctypes.sizeof(cloaked)),
+        )
+        return hr == 0 and cloaked.value != 0
+    except Exception:
+        return False
+
+
+def _is_window_occluded_or_bg(hwnd, bbox):
+    """Return True if target HWND is non-foreground, minimized, or overlapped by a higher Z-order window."""
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    u32.IsWindow.argtypes = [wintypes.HWND]
+    u32.IsWindow.restype = wintypes.BOOL
+    u32.IsIconic.argtypes = [wintypes.HWND]
+    u32.IsIconic.restype = wintypes.BOOL
+    u32.IsWindowVisible.argtypes = [wintypes.HWND]
+    u32.IsWindowVisible.restype = wintypes.BOOL
+    u32.GetForegroundWindow.argtypes = []
+    u32.GetForegroundWindow.restype = wintypes.HWND
+    u32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
+    u32.GetWindow.restype = wintypes.HWND
+    u32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    u32.GetWindowRect.restype = wintypes.BOOL
+
+    target = wintypes.HWND(hwnd)
+    if u32.IsIconic(target):
+        return True
+    fg = int(u32.GetForegroundWindow() or 0)
+    if fg != int(hwnd):
+        return True
+    if not u32.IsWindow(target):
+        return True
+
+    left, top, right, bottom = bbox
+    cur = u32.GetWindow(target, _GW_HWNDPREV)
+    seen = set()
+    steps = 0
+    rect = wintypes.RECT()
+    while cur and int(cur) not in seen and steps < 256:
+        cur_int = int(cur)
+        seen.add(cur_int)
+        if u32.IsWindowVisible(cur) and not u32.IsIconic(cur) and not _is_window_cloaked(cur_int):
+            if u32.GetWindowRect(cur, ctypes.byref(rect)):
+                if (
+                    rect.right > rect.left
+                    and rect.bottom > rect.top
+                    and rect.left < right
+                    and rect.right > left
+                    and rect.top < bottom
+                    and rect.bottom > top
+                ):
+                    return True
+        cur = u32.GetWindow(cur, _GW_HWNDPREV)
+        steps += 1
+    return False
 
 
 def detect(session, elements, viewport):
@@ -134,7 +205,7 @@ def _capture_hwnd_printwindow(hwnd, crop_bbox):
 
 
 def capture_desktop_region(box, hwnd=None):
-    """Capture a virtual-screen desktop box using ImageGrab with PrintWindow fallback when hwnd is given."""
+    """Capture a virtual-screen desktop box using PrintWindow first for occluded/background/cloaked HWNDs."""
     from PIL import ImageGrab
 
     x, y, w, h = [int(v) for v in box]
@@ -149,6 +220,9 @@ def capture_desktop_region(box, hwnd=None):
     if bottom <= top:
         bottom = top + 1
     bbox = (left, top, right, bottom)
+    if hwnd is not None:
+        if _is_window_cloaked(hwnd) or _is_window_occluded_or_bg(hwnd, bbox):
+            return _capture_hwnd_printwindow(hwnd, bbox), "printwindow"
     try:
         return ImageGrab.grab(bbox=bbox, all_screens=True), "imagegrab"
     except Exception:
