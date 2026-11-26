@@ -137,6 +137,7 @@ def _server_params(extra_env: dict[str, str] | None = None) -> StdioServerParame
     env["PYTHONPATH"] = str(SRC) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     env["PYTHONUNBUFFERED"] = "1"
     env.pop("CUL_MCP_ALLOW_FILE_URLS", None)
+    env["CUL_MCP_ALLOW_PRIVATE_URLS"] = "1"
     if extra_env:
         env.update(extra_env)
     return StdioServerParameters(
@@ -552,7 +553,7 @@ def test_err12_err13_err14_no_session_leak_untitled_proc_and_fg_error():
 
     async def scenario():
         mgr = session_manager.SessionManager()
-        with _FixtureHttpServer() as srv:
+        with _FixtureHttpServer() as srv, mock.patch.dict(os.environ, {"CUL_MCP_ALLOW_PRIVATE_URLS": "1"}):
             with mock.patch.object(mgr, "_discover_inside_worker", side_effect=RuntimeError("boom discover")):
                 with pytest.raises(RuntimeError, match="boom discover"):
                     await mgr.open_browser(url=f"{srv.base_url}/", headless=True, auto_discover=True)

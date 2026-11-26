@@ -6,8 +6,10 @@ import collections
 from concurrent.futures import Future
 import ctypes
 from ctypes import wintypes
+import ipaddress
 import os
 from pathlib import Path
+import socket
 import sys
 import tempfile
 import threading
@@ -33,8 +35,23 @@ class SessionLimitError(RuntimeError):
     """Raised when active MCP sessions hit MAX_SESSIONS."""
 
 
+def _is_disallowed_ip(ip_obj) -> bool:
+    if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped is not None:
+        if _is_disallowed_ip(ip_obj.ipv4_mapped):
+            return True
+    return bool(
+        ip_obj.is_private
+        or ip_obj.is_loopback
+        or ip_obj.is_link_local
+        or ip_obj.is_multicast
+        or ip_obj.is_reserved
+        or ip_obj.is_unspecified
+        or not ip_obj.is_global
+    )
+
+
 def validate_navigation_url(url: str) -> str:
-    """Validate target URL against the permitted scheme policy before opening Chromium."""
+    """Validate target URL against the permitted scheme & network policy before opening Chromium."""
     if not isinstance(url, str) or not url.strip():
         raise ValueError("URL must be a non-empty string")
     cleaned = url.strip()
@@ -53,8 +70,54 @@ def validate_navigation_url(url: str) -> str:
         raise PermissionError(
             f"Blocked URL scheme {scheme!r}: only http:// and https:// URLs are permitted."
         )
-    if not parsed.netloc:
+    if not parsed.netloc or not parsed.hostname:
         raise ValueError(f"URL is missing host/netloc: {cleaned!r}")
+
+    if os.environ.get("CUL_MCP_ALLOW_PRIVATE_URLS") != "1":
+        host = parsed.hostname.strip().rstrip(".").lower()
+        if not host:
+            raise ValueError(f"URL is missing host/netloc: {cleaned!r}")
+        if (
+            host == "localhost"
+            or host.endswith(".localhost")
+            or host.endswith(".local")
+            or host == "metadata.google.internal"
+        ):
+            raise PermissionError(
+                f"Blocked loopback/local navigation host {host!r} "
+                "(set CUL_MCP_ALLOW_PRIVATE_URLS=1 to allow private URLs)."
+            )
+        ip_literal = None
+        try:
+            ip_literal = ipaddress.ip_address(host)
+        except ValueError:
+            if hasattr(socket, "inet_aton"):
+                try:
+                    ip_literal = ipaddress.IPv4Address(socket.inet_aton(host))
+                except OSError:
+                    ip_literal = None
+        if ip_literal is not None:
+            if _is_disallowed_ip(ip_literal):
+                raise PermissionError(
+                    f"Blocked private/loopback/link-local IP {str(ip_literal)!r} "
+                    "(set CUL_MCP_ALLOW_PRIVATE_URLS=1 to allow private URLs)."
+                )
+        else:
+            try:
+                infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+            except socket.gaierror:
+                infos = []
+            for _fam, _type, _proto, _canon, sockaddr in infos:
+                addr_str = sockaddr[0].split("%", 1)[0]
+                try:
+                    resolved_ip = ipaddress.ip_address(addr_str)
+                except ValueError:
+                    continue
+                if _is_disallowed_ip(resolved_ip):
+                    raise PermissionError(
+                        f"Blocked resolved private/loopback/link-local host {host!r} -> {addr_str!r} "
+                        "(set CUL_MCP_ALLOW_PRIVATE_URLS=1 to allow private URLs)."
+                    )
     return cleaned
 
 
