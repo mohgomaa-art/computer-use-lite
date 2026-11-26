@@ -559,6 +559,7 @@ class BrowserSession:
         direct_ws=True,
         show_cursor=None,
         cursor_glide_ms=None,
+        url_validator=None,
     ):
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
@@ -568,6 +569,10 @@ class BrowserSession:
         self._browser_hwnd = None
         self._connect_url = connect
         self._direct_ws = direct_ws
+        self._url_validator = url_validator
+        self._blocked_url_error = None
+        self._browser_fetch_cdp = None
+        self._fetch_cdps = {}
         self._context = None
         self._pages = []
         self._known_page_ids = set()
@@ -578,6 +583,7 @@ class BrowserSession:
             if connect:
                 self.browser = self._pw.chromium.connect_over_cdp(connect)
                 ctx = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
+                self._install_browser_fetch_guard()
                 self.page = self._select_active_page(ctx)
                 self._bind_context_pages(ctx)
                 if self.show_cursor:
@@ -588,12 +594,13 @@ class BrowserSession:
                     self._debug_port = _free_port()
                     launch_args.append(f"--remote-debugging-port={self._debug_port}")
                 self.browser = self._pw.chromium.launch(headless=headless, args=launch_args)
+                self._install_browser_fetch_guard()
                 self.page = self.browser.new_page(viewport={"width": viewport[0], "height": viewport[1]})
                 self._bind_context_pages(self.page.context)
                 if self.show_cursor:
                     self._install_cursor_overlay(self.page.context, evaluate_now=False)
                 if url:
-                    self.page.goto(url, wait_until="load", timeout=60000)
+                    self._goto_validated(url, wait_until="load", timeout=60000)
                 if not self.headless:
                     self._raise_playwright_browser_window(activate=True)
             self.viewport = self._query_viewport() or tuple(viewport)
@@ -653,6 +660,121 @@ class BrowserSession:
                 best, best_score = pg, sc
         return best
 
+    def _validate_target_url(self, target_url: str, resource_type: str | None = None) -> None:
+        if self._url_validator is None:
+            return
+        low = (target_url or "").strip().lower()
+        if low.startswith(("data:", "blob:")) and resource_type != "Document":
+            return
+        self._url_validator(target_url)
+
+    def _await_blocked_error_settle(self) -> None:
+        try:
+            self.page.wait_for_timeout(120)
+            self.page.wait_for_load_state("domcontentloaded", timeout=400)
+        except Exception:
+            pass
+
+    def _goto_validated(self, url: str, *, wait_until: str, timeout: int):
+        if self._url_validator is not None:
+            self._url_validator(url)
+        self._blocked_url_error = None
+        try:
+            for attempt in range(2):
+                try:
+                    return self.page.goto(url, wait_until=wait_until, timeout=timeout)
+                except Exception as exc:
+                    if attempt == 0 and "chrome-error://" in str(exc) and self._blocked_url_error is None:
+                        self._await_blocked_error_settle()
+                        continue
+                    raise
+        except Exception as exc:
+            blocked = self._blocked_url_error
+            if blocked is not None and ("ERR_BLOCKED_BY_CLIENT" in str(exc) or "interrupted" in str(exc).lower()):
+                self._await_blocked_error_settle()
+                if isinstance(blocked, PermissionError):
+                    raise blocked from exc
+                raise PermissionError(str(blocked)) from exc
+            raise
+        finally:
+            self._blocked_url_error = None
+
+    def _enable_fetch_on_cdp(self, cdp_session) -> None:
+        from urllib.parse import urljoin
+
+        def _on_paused(ev):
+            rid = ev.get("requestId")
+            req_url = (ev.get("request") or {}).get("url", "")
+            status = ev.get("responseStatusCode")
+            err_reason = ev.get("responseErrorReason")
+            try:
+                if status is not None or err_reason is not None:
+                    if status is not None and 300 <= int(status) < 400:
+                        hdrs = {
+                            str(h.get("name") or "").lower(): str(h.get("value") or "")
+                            for h in (ev.get("responseHeaders") or [])
+                        }
+                        loc = hdrs.get("location", "").strip()
+                        if loc:
+                            redir_url = urljoin(req_url, loc)
+                            try:
+                                self._validate_target_url(redir_url, resource_type="Document")
+                            except Exception as exc:
+                                self._blocked_url_error = exc
+                                cdp_session.send("Fetch.failRequest", {"requestId": rid, "errorReason": "BlockedByClient"})
+                                return
+                    cdp_session.send("Fetch.continueResponse", {"requestId": rid})
+                    return
+
+                rtype = ev.get("resourceType")
+                try:
+                    self._validate_target_url(req_url, resource_type=rtype)
+                except Exception as exc:
+                    self._blocked_url_error = exc
+                    cdp_session.send("Fetch.failRequest", {"requestId": rid, "errorReason": "BlockedByClient"})
+                    return
+                cdp_session.send("Fetch.continueRequest", {"requestId": rid})
+            except Exception:
+                pass
+
+        cdp_session.on("Fetch.requestPaused", _on_paused)
+        cdp_session.send(
+            "Fetch.enable",
+            {
+                "patterns": [
+                    {"urlPattern": "*", "requestStage": "Request"},
+                    {"urlPattern": "*", "requestStage": "Response"},
+                ]
+            },
+        )
+
+    def _install_browser_fetch_guard(self) -> None:
+        if self._url_validator is None or self.browser is None or self._browser_fetch_cdp is not None:
+            return
+        try:
+            guard = self.browser.new_browser_cdp_session()
+            self._enable_fetch_on_cdp(guard)
+            self._browser_fetch_cdp = guard
+        except Exception:
+            self._browser_fetch_cdp = None
+
+    def _attach_fetch_guard(self, pg) -> None:
+        if self._url_validator is None or self._browser_fetch_cdp is not None or self._is_page_closed(pg):
+            return
+        pid = id(pg)
+        if pid in self._fetch_cdps:
+            return
+        try:
+            guard_cdp = pg.context.new_cdp_session(pg)
+            self._fetch_cdps[pid] = guard_cdp
+            self._enable_fetch_on_cdp(guard_cdp)
+        except Exception:
+            self._fetch_cdps.pop(pid, None)
+            try:
+                guard_cdp.detach()
+            except Exception:
+                pass
+
     def _bind_context_pages(self, ctx):
         self._context = ctx
         try:
@@ -663,6 +785,8 @@ class BrowserSession:
             pages.append(self.page)
         self._pages = [p for p in pages if not self._is_page_closed(p)]
         self._known_page_ids = {id(p) for p in self._pages}
+        for p in self._pages:
+            self._attach_fetch_guard(p)
         try:
             ctx.on("page", self._on_new_page)
         except Exception:
@@ -678,6 +802,7 @@ class BrowserSession:
     def _on_new_page(self, pg) -> None:
         if self._is_page_closed(pg):
             return
+        self._attach_fetch_guard(pg)
         if pg not in self._pages:
             self._pages.append(pg)
         if id(pg) not in self._known_page_ids:
@@ -1929,13 +2054,25 @@ class BrowserSession:
         return hwnd
 
     def navigate(self, url):
-        self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        self._goto_validated(url, wait_until="domcontentloaded", timeout=30000)
         if not self.headless:
             self._raise_playwright_browser_window(activate=False)
         return {"url": self.page.url, "title": self.page.title()}
 
     def back(self):
-        resp = self.page.go_back(wait_until="domcontentloaded", timeout=15000)
+        self._blocked_url_error = None
+        try:
+            resp = self.page.go_back(wait_until="domcontentloaded", timeout=15000)
+        except Exception as exc:
+            blocked = self._blocked_url_error
+            if blocked is not None and ("ERR_BLOCKED_BY_CLIENT" in str(exc) or "interrupted" in str(exc).lower()):
+                self._await_blocked_error_settle()
+                if isinstance(blocked, PermissionError):
+                    raise blocked from exc
+                raise PermissionError(str(blocked)) from exc
+            raise
+        finally:
+            self._blocked_url_error = None
         return {"url": self.page.url, "title": self.page.title(), "navigated": resp is not None}
 
     def scroll(self, dx=0, dy=0):
@@ -2035,6 +2172,19 @@ class BrowserSession:
                 self._context.remove_listener("page", self._on_new_page)
             except Exception:
                 pass
+        if getattr(self, "_browser_fetch_cdp", None) is not None:
+            try:
+                self._browser_fetch_cdp.detach()
+            except Exception:
+                pass
+            self._browser_fetch_cdp = None
+        for guard_cdp in list(getattr(self, "_fetch_cdps", {}).values()):
+            try:
+                guard_cdp.detach()
+            except Exception:
+                pass
+        if getattr(self, "_fetch_cdps", None) is not None:
+            self._fetch_cdps.clear()
         try:
             if getattr(self, "cdp", None) is not None and hasattr(self.cdp, "close"):
                 self.cdp.close()

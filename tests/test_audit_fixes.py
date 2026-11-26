@@ -762,3 +762,182 @@ ctypes.windll.user32.MessageBoxW(
         if proc_alert.poll() is None:
             proc_alert.kill()
             proc_alert.wait(timeout=5)
+
+
+# ---------------------------------------------------------------------------
+# P0-4: Request-stage SSRF, 30x HTTP redirects, IPv4/IPv6 normalization & DNS
+# ---------------------------------------------------------------------------
+def test_p0_4_ssrf_redirects_ipv6_normalization_and_route_block(monkeypatch):
+    import inspect
+    import socket
+
+    monkeypatch.delenv("CUL_MCP_ALLOW_PRIVATE_URLS", raising=False)
+    monkeypatch.delenv("CUL_MCP_ALLOW_FILE_URLS", raising=False)
+
+    # 1. IPv4 obfuscations & IPv6 normalization / transition prefixes MUST be blocked
+    blocked_urls = [
+        "http://127.0.0.1/",
+        "http://0177.0.0.1/",
+        "http://0x7f000001/",
+        "http://2130706433/",
+        "http://127.1/",
+        "http://0.0.0.0/",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://[::1]/",
+        "http://[::ffff:127.0.0.1]/",
+        "http://[::ffff:169.254.169.254]/",
+        "http://[0:0:0:0:0:ffff:7f00:1]/",
+        "http://[64:ff9b::127.0.0.1]/",
+        "http://[64:ff9b::169.254.169.254]/",
+        "http://[64:ff9b:1::127.0.0.1]/",
+        "http://[2002:7f00:0001::]/",
+        "http://[2002:a9fe:a9fe::]/",
+        "http://[fe80::1%25eth0]/",
+        "http://metadata.google.internal/",
+        "http://localhost./",
+        "file:///C:/Windows/win.ini",
+    ]
+    for bad in blocked_urls:
+        with pytest.raises(PermissionError, match="Blocked"):
+            validate_navigation_url(bad)
+
+    # 2. DNS resolution check: public hostname allowed, private/NAT64 DNS answer rejected
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        mapping = {
+            "public.example": [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))],
+            "private-dns.example": [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.20.30.40", 0))],
+            "nat64-dns.example": [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("64:ff9b::169.254.169.254", 0, 0, 0))],
+        }
+        if host in mapping:
+            return mapping[host]
+        raise socket.gaierror(f"unmocked host {host}")
+
+    with mock.patch("socket.getaddrinfo", side_effect=fake_getaddrinfo):
+        assert validate_navigation_url("https://public.example/docs") == "https://public.example/docs"
+        with pytest.raises(PermissionError, match="Blocked resolved"):
+            validate_navigation_url("https://private-dns.example/")
+        with pytest.raises(PermissionError, match="Blocked resolved"):
+            validate_navigation_url("https://nat64-dns.example/")
+
+    # 3. Real HTTP 302 redirect, meta refresh, iframe, and fetch SSRF blocking via BrowserSession
+    assert "url_validator" in inspect.signature(BrowserSession.__init__).parameters
+    secret_hits = []
+
+    class _SecretHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            secret_hits.append(self.path)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"INTERNAL_SECRET_PAYLOAD")
+
+        def log_message(self, *args):
+            return
+
+    sec_srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), _SecretHandler)
+    sec_port = sec_srv.server_address[1]
+    threading.Thread(target=sec_srv.serve_forever, daemon=True).start()
+
+    class _RedirectorHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            p = self.path.split("?", 1)[0]
+            if p == "/redir-302":
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{sec_port}/from-302")
+                self.end_headers()
+                return
+            if p == "/redir-nat64":
+                self.send_response(307)
+                self.send_header("Location", f"http://[64:ff9b::127.0.0.1]:{sec_port}/from-nat64")
+                self.end_headers()
+                return
+            if p == "/meta-refresh":
+                body = (
+                    f"<!doctype html><html><head>"
+                    f"<meta http-equiv='refresh' content='0;url=http://127.0.0.1:{sec_port}/from-meta'>"
+                    f"</head><body>Wait</body></html>"
+                ).encode("utf-8")
+            elif p == "/subresources":
+                body = (
+                    f"<!doctype html><html><body>"
+                    f"<iframe src='http://127.0.0.1:{sec_port}/from-iframe'></iframe>"
+                    f"<script>fetch('http://127.0.0.1:{sec_port}/from-fetch').catch(()=>{{}});</script>"
+                    f"<div>Loaded outer</div></body></html>"
+                ).encode("utf-8")
+            else:
+                body = b"<!doctype html><html><body>Allowed origin</body></html>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            return
+
+    red_srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), _RedirectorHandler)
+    red_port = red_srv.server_address[1]
+    threading.Thread(target=red_srv.serve_forever, daemon=True).start()
+
+    allowed_redirector_prefix = f"http://127.0.0.1:{red_port}/"
+
+    def policy_validator(u: str) -> str:
+        # Simulate public redirector origin being reachable while ALL other destinations use real SSRF policy.
+        if u.startswith(allowed_redirector_prefix):
+            return u
+        return validate_navigation_url(u)
+
+    try:
+        # Initial BrowserSession(url=redir-302) must block redirect before hitting secret server and clean up cleanly
+        with pytest.raises(PermissionError, match="Blocked"):
+            BrowserSession(
+                url=f"{allowed_redirector_prefix}redir-302",
+                headless=True,
+                viewport=(800, 600),
+                url_validator=policy_validator,
+            )
+        assert secret_hits == []
+
+        bs = BrowserSession(
+            url=f"{allowed_redirector_prefix}home",
+            headless=True,
+            viewport=(800, 600),
+            url_validator=policy_validator,
+        )
+        try:
+            # Direct 302 -> internal secret must abort BEFORE connecting to secret server
+            with pytest.raises(PermissionError, match="Blocked"):
+                bs.navigate(f"{allowed_redirector_prefix}redir-302")
+
+            # Wait briefly to confirm no delayed connection hits secret_srv
+            bs.page.wait_for_timeout(150)
+            assert secret_hits == [], f"Secret server hit via 302 redirect: {secret_hits}"
+
+            # 307 -> IPv6 NAT64 must also abort before connecting
+            with pytest.raises(PermissionError, match="Blocked"):
+                bs.navigate(f"{allowed_redirector_prefix}redir-nat64")
+            assert secret_hits == []
+
+            # Subresources (<iframe src>, fetch()) and target='_blank' popup redirects must also be blocked
+            bs.navigate(f"{allowed_redirector_prefix}subresources")
+            bs.page.evaluate(
+                "(u) => { const a = document.createElement('a'); a.href = u; a.target = '_blank'; "
+                "a.id = 'pop'; a.textContent = 'Pop'; document.body.appendChild(a); a.click(); }",
+                f"{allowed_redirector_prefix}redir-302",
+            )
+            bs.page.wait_for_timeout(300)
+            assert secret_hits == [], f"Secret server hit via iframe/fetch/popup: {secret_hits}"
+
+            # Meta refresh redirect to internal host must abort cleanly with 0 secret hits
+            try:
+                bs.navigate(f"{allowed_redirector_prefix}meta-refresh")
+                bs.page.wait_for_timeout(250)
+            except PermissionError:
+                pass
+            assert secret_hits == [], f"Secret server hit via meta refresh: {secret_hits}"
+        finally:
+            bs.close()
+    finally:
+        sec_srv.shutdown()
+        sec_srv.server_close()
+        red_srv.shutdown()
+        red_srv.server_close()

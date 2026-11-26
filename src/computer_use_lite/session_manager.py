@@ -48,10 +48,26 @@ class SessionLimitError(RuntimeError):
     """Raised when active MCP sessions hit MAX_SESSIONS."""
 
 
+_NAT64_NETWORKS = (
+    ipaddress.IPv6Network("64:ff9b::/96"),
+    ipaddress.IPv6Network("64:ff9b:1::/48"),
+)
+
+
 def _is_disallowed_ip(ip_obj) -> bool:
-    if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped is not None:
-        if _is_disallowed_ip(ip_obj.ipv4_mapped):
+    if isinstance(ip_obj, ipaddress.IPv6Address):
+        if ip_obj.ipv4_mapped is not None and _is_disallowed_ip(ip_obj.ipv4_mapped):
             return True
+        if ip_obj.sixtofour is not None and _is_disallowed_ip(ip_obj.sixtofour):
+            return True
+        if ip_obj.teredo is not None:
+            srv_ip, client_ip = ip_obj.teredo
+            if _is_disallowed_ip(srv_ip) or _is_disallowed_ip(client_ip):
+                return True
+        if any(ip_obj in net for net in _NAT64_NETWORKS):
+            embedded = ipaddress.IPv4Address(int(ip_obj) & 0xFFFFFFFF)
+            if _is_disallowed_ip(embedded):
+                return True
     return bool(
         ip_obj.is_private
         or ip_obj.is_loopback
@@ -64,7 +80,12 @@ def _is_disallowed_ip(ip_obj) -> bool:
 
 
 def validate_navigation_url(url: str) -> str:
-    """Validate target URL against the permitted scheme & network policy before opening Chromium."""
+    """Validate target URL against scheme & IP/DNS SSRF policy before Chromium connects.
+
+    Note: pre-connection URL/redirect checks do not guarantee OS-level DNS-rebinding
+    TOCTOU immunity between Python resolution and Chromium's socket connection.
+    """
+    from urllib.parse import unquote
     if not isinstance(url, str) or not url.strip():
         raise ValueError("URL must be a non-empty string")
     cleaned = url.strip()
@@ -87,7 +108,8 @@ def validate_navigation_url(url: str) -> str:
         raise ValueError(f"URL is missing host/netloc: {cleaned!r}")
 
     if os.environ.get("CUL_MCP_ALLOW_PRIVATE_URLS") != "1":
-        host = parsed.hostname.strip().rstrip(".").lower()
+        raw_host = unquote(parsed.hostname).strip().rstrip(".").lower()
+        host = raw_host.split("%", 1)[0]
         if not host:
             raise ValueError(f"URL is missing host/netloc: {cleaned!r}")
         if (
@@ -420,6 +442,7 @@ class SessionManager:
                 headless=headless,
                 viewport=(int(width), int(height)),
                 show_cursor=show_cursor,
+                url_validator=validate_navigation_url,
             )
 
         worker = await asyncio.to_thread(lambda: _SessionWorker(sid, "browser", safe_url, factory))
