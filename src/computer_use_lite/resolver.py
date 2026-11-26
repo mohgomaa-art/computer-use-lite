@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """M3 - merge, deduplicate, filter and guard elements against stale bounds."""
 INTERACTIVE = {
-    "button", "menuitem", "tab", "link", "textbox", "combobox",
+    "button", "menuitem", "tab", "link", "textbox", "searchbox", "combobox",
     "checkbox", "radio", "switch", "clickable", "listitem", "treeitem",
 }
 IOU_DEDUPE = 0.75

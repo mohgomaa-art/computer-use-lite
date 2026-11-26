@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover - optional runtime fallback keeps PW ses
 
 from .resolver import StaleElementError, visible as _box_visible
 
-ROLES = {"button", "link", "textbox", "checkbox", "menuitem", "tab",
+ROLES = {"button", "link", "textbox", "searchbox", "checkbox", "menuitem", "tab",
          "combobox", "switch", "radio", "listitem", "treeitem"}
 
 _HOVER_TRIGGER_JS = r"""(() => {

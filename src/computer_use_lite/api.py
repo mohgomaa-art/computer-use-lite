@@ -9,7 +9,7 @@ ACTIONS = {
     "button": "click", "menuitem": "click", "tab": "click", "link": "click",
     "checkbox": "click", "radio": "click", "switch": "click", "clickable": "click",
     "listitem": "click", "treeitem": "click",
-    "textbox": "click,type", "combobox": "click,type",
+    "textbox": "click,type", "searchbox": "click,type", "combobox": "click,type",
 }
 DEFAULT_LINE_MAP_CAP = 60
 
@@ -84,7 +84,7 @@ class Api:
     def inspect_element(self, element_id):
         rec = self.resolver.get(element_id)
         info = {k: v for k, v in rec.items() if k not in ("ref", "_element")}
-        if hasattr(self.session, "read_value") and rec.get("role") == "textbox":
+        if hasattr(self.session, "read_value") and rec.get("role") in ("textbox", "searchbox"):
             info["value"] = "[REDACTED]" if rec.get("is_password") else self.session.read_value(rec)
         return info
 
