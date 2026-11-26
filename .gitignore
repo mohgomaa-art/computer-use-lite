@@ -33,20 +33,20 @@ desktop.ini
 .freebuff/
 
 # Ephemeral runtime outputs, crops, and local screenshots (may contain local usernames or window edges)
-outputs/
-results/crops/
-results/crops_bench/
-results/runtime/
-results/bench_state.json
-results/**/task_state*.json
-results/agent_benchmark/crops/
-results/agent_benchmark/runtime/
-live_runs/
-fix_runs/
-skill_updates/
-research_trace/
-archive/screenshots/
-archive/runtime_state/
+/outputs/
+/results/crops/
+/results/crops_bench/
+/results/runtime/
+/results/bench_state.json
+/results/**/task_state*.json
+/results/agent_benchmark/crops/
+/results/agent_benchmark/runtime/
+/live_runs/
+/fix_runs/
+/skill_updates/
+/research_trace/
+/archive/screenshots/
+/archive/runtime_state/
 *.png
 *.tmp
 *.bak
