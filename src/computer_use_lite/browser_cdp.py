@@ -278,6 +278,36 @@ def _attrs_dict(tbl, raw_attrs):
     return out
 
 
+def _oopif_semantic_role(tag, attrs):
+    explicit = (attrs.get("role") or "").strip().lower()
+    if explicit in ROLES:
+        return explicit
+    if tag == "button":
+        return "button"
+    if tag == "a" and "href" in attrs:
+        return "link"
+    if tag == "select":
+        return "combobox"
+    if tag == "textarea":
+        return "textbox"
+    if tag == "input":
+        itype = (attrs.get("type") or "text").strip().lower()
+        if itype == "hidden":
+            return None
+        if itype == "checkbox":
+            return "checkbox"
+        if itype == "radio":
+            return "radio"
+        if itype == "search":
+            return "searchbox"
+        if itype in ("submit", "button", "reset", "image"):
+            return "button"
+        return "textbox"
+    if "onclick" in attrs or attrs.get("tabindex") not in (None, "-1", ""):
+        return "clickable"
+    return None
+
+
 def _quad_to_box(q, ox=0.0, oy=0.0):
     if len(q) == 4:
         return [q[0] + ox, q[1] + oy, q[2], q[3]]
@@ -637,10 +667,26 @@ class BrowserSession:
             doc_occ_ctx[d_idx] = ctx
 
             clicked = set(nodes.get("isClickable", {}).get("index", []))
+            n_bids = len(backend_ids)
+            oopif_roles = {}
+            cand_indices = set(clicked | pointer_nodes)
+            if d_idx > 0:
+                skip_tags = {"#text", "#document", "html", "body", "head", "meta", "title", "style", "script", "link"}
+                for ni in range(min(len(node_names), n_bids)):
+                    if ni >= len(ni_to_li) or ni_to_li[ni] < 0:
+                        continue
+                    tname = _text(tbl, node_names[ni]).lower()
+                    if tname in skip_tags:
+                        continue
+                    attrs = _attrs_dict(tbl, attrs_list[ni] if ni < len(attrs_list) else [])
+                    sem_role = _oopif_semantic_role(tname, attrs)
+                    if sem_role:
+                        oopif_roles[ni] = (sem_role, tname, attrs)
+                        cand_indices.add(ni)
+
             raw_cands = []
             need_text = set()
-            n_bids = len(backend_ids)
-            for ni in clicked | pointer_nodes:
+            for ni in cand_indices:
                 if ni < 0 or ni >= n_bids:
                     continue
                 li = ni_to_li[ni] if ni < len(ni_to_li) else -1
@@ -649,10 +695,14 @@ class BrowserSession:
                 b = _rect_at(lay_bounds, li, ox, oy)
                 if b is None or b[2] <= 0 or b[3] <= 0:
                     continue
-                attrs = _attrs_dict(tbl, attrs_list[ni] if ni < len(attrs_list) else [])
+                if ni in oopif_roles:
+                    sem_role, tag, attrs = oopif_roles[ni]
+                else:
+                    sem_role = None
+                    attrs = _attrs_dict(tbl, attrs_list[ni] if ni < len(attrs_list) else [])
+                    tag = (_text(tbl, node_names[ni]) if ni < len(node_names) else "").lower()
                 if "disabled" in attrs or attrs.get("aria-disabled", "").lower() == "true":
                     continue
-                tag = (_text(tbl, node_names[ni]) if ni < len(node_names) else "").lower()
                 if tag in ("#document", "html", "body"):
                     continue
                 if b[2] * b[3] >= 0.85 * vp_area and tag not in ("button", "a", "input", "select", "textarea"):
@@ -660,16 +710,31 @@ class BrowserSession:
                 if _is_occluded_node(ctx, ni, b):
                     continue
                 aria_lbl = (attrs.get("aria-label") or "").strip()
-                base_name = aria_lbl or attrs.get("title") or attrs.get("placeholder")
+                btn_val = (
+                    attrs.get("value")
+                    if tag == "input" and (attrs.get("type") or "").strip().lower() in ("submit", "button", "reset")
+                    else None
+                )
+                base_name = aria_lbl or attrs.get("title") or attrs.get("placeholder") or btn_val
                 if not base_name:
                     need_text.add(ni)
-                raw_cands.append((ni, backend_ids[ni], b, attrs, tag, aria_lbl, base_name))
+                raw_cands.append((ni, backend_ids[ni], b, attrs, tag, aria_lbl, base_name, sem_role))
 
             child_text = {}
             if need_text:
                 n_vals = len(node_vals)
                 for c_ni, p_idx in enumerate(parents):
-                    if p_idx in need_text and c_ni < n_vals:
+                    target_parent = p_idx
+                    if d_idx > 0 and target_parent not in need_text and target_parent >= 0:
+                        cur_p = target_parent
+                        hops = 0
+                        while cur_p >= 0 and cur_p < len(parents) and hops < 6:
+                            cur_p = parents[cur_p]
+                            hops += 1
+                            if cur_p in need_text:
+                                target_parent = cur_p
+                                break
+                    if target_parent in need_text and c_ni < n_vals:
                         nv = node_vals[c_ni]
                         if isinstance(nv, int):
                             if nv < 0 or nv >= n_tbl:
@@ -678,19 +743,21 @@ class BrowserSession:
                         else:
                             val = _text(tbl, nv).strip()
                         if val:
-                            prev = child_text.get(p_idx, "")
+                            prev = child_text.get(target_parent, "")
                             if len(prev) < 80:
-                                child_text[p_idx] = (prev + " " + val).strip()[:80] if prev else val[:80]
+                                child_text[target_parent] = (prev + " " + val).strip()[:80] if prev else val[:80]
 
-            for ni, bid, b, attrs, tag, aria_lbl, base_name in raw_cands:
+            for ni, bid, b, attrs, tag, aria_lbl, base_name, sem_role in raw_cands:
                 is_pw = tag == "input" and attrs.get("type", "").lower() == "password"
                 fallback_name = (base_name or child_text.get(ni, ""))[:80]
                 if aria_lbl:
                     aria_labels[bid] = aria_lbl
                 tag_by_bid[bid] = tag
+                role = sem_role or "clickable"
+                source = "dom:oopif" if sem_role else ("isClickable" if ni in clicked else "cursor:pointer")
                 elements[bid] = {
-                    "source": "isClickable" if ni in clicked else "cursor:pointer",
-                    "role": "clickable",
+                    "source": source,
+                    "role": role,
                     "name": fallback_name,
                     "box": [round(v, 1) for v in b],
                     "enabled": True,
