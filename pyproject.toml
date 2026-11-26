@@ -59,5 +59,6 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-  "windows_desktop: requires Windows UIA and/or an active desktop session (skipped on non-Windows or when CUL_SKIP_DESKTOP=1)",
+  "windows_desktop: requires an active interactive Windows desktop session (skipped on non-Windows or when CUL_SKIP_DESKTOP=1)",
+  "windows_only: requires Windows Win32/UIA COM APIs without an interactive desktop session (skipped on non-Windows)",
 ]

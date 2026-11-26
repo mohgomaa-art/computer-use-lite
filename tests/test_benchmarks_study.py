@@ -45,6 +45,7 @@ def test_accuracy_comparator_penalizes_missing_and_fp():
     assert res["failure_breakdown"] == {"closed_shadow_dom": 1}
 
 
+@pytest.mark.windows_only
 @pytest.mark.skipif(sys.platform != "win32", reason="Requires Windows UIA")
 def test_tree_filter_default_is_control_view():
     tf = bench_uia.verify_tree_filter_defaults()

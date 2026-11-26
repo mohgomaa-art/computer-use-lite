@@ -26,5 +26,11 @@ jobs:
       - name: Compile check
         run: python -m compileall -q src experiments benchmarks tests
 
+      - name: Verify copyright and SPDX headers
+        run: python scripts/verify_copyright_headers.py
+
+      - name: Verify pytest marker separation
+        run: pytest --collect-only -q --strict-markers -m "not windows_desktop"
+
       - name: Run non-interactive pytest suite
-        run: pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
+        run: pytest -v -rs --strict-markers -W error::pytest.PytestReturnNotNoneWarning

@@ -372,6 +372,7 @@ def test_m4_p04_hidden_input_label_stays_discoverable(tmp_path):
 # ---------------------------------------------------------------------------
 # M4-3 (P-09): PrintWindow before ImageGrab for covered / cloaked HWNDs
 # ---------------------------------------------------------------------------
+@pytest.mark.windows_only
 @pytest.mark.skipif(sys.platform != "win32", reason="Win32 capture test")
 def test_m4_p09_capture_desktop_region_occluded_and_cloaked(monkeypatch):
     u32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -628,7 +629,11 @@ def test_p0_2_multi_tab_tracking_switch_close_and_overlay(tmp_path, monkeypatch)
 # ---------------------------------------------------------------------------
 # P0-3: Win32 #32770 Save As physical commit & static dialog alert surfacing
 # ---------------------------------------------------------------------------
-@pytest.mark.skipif(sys.platform != "win32", reason="Win32 #32770 Save As dialog test is Windows-only")
+@pytest.mark.windows_desktop
+@pytest.mark.skipif(
+    sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
+    reason="Interactive Win32 #32770 Save As dialog test skipped when CUL_SKIP_DESKTOP=1",
+)
 def test_p0_3_win32_save_as_commit_and_dialog_alerts(tmp_path):
     from computer_use_lite import DesktopSession, desktop_uia
 

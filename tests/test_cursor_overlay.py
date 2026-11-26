@@ -381,6 +381,7 @@ def test_desktop_overlay_policy_guards_and_sprite_rasterizer(monkeypatch):
         assert 0 <= hx <= 64 and 0 <= hy <= 64
 
 
+@pytest.mark.windows_desktop
 @pytest.mark.skipif(
     sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
     reason="Interactive Win32 desktop overlay test skipped when CUL_SKIP_DESKTOP=1",
@@ -576,6 +577,7 @@ def test_browser_60fps_press_recovery_busy_restore_and_adopted_stylesheet():
             s.close()
 
 
+@pytest.mark.windows_desktop
 @pytest.mark.skipif(
     sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
     reason="Interactive Win32 desktop overlay test skipped when CUL_SKIP_DESKTOP=1",
@@ -645,6 +647,7 @@ def _is_hwnd_above(u32, wintypes, upper_hwnd: int, lower_hwnd: int) -> bool:
     return False
 
 
+@pytest.mark.windows_desktop
 @pytest.mark.skipif(
     sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
     reason="Interactive Win32 window visibility test skipped when CUL_SKIP_DESKTOP=1",
@@ -699,6 +702,7 @@ def test_desktop_target_window_raises_above_covering_window(monkeypatch):
         u32.DestroyWindow(wintypes.HWND(target_hwnd))
 
 
+@pytest.mark.windows_desktop
 @pytest.mark.skipif(
     sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
     reason="Interactive Win32 headful browser Z-order test skipped when CUL_SKIP_DESKTOP=1",
