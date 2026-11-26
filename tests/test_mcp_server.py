@@ -101,6 +101,15 @@ _CANVAS_HTML = """<!doctype html><html><body style="margin:0;padding:12px">
   </script>
 </body></html>"""
 
+_PROBE_HTML = """<!doctype html><html><body style="margin:20px">
+  <button id="probe">pending</button>
+  <script>
+    document.getElementById('probe').textContent =
+      'ua_headless:' + /HeadlessChrome/i.test(navigator.userAgent) +
+      ';cursor_api:' + Boolean(window[Symbol.for('cul.agent.cursor')]);
+  </script>
+</body></html>"""
+
 
 class _FixtureHttpServer:
     """Thread-backed local HTTP test server for http:// MCP E2E runs."""
@@ -112,6 +121,7 @@ class _FixtureHttpServer:
             "/hover": _HOVER_HTML.encode("utf-8"),
             "/css_hover": _CSS_HOVER_HTML.encode("utf-8"),
             "/canvas": _CANVAS_HTML.encode("utf-8"),
+            "/probe": _PROBE_HTML.encode("utf-8"),
         }
 
         class Handler(BaseHTTPRequestHandler):
@@ -639,6 +649,45 @@ def test_err12_err13_err14_no_session_leak_untitled_proc_and_fg_error():
         fg_res = mcp_server._error_result(RuntimeError("Foreground safety abort: expected hwnd=65848, active foreground=197140"))
         fg_payload = json.loads(fg_res.content[0].text)
         assert fg_res.isError is True and fg_payload["error_type"] == "ForegroundMismatch" and fg_payload["recoverable"] is True
+
+    anyio.run(scenario)
+
+
+def test_mcp_cul_mcp_headful_toggle_and_explicit_override():
+    async def _probe_one(headful_env: str | None, open_args: dict) -> str:
+        params = _server_params()
+        params.env.pop("CUL_AGENT_CURSOR", None)
+        if headful_env is None:
+            params.env.pop("CUL_MCP_HEADFUL", None)
+        else:
+            params.env["CUL_MCP_HEADFUL"] = headful_env
+
+        with _FixtureHttpServer() as srv, tempfile.TemporaryFile(mode="w+", encoding="utf-8") as errlog:
+            async with stdio_client(params, errlog=errlog) as (read, write):
+                async with ClientSession(read, write) as client:
+                    await client.initialize()
+                    tools = {t.name for t in (await client.list_tools()).tools}
+                    assert len(tools) == 13
+                    args = {"url": f"{srv.base_url}/probe", **open_args}
+                    opened = await client.call_tool("open_browser", args)
+                    assert not opened.isError
+                    sid, _, els = _parse_session_and_elements(opened.content[0].text)
+                    label = next(cols[2] for cols in els.values() if "ua_headless:" in (cols[2] or ""))
+                    await client.call_tool("close_session", {"session_id": sid})
+                    return label
+
+    async def scenario():
+        # (a) Unset CUL_MCP_HEADFUL + omitted headless -> stays headless (0 cursor overhead)
+        probe_a = await _probe_one(None, {})
+        assert probe_a == "ua_headless:true;cursor_api:false", probe_a
+
+        # (b) CUL_MCP_HEADFUL=1 + omitted headless -> opens headful + auto-enables 3D cursor
+        probe_b = await _probe_one("1", {})
+        assert probe_b == "ua_headless:false;cursor_api:true", probe_b
+
+        # (c) CUL_MCP_HEADFUL=1 + explicit headless=True -> honors explicit headless=True
+        probe_c = await _probe_one("1", {"headless": True})
+        assert probe_c == "ua_headless:true;cursor_api:false", probe_c
 
     anyio.run(scenario)
 

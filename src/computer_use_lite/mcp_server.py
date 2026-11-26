@@ -18,6 +18,7 @@ import base64
 from contextlib import asynccontextmanager
 import io
 import json
+import os
 import signal
 import sys
 from typing import Literal
@@ -42,6 +43,13 @@ _SERVER_INSTRUCTIONS = (
 
 def _json_dumps(data: object) -> str:
     return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+
+
+def _resolve_mcp_headless(headless: bool | None) -> bool:
+    """Resolve omitted headless mode from CUL_MCP_HEADFUL without overriding explicit flags."""
+    if headless is not None:
+        return bool(headless)
+    return os.environ.get("CUL_MCP_HEADFUL", "").strip().lower() not in ("1", "true", "yes", "on")
 
 
 def _ok_text(data: object) -> CallToolResult:
@@ -188,7 +196,7 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
     )
     async def open_browser(
         url: str,
-        headless: bool = True,
+        headless: bool | None = None,
         width: int = 1280,
         height: int = 720,
         auto_discover: bool = True,
@@ -196,7 +204,7 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
         try:
             res = await mgr.open_browser(
                 url=url,
-                headless=headless,
+                headless=_resolve_mcp_headless(headless),
                 width=width,
                 height=height,
                 auto_discover=auto_discover,
