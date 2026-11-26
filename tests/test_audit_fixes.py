@@ -941,3 +941,119 @@ def test_p0_4_ssrf_redirects_ipv6_normalization_and_route_block(monkeypatch):
         sec_srv.server_close()
         red_srv.shutdown()
         red_srv.server_close()
+
+
+# ---------------------------------------------------------------------------
+# P0-5: CDP remote-debugging origin restrictions & CUL_MCP_DIRECT_WS=0 gate
+# ---------------------------------------------------------------------------
+def test_p0_5_cdp_remote_debugging_origin_security_gate(tmp_path, monkeypatch):
+    import socket
+    import urllib.request
+    from playwright.sync_api._generated import BrowserType
+    from computer_use_lite.browser_cdp import DirectCdpClient
+
+    monkeypatch.setenv("CUL_MCP_ALLOW_PRIVATE_URLS", "1")
+    html = (
+        "<!doctype html><html><body>"
+        "<button id='ok_btn' onclick=\"document.getElementById('out').textContent='clicked'\">PingGate</button>"
+        "<div id='out'>init</div></body></html>"
+    ).encode("utf-8")
+
+    class _GateHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(html)))
+            self.end_headers()
+            self.wfile.write(html)
+
+        def log_message(self, *args):
+            return
+
+    srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), _GateHandler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base_url = f"http://127.0.0.1:{srv.server_address[1]}"
+
+    captured_launch_args = []
+    orig_launch = BrowserType.launch
+
+    def _spy_launch(self, *args, **kwargs):
+        captured_launch_args.append(list(kwargs.get("args") or []))
+        return orig_launch(self, *args, **kwargs)
+
+    monkeypatch.setattr(BrowserType, "launch", _spy_launch)
+
+    def _raw_ws_upgrade_status(port: int, path: str, origin: str | None) -> str:
+        lines = [
+            f"GET {path} HTTP/1.1",
+            f"Host: 127.0.0.1:{port}",
+            "Upgrade: websocket",
+            "Connection: Upgrade",
+            "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+            "Sec-WebSocket-Version: 13",
+        ]
+        if origin is not None:
+            lines.append(f"Origin: {origin}")
+        payload = ("\r\n".join(lines) + "\r\n\r\n").encode("ascii")
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            sock.sendall(payload)
+            raw = sock.recv(4096).decode("latin1", errors="replace")
+        return raw.splitlines()[0] if raw else ""
+
+    try:
+        # 1. Default DirectWS mode: must bind loopback only and allow exact-port loopback origin ONLY
+        monkeypatch.delenv("CUL_MCP_DIRECT_WS", raising=False)
+        bs = BrowserSession(url=f"{base_url}/", headless=True, viewport=(800, 600))
+        try:
+            port = bs._debug_port
+            assert port is not None and isinstance(bs.cdp, DirectCdpClient)
+            assert captured_launch_args, "Expected chromium.launch to be invoked"
+            args0 = captured_launch_args[-1]
+            assert "--remote-debugging-address=127.0.0.1" in args0, f"Missing loopback bind arg: {args0}"
+            assert f"--remote-debugging-port={port}" in args0
+            assert f"--remote-allow-origins=http://127.0.0.1:{port}" in args0, f"Missing exact allow-origins arg: {args0}"
+
+            ver = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=5).read())
+            ws_url = ver["webSocketDebuggerUrl"]
+            ws_path = "/" + ws_url.split("://", 1)[1].split("/", 1)[1]
+
+            for bad_origin in (
+                "https://evil.example",
+                "null",
+                f"http://localhost:{port}",
+                "http://127.0.0.1",
+                f"http://127.0.0.1:{port + 1}",
+            ):
+                status = _raw_ws_upgrade_status(port, ws_path, bad_origin)
+                assert "403" in status, f"Disallowed origin {bad_origin!r} was not rejected with 403: {status!r}"
+
+            exact_status = _raw_ws_upgrade_status(port, ws_path, f"http://127.0.0.1:{port}")
+            assert "101" in exact_status, f"Expected exact origin 101 handshake, got: {exact_status!r}"
+        finally:
+            bs.close()
+
+        # 2. CUL_MCP_DIRECT_WS=0 (and direct_ws=False): pipe-only mode, ZERO TCP debugging port opened
+        monkeypatch.setenv("CUL_MCP_DIRECT_WS", "0")
+
+        async def _run_pipe_mgr():
+            mgr = SessionManager()
+            try:
+                opened = await mgr.open_browser(url=f"{base_url}/", headless=True, auto_discover=True)
+                sid = opened["session_id"]
+                worker = mgr._sessions[sid]
+                assert worker._session._debug_port is None
+                assert not any(a.startswith("--remote-debugging-port") for a in captured_launch_args[-1])
+                btn_id = next(
+                    ln.split("|")[0]
+                    for ln in opened["discovery"]["line_map"].splitlines()
+                    if ln.startswith("e") and "PingGate" in ln
+                )
+                act_res = await mgr.act(sid, btn_id, "click")
+                assert act_res["ok"] is True and act_res["verified"] is True
+            finally:
+                await mgr.close_all()
+
+        asyncio.run(_run_pipe_mgr())
+    finally:
+        srv.shutdown()
+        srv.server_close()

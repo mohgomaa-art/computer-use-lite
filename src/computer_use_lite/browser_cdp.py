@@ -547,6 +547,14 @@ def _is_ancestor(parents, anc, node):
     return False
 
 
+def _resolve_direct_ws(direct_ws=None) -> bool:
+    if direct_ws is not None:
+        return bool(direct_ws)
+    import os
+    raw = os.environ.get("CUL_MCP_DIRECT_WS", "").strip().lower()
+    return raw not in ("0", "false", "no", "off")
+
+
 class BrowserSession:
     name = "browser"
 
@@ -556,7 +564,7 @@ class BrowserSession:
         connect=None,
         headless=True,
         viewport=(1280, 720),
-        direct_ws=True,
+        direct_ws=None,
         show_cursor=None,
         cursor_glide_ms=None,
         url_validator=None,
@@ -568,7 +576,8 @@ class BrowserSession:
         self.headless = bool(headless)
         self._browser_hwnd = None
         self._connect_url = connect
-        self._direct_ws = direct_ws
+        effective_direct_ws = _resolve_direct_ws(direct_ws)
+        self._direct_ws = effective_direct_ws
         self._url_validator = url_validator
         self._blocked_url_error = None
         self._browser_fetch_cdp = None
@@ -590,9 +599,13 @@ class BrowserSession:
                     self._install_cursor_overlay(ctx, evaluate_now=True)
             else:
                 launch_args = []
-                if direct_ws and websockets is not None:
+                if effective_direct_ws and websockets is not None:
                     self._debug_port = _free_port()
-                    launch_args.append(f"--remote-debugging-port={self._debug_port}")
+                    launch_args.extend([
+                        "--remote-debugging-address=127.0.0.1",
+                        f"--remote-debugging-port={self._debug_port}",
+                        f"--remote-allow-origins=http://127.0.0.1:{self._debug_port}",
+                    ])
                 self.browser = self._pw.chromium.launch(headless=headless, args=launch_args)
                 self._install_browser_fetch_guard()
                 self.page = self.browser.new_page(viewport={"width": viewport[0], "height": viewport[1]})
@@ -604,7 +617,7 @@ class BrowserSession:
                 if not self.headless:
                     self._raise_playwright_browser_window(activate=True)
             self.viewport = self._query_viewport() or tuple(viewport)
-            self.cdp = self._attach_cdp(connect, direct_ws)
+            self.cdp = self._attach_cdp(connect, self._direct_ws)
             if self.show_cursor:
                 self._ensure_cursor_mounted()
         except Exception:
