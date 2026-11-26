@@ -135,12 +135,16 @@ def test_windows_desktop_end_to_end():
             record("desktop_notepad", passed=False, error="notepad window not found")
             raise AssertionError("notepad window not found")
         desktop_uia._u32.SetForegroundWindow(hwnd)
-        time.sleep(1.0)
         s = DesktopSession(hwnd)
         api = Api(s, state_path=RUNTIME / "task_state_e2e_desktop.json", crops_dir=CROPS)
-        api.discover_interactables()
+        edits = []
+        for _ in range(25):
+            api.discover_interactables()
+            edits = [r for r in api.resolver.records if r["role"] == "textbox"]
+            if edits:
+                break
+            time.sleep(0.3)
         stats = api.last_stats
-        edits = [r for r in api.resolver.records if r["role"] == "textbox"]
         if not edits:
             record("desktop_notepad", passed=False, error="no textbox in UIA snapshot")
             raise AssertionError("no textbox in UIA snapshot")
@@ -165,7 +169,10 @@ def test_windows_desktop_end_to_end():
         if hwnd and not reused_existing:
             try:
                 desktop_uia._u32.PostMessageW(hwnd, 0x0010, 0, 0)
-                time.sleep(0.5)
+                for _ in range(25):
+                    if not (_notepad_pids() - before_pids):
+                        break
+                    time.sleep(0.1)
             except Exception:
                 pass
         try:

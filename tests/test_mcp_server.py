@@ -496,7 +496,18 @@ def test_mcp_windows_desktop_notepad_flow():
                         opened = await client.call_tool("open_desktop", {"hwnd": hwnd})
                         assert not opened.isError
                         sid, _, els = _parse_session_and_elements(opened.content[0].text)
-                        editor_id = next(eid for eid, cols in els.items() if cols[1] == "textbox")
+                        editor_id = next((eid for eid, cols in els.items() if cols[1] == "textbox"), None)
+                        for _ in range(25):
+                            if editor_id:
+                                break
+                            await anyio.sleep(0.3)
+                            disc_tb = await client.call_tool(
+                                "discover", {"session_id": sid, "filter_query": "textbox"}
+                            )
+                            assert not disc_tb.isError
+                            _, _, els = _parse_session_and_elements(disc_tb.content[0].text)
+                            editor_id = next((eid for eid, cols in els.items() if cols[1] == "textbox"), None)
+                        assert editor_id, f"Notepad textbox never hydrated in UIA: {els}"
 
                         acted = json.loads((await client.call_tool("act", {
                             "session_id": sid, "element_id": editor_id,
@@ -516,7 +527,10 @@ def test_mcp_windows_desktop_notepad_flow():
         if hwnd and not reused_existing:
             try:
                 desktop_uia._u32.PostMessageW(hwnd, 0x0010, 0, 0)
-                time.sleep(0.4)
+                for _ in range(25):
+                    if not (_notepad_pids() - before_pids):
+                        break
+                    time.sleep(0.1)
             except Exception:
                 pass
         try:
