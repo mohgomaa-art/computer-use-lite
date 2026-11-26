@@ -420,30 +420,181 @@ class BrowserSession:
 
         # Map child iframe document index -> frame origin offset in viewport coordinates
         doc_offsets = {0: (-sx, -sy)}
-        for d_idx, doc in enumerate(docs):
-            ox, oy = doc_offsets.get(d_idx, (0.0, 0.0))
-            nodes, lay = doc["nodes"], doc.get("layout", {})
-            boxes = {}
-            for i, ni in enumerate(lay.get("nodeIndex", [])):
-                b = _quad_to_box(lay["bounds"][i], ox, oy)
-                if b is not None:
-                    boxes[ni] = b
-            cd_map = nodes.get("contentDocumentIndex", {})
-            for idx_pos, ni in enumerate(cd_map.get("index", [])):
-                child_doc = cd_map.get("value", [])[idx_pos]
-                if ni in boxes and 0 <= child_doc < len(docs):
-                    doc_offsets[child_doc] = (boxes[ni][0], boxes[ni][1])
+        if len(docs) > 1:
+            for d_idx, doc in enumerate(docs):
+                cd_map = doc["nodes"].get("contentDocumentIndex", {})
+                cd_indices = cd_map.get("index") or ()
+                if not cd_indices:
+                    continue
+                cd_values = cd_map.get("value") or ()
+                needed = set(cd_indices)
+                ox, oy = doc_offsets.get(d_idx, (0.0, 0.0))
+                lay = doc.get("layout", {})
+                lay_nodes = lay.get("nodeIndex", ())
+                lay_bounds = lay.get("bounds", ())
+                boxes = {}
+                for i, ni in enumerate(lay_nodes):
+                    if ni in needed:
+                        b = _quad_to_box(lay_bounds[i], ox, oy)
+                        if b is not None:
+                            boxes[ni] = b
+                for idx_pos, ni in enumerate(cd_indices):
+                    child_doc = cd_values[idx_pos]
+                    if ni in boxes and 0 <= child_doc < len(docs):
+                        doc_offsets[child_doc] = (boxes[ni][0], boxes[ni][1])
 
-        all_boxes = {}
         elements = {}
-        occluded_bids = set()
         vp_w, vp_h = self.bounds()[2:]
         vp_area = max(1.0, float(vp_w * vp_h))
         bid_loc = {}
         doc_parents = {}
         doc_bids = {}
+        doc_occ_ctx = {}
         aria_labels = {}
         tag_by_bid = {}
+
+        n_tbl = len(tbl)
+        pointer_ids = {i for i, s in enumerate(tbl) if s == "pointer"}
+        hidden_ids = {i for i, s in enumerate(tbl) if s == "hidden"}
+        none_ids = {i for i, s in enumerate(tbl) if s == "none"}
+        text_tag_ids = {i for i, s in enumerate(tbl) if s == "#text"}
+
+        def _rect_at(lay_bounds, li, ox, oy):
+            q = lay_bounds[li]
+            return [q[0] + ox, q[1] + oy, q[2], q[3]] if len(q) == 4 else _quad_to_box(q, ox, oy)
+
+        def box_for_bid(bid):
+            loc = bid_loc.get(bid)
+            if loc is None:
+                return None
+            ctx = doc_occ_ctx.get(loc[0])
+            if ctx is None:
+                return None
+            ni = loc[1]
+            li = ctx["ni_to_li"][ni] if 0 <= ni < len(ctx["ni_to_li"]) else -1
+            if li < 0:
+                return None
+            return _rect_at(ctx["lay_bounds"], li, ctx["ox"], ctx["oy"])
+
+        def _build_sorted_lay_items(ctx):
+            ox, oy = ctx["ox"], ctx["oy"]
+            lay_nodes = ctx["lay_nodes"]
+            lay_bounds = ctx["lay_bounds"]
+            lay_styles = ctx["lay_styles"]
+            paint_orders = ctx["paint_orders"]
+            node_names = ctx["node_names"]
+            n_styles = len(lay_styles)
+            n_po = len(paint_orders)
+            n_names = len(node_names)
+            items = []
+            for i, oni in enumerate(lay_nodes):
+                if oni < n_names:
+                    tn = node_names[oni]
+                    if (tn in text_tag_ids) if isinstance(tn, int) else (_text(tbl, tn) == "#text"):
+                        continue
+                if i < n_styles:
+                    seg = lay_styles[i]
+                    n_seg = len(seg)
+                    if n_seg > 1:
+                        s1 = seg[1]
+                        if (s1 in hidden_ids) if isinstance(s1, int) else (_text(tbl, s1) == "hidden"):
+                            continue
+                    if n_seg > 2:
+                        s2 = seg[2]
+                        if (s2 in none_ids) if isinstance(s2, int) else (_text(tbl, s2) == "none"):
+                            continue
+                b = _rect_at(lay_bounds, i, ox, oy)
+                if b is None or b[2] <= 0 or b[3] <= 0:
+                    continue
+                po = paint_orders[i] if i < n_po else i
+                items.append((po, oni, b[0], b[1], b[0] + b[2], b[1] + b[3]))
+            items.sort(key=lambda item: item[0], reverse=True)
+            return items
+
+        def _is_occluded_node(ctx, ni, b):
+            li = ctx["ni_to_li"][ni] if 0 <= ni < len(ctx["ni_to_li"]) else -1
+            if li < 0:
+                return False
+            lay_styles = ctx["lay_styles"]
+            if li < len(lay_styles):
+                seg = lay_styles[li]
+                if len(seg) > 1:
+                    s1 = seg[1]
+                    if (s1 in hidden_ids) if isinstance(s1, int) else (_text(tbl, s1) == "hidden"):
+                        return True
+                if len(seg) > 2:
+                    s2 = seg[2]
+                    if (s2 in none_ids) if isinstance(s2, int) else (_text(tbl, s2) == "none"):
+                        return True
+            paint_orders = ctx["paint_orders"]
+            el_po = paint_orders[li] if li < len(paint_orders) else li
+            cx, cy = b[0] + b[2] / 2, b[1] + b[3] / 2
+            parents = ctx["parents"]
+            ctx["queries"] += 1
+            sorted_items = ctx["sorted"]
+            if sorted_items is None and ctx["queries"] >= 4:
+                sorted_items = _build_sorted_lay_items(ctx)
+                ctx["sorted"] = sorted_items
+            if sorted_items is not None:
+                for other_po, other_ni, ox0, oy0, ox1, oy1 in sorted_items:
+                    if other_po <= el_po:
+                        break
+                    if other_ni != ni and ox0 <= cx <= ox1 and oy0 <= cy <= oy1:
+                        if not _is_ancestor(parents, ni, other_ni) and not _is_ancestor(parents, other_ni, ni):
+                            return True
+                return False
+
+            ox, oy = ctx["ox"], ctx["oy"]
+            lay_nodes = ctx["lay_nodes"]
+            lay_bounds = ctx["lay_bounds"]
+            node_names = ctx["node_names"]
+            n_styles = len(lay_styles)
+            n_names = len(node_names)
+            n_po = len(paint_orders)
+            for i, oni in enumerate(lay_nodes):
+                po = paint_orders[i] if i < n_po else i
+                if po <= el_po or oni == ni:
+                    continue
+                q = lay_bounds[i]
+                ob = [q[0] + ox, q[1] + oy, q[2], q[3]] if len(q) == 4 else _quad_to_box(q, ox, oy)
+                if ob is None or ob[2] <= 0 or ob[3] <= 0:
+                    continue
+                if not (ob[0] <= cx <= ob[0] + ob[2] and ob[1] <= cy <= ob[1] + ob[3]):
+                    continue
+                if oni < n_names:
+                    tn = node_names[oni]
+                    if (tn in text_tag_ids) if isinstance(tn, int) else (_text(tbl, tn) == "#text"):
+                        continue
+                if i < n_styles:
+                    seg = lay_styles[i]
+                    if len(seg) > 1:
+                        s1 = seg[1]
+                        if (s1 in hidden_ids) if isinstance(s1, int) else (_text(tbl, s1) == "hidden"):
+                            continue
+                    if len(seg) > 2:
+                        s2 = seg[2]
+                        if (s2 in none_ids) if isinstance(s2, int) else (_text(tbl, s2) == "none"):
+                            continue
+                if not _is_ancestor(parents, ni, oni) and not _is_ancestor(parents, oni, ni):
+                    return True
+            return False
+
+        def is_occluded_bid(bid):
+            loc = bid_loc.get(bid)
+            if loc is None:
+                return False
+            d_idx, ni = loc
+            ctx = doc_occ_ctx.get(d_idx)
+            if ctx is None:
+                return False
+            li = ctx["ni_to_li"][ni] if 0 <= ni < len(ctx["ni_to_li"]) else -1
+            if li < 0:
+                return False
+            b = _rect_at(ctx["lay_bounds"], li, ctx["ox"], ctx["oy"])
+            if not b or b[2] <= 0 or b[3] <= 0:
+                return False
+            return _is_occluded_node(ctx, ni, b)
+
         for d_idx, doc in enumerate(docs):
             ox, oy = doc_offsets.get(d_idx, (0.0, 0.0))
             nodes, lay = doc["nodes"], doc.get("layout", {})
@@ -457,74 +608,83 @@ class BrowserSession:
             for ni, bid in enumerate(backend_ids):
                 bid_loc[bid] = (d_idx, ni)
 
-            # Collect simple text fallback per parent node
-            child_text = {}
-            for ni, p_idx in enumerate(parents):
-                if p_idx >= 0 and ni < len(node_vals):
-                    val = _text(tbl, node_vals[ni]).strip()
-                    if val and len(child_text.get(p_idx, "")) < 80:
-                        child_text[p_idx] = (child_text.get(p_idx, "") + " " + val).strip()[:80]
-
-            boxes, cursor, vis_map, pe_map, po_map = {}, {}, {}, {}, {}
-            paint_orders = lay.get("paintOrders", [])
             lay_nodes = lay.get("nodeIndex", [])
-            lay_items = []
+            lay_bounds = lay.get("bounds", [])
+            lay_styles = lay.get("styles", [])
+            paint_orders = lay.get("paintOrders", [])
+            n_nodes = max(len(node_names), len(backend_ids), len(parents))
+            ni_to_li = [-1] * n_nodes
             for i, ni in enumerate(lay_nodes):
-                b = _quad_to_box(lay["bounds"][i], ox, oy)
-                if b is None:
-                    continue
-                boxes[ni] = b
-                if ni < len(backend_ids):
-                    all_boxes[backend_ids[ni]] = b
-                seg = lay.get("styles", [[]])[i] if i < len(lay.get("styles", [])) else []
-                cursor[ni] = _text(tbl, seg[0]) if len(seg) > 0 else ""
-                vis_map[ni] = _text(tbl, seg[1]) if len(seg) > 1 else "visible"
-                pe_map[ni] = _text(tbl, seg[2]) if len(seg) > 2 else "auto"
-                po = paint_orders[i] if i < len(paint_orders) else i
-                po_map[ni] = po
-                tag = _text(tbl, node_names[ni]) if ni < len(node_names) else ""
-                if tag != "#text" and b[2] > 0 and b[3] > 0 and vis_map[ni] != "hidden" and pe_map[ni] != "none":
-                    lay_items.append((po, ni, b))
+                if 0 <= ni < n_nodes:
+                    ni_to_li[ni] = i
 
-            def is_occluded_in_snap(ni, b):
-                if vis_map.get(ni) == "hidden" or pe_map.get(ni) == "none":
-                    return True
-                el_po = po_map.get(ni, 0)
-                cx, cy = b[0] + b[2] / 2, b[1] + b[3] / 2
-                for other_po, other_ni, ob in lay_items:
-                    if other_po <= el_po or other_ni == ni:
-                        continue
-                    if ob[0] <= cx <= ob[0] + ob[2] and ob[1] <= cy <= ob[1] + ob[3]:
-                        if not _is_ancestor(parents, ni, other_ni) and not _is_ancestor(parents, other_ni, ni):
-                            return True
-                return False
+            pointer_nodes = set()
+            if pointer_ids or (lay_styles and lay_styles[0] and not isinstance(lay_styles[0][0], int)):
+                n_lay_nodes = len(lay_nodes)
+                for i, seg in enumerate(lay_styles):
+                    if seg and i < n_lay_nodes:
+                        s0 = seg[0]
+                        if (s0 in pointer_ids) if isinstance(s0, int) else (_text(tbl, s0) == "pointer"):
+                            pointer_nodes.add(lay_nodes[i])
 
-            for ni, b in boxes.items():
-                if ni < len(backend_ids) and b[2] > 0 and b[3] > 0 and is_occluded_in_snap(ni, b):
-                    occluded_bids.add(backend_ids[ni])
+            ctx = {
+                "ox": ox, "oy": oy,
+                "parents": parents, "node_names": node_names,
+                "lay_nodes": lay_nodes, "lay_bounds": lay_bounds,
+                "lay_styles": lay_styles, "paint_orders": paint_orders,
+                "ni_to_li": ni_to_li, "sorted": None, "queries": 0,
+            }
+            doc_occ_ctx[d_idx] = ctx
 
             clicked = set(nodes.get("isClickable", {}).get("index", []))
-            for ni in clicked | {n for n, c in cursor.items() if c == "pointer"}:
-                if ni not in boxes or ni >= len(backend_ids):
+            raw_cands = []
+            need_text = set()
+            n_bids = len(backend_ids)
+            for ni in clicked | pointer_nodes:
+                if ni < 0 or ni >= n_bids:
                     continue
-                b = boxes[ni]
-                if b[2] <= 0 or b[3] <= 0:
+                li = ni_to_li[ni] if ni < len(ni_to_li) else -1
+                if li < 0:
+                    continue
+                b = _rect_at(lay_bounds, li, ox, oy)
+                if b is None or b[2] <= 0 or b[3] <= 0:
                     continue
                 attrs = _attrs_dict(tbl, attrs_list[ni] if ni < len(attrs_list) else [])
                 if "disabled" in attrs or attrs.get("aria-disabled", "").lower() == "true":
-                    continue
-                bid = backend_ids[ni]
-                if bid in occluded_bids:
                     continue
                 tag = (_text(tbl, node_names[ni]) if ni < len(node_names) else "").lower()
                 if tag in ("#document", "html", "body"):
                     continue
                 if b[2] * b[3] >= 0.85 * vp_area and tag not in ("button", "a", "input", "select", "textarea"):
                     continue
-                is_pw = tag == "input" and attrs.get("type", "").lower() == "password"
+                if _is_occluded_node(ctx, ni, b):
+                    continue
                 aria_lbl = (attrs.get("aria-label") or "").strip()
-                fallback_name = (aria_lbl or attrs.get("title")
-                                 or attrs.get("placeholder") or child_text.get(ni, ""))[:80]
+                base_name = aria_lbl or attrs.get("title") or attrs.get("placeholder")
+                if not base_name:
+                    need_text.add(ni)
+                raw_cands.append((ni, backend_ids[ni], b, attrs, tag, aria_lbl, base_name))
+
+            child_text = {}
+            if need_text:
+                n_vals = len(node_vals)
+                for c_ni, p_idx in enumerate(parents):
+                    if p_idx in need_text and c_ni < n_vals:
+                        nv = node_vals[c_ni]
+                        if isinstance(nv, int):
+                            if nv < 0 or nv >= n_tbl:
+                                continue
+                            val = tbl[nv].strip()
+                        else:
+                            val = _text(tbl, nv).strip()
+                        if val:
+                            prev = child_text.get(p_idx, "")
+                            if len(prev) < 80:
+                                child_text[p_idx] = (prev + " " + val).strip()[:80] if prev else val[:80]
+
+            for ni, bid, b, attrs, tag, aria_lbl, base_name in raw_cands:
+                is_pw = tag == "input" and attrs.get("type", "").lower() == "password"
+                fallback_name = (base_name or child_text.get(ni, ""))[:80]
                 if aria_lbl:
                     aria_labels[bid] = aria_lbl
                 tag_by_bid[bid] = tag
@@ -544,12 +704,15 @@ class BrowserSession:
             bid = node.get("backendDOMNodeId")
             if bid is None:
                 continue
+            in_elements = bid in elements
+            if not in_elements and (node.get("ignored") or role not in ROLES):
+                continue
             props = {pr.get("name"): (pr.get("value") or {}).get("value")
                      for pr in node.get("properties", [])}
             disabled = bool(props.get("disabled"))
             ax_name = ((node.get("name") or {}).get("value") or "")[:80]
 
-            if bid in elements:
+            if in_elements:
                 if node.get("ignored") or disabled:
                     elements[bid]["enabled"] = False
                 if role in ROLES:
@@ -561,9 +724,9 @@ class BrowserSession:
                     elements[bid]["is_password"] = True
                 continue
 
-            if node.get("ignored") or role not in ROLES or disabled or bid in occluded_bids:
+            if disabled or is_occluded_bid(bid):
                 continue
-            box = all_boxes.get(bid)
+            box = box_for_bid(bid)
             if not box:
                 try:
                     box = self._box_from_cdp_border(bid)
@@ -583,7 +746,7 @@ class BrowserSession:
             }
 
         self._prune_nested_clickables(elements, bid_loc, doc_parents, doc_bids, aria_labels, tag_by_bid)
-        self._collect_css_hover_triggers(elements, all_boxes, occluded_bids)
+        self._collect_css_hover_triggers(elements, box_for_bid, is_occluded_bid)
         return [e for e in elements.values() if e.get("enabled") is not False and not e.get("occluded")]
 
     def _prune_nested_clickables(self, elements, bid_loc, doc_parents, doc_bids, aria_labels, tag_by_bid):
@@ -619,6 +782,7 @@ class BrowserSession:
 
     def _collect_css_hover_triggers(self, elements, all_boxes, occluded_bids):
         """Surface CSS :hover ancestor triggers whose hidden child (e.g. figcaption/menu) is revealed."""
+        is_occ = occluded_bids if callable(occluded_bids) else occluded_bids.__contains__
         try:
             eval_res = self.cdp.send("Runtime.evaluate", {"expression": _HOVER_TRIGGER_JS, "returnByValue": False})
         except Exception:
@@ -637,9 +801,9 @@ class BrowserSession:
                 try:
                     node = self.cdp.send("DOM.describeNode", {"objectId": item_oid}).get("node") or {}
                     bid = node.get("backendNodeId")
-                    if not bid or bid in elements or bid in occluded_bids:
+                    if not bid or bid in elements or is_occ(bid):
                         continue
-                    box = all_boxes.get(bid)
+                    box = all_boxes(bid) if callable(all_boxes) else all_boxes.get(bid)
                     if not box:
                         box = self._box_from_cdp_border(bid)
                     if not box or box[2] <= 1 or box[3] <= 1:
