@@ -420,7 +420,7 @@ def test_m4_p09_capture_desktop_region_occluded_and_cloaked(monkeypatch):
 # P0-1: Deterministic --site-per-process OOPIF discovery, GT & actionability
 # ---------------------------------------------------------------------------
 def test_p0_1_site_per_process_oopif_discovery_gt_and_actions(tmp_path, monkeypatch):
-    from playwright._impl._browser_type import BrowserType as _PwBrowserType
+    from playwright.sync_api import BrowserType as _PwBrowserType
 
     orig_launch = _PwBrowserType.launch
 
