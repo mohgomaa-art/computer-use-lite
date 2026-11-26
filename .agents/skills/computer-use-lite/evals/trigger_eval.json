@@ -4,11 +4,11 @@
     "should_trigger": true
   },
   {
-    "query": "i keep getting StaleElementError and ForegroundMismatch when automating Notepad Save As dialogs on Windows 11 with DesktopSession — how should the recovery loop attach to the new HWND?",
+    "query": "i keep getting StaleElementError and ForegroundMismatch when automating a Windows Save As #32770 dialog with DesktopSession — plus ValuePattern updated the edit text without writing the file to disk",
     "should_trigger": true
   },
   {
-    "query": "write a python script using computer_use_lite Api and BrowserSession to inspect an input box, verify password redaction, hover a menu, and capture blind canvas crops without playwright thread errors",
+    "query": "write a python script using computer_use_lite Api and BrowserSession to inspect an input box, verify password redaction, select an option in a <select> combobox, hover a menu, and capture blind canvas crops without playwright thread errors",
     "should_trigger": true
   },
   {
@@ -20,7 +20,7 @@
     "should_trigger": true
   },
   {
-    "query": "i want to navigate to a new url inside an existing mcp browser session, scroll down, and make sure old eN element IDs don't cause silent misclicks",
+    "query": "i want to navigate to a new url inside an existing mcp browser session, avoid domcontentloaded race StaleElementError, and make sure old eN element IDs don't cause silent misclicks",
     "should_trigger": true
   },
   {
@@ -36,7 +36,7 @@
     "should_trigger": true
   },
   {
-    "query": "build a multi-session python coordinator that isolates task_state.json and blind crop PNGs per BrowserSession using computer_use_lite",
+    "query": "why did discover() return BLIND_REGIONS:0 on an embedded third-party iframe and PrintWindow mirror a right-to-left Windows app in my computer_use_lite session?",
     "should_trigger": true
   },
   {

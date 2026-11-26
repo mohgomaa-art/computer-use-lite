@@ -3,14 +3,14 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Write a reusable Markdown automation runbook + concrete step sequence (exact MCP tool calls and JSON recovery rules) for driving a web app using the computer-use-lite MCP server that: (1) opens https://example.com/app at 1280x720, (2) handles a dense navigation sidebar using discover filtering, (3) reveals and clicks a hover-only menu item on an avatar card, (4) types a username and password safely (noting how secrets are redacted), (5) handles a StaleElementError on an outdated revision, (6) clicks a data point inside an interactive <canvas> chart blind region inside viewport bounds, and (7) cleans up the session.",
-      "expected_output": "Step-by-step runbook using exact computer-use-lite MCP tool names (open_browser, discover with filter_query, hover -> added IDs, act with action='type'/'click'/revision/clear, inspect role limitation & password redaction, click_at strictly inside blind crop and viewport bounds, StaleElementError -> discover recovery, independent verification beyond verified=true, close_session) and avoiding full-screenshot guessing or deprecated tools.",
+      "prompt": "Write a reusable Markdown automation runbook + concrete step sequence (exact MCP tool calls and JSON recovery rules) for driving a web app using the computer-use-lite MCP server that: (1) opens https://example.com/app at 1280x720, (2) handles a dense navigation sidebar using discover filtering, (3) reveals and clicks a hover-only menu item on an avatar card, (4) types a username, password, and read-only confirmation check plus picks an option in a native <select> dropdown safely (noting how secrets are redacted), (5) handles a StaleElementError on an outdated revision, (6) clicks a data point inside an interactive <canvas> chart blind region inside viewport bounds, and (7) cleans up the session.",
+      "expected_output": "Step-by-step runbook using exact computer-use-lite MCP tool names (open_browser with SPA settle note, discover with filter_query, hover -> added IDs, act with action='type'/'click'/revision/clear, inspect role scope + read-only verification + password redaction, native <select> keyboard selection + visual/submit verify, click_at strictly inside blind crop and viewport bounds, StaleElementError -> discover recovery, independent verification beyond verified=true/false, close_session) and avoiding full-screenshot guessing or deprecated tools.",
       "files": [],
       "expectations": [
-        "Uses exact MCP tool names open_browser, discover, hover, act, click_at, and close_session rather than invented tool names like screenshot or type_text.",
-        "Handles truncated discovery footers using discover(..., filter_query=...) (preferring schema roles or visible labels) instead of guessing unseen IDs.",
+        "Uses exact MCP tool names open_browser, discover, hover, act, press_key, click_at, and close_session rather than invented tool names like screenshot or type_text.",
+        "Handles truncated discovery footers using discover(..., filter_query=...) (preferring schema roles or visible labels) instead of guessing unseen IDs, and accounts for initial open_browser SPA hydration shifts.",
         "Uses hover(session_id, element_id, wait_ms=...) and picks the newly returned 'added' dict ID before calling act, noting that revision advances and invalidates prior sibling IDs.",
-        "Documents that inspect() reads values on textbox/searchbox (redacting passwords as '[REDACTED]') and TaskState redacts all recorded action values rather than storing plaintext.",
+        "Documents that inspect() verifies typed values on textbox/searchbox (catching read-only input no-ops and redacting passwords as '[REDACTED]') while omitting combobox/select options that must be chosen via keyboard or verified visually.",
         "Recovers from StaleElementError deterministically by calling discover(session_id) and rebinding fresh element_id and REV:N before retrying act.",
         "Uses valid CallToolResult(isError=True) JSON schema ('ok': false, 'recoverable', 'next_step') and distinguishes blind crop coordinates from session viewport bounds.",
         "Restricts click_at(session_id, x, y) strictly to the blind_region crop inside viewport bounds and verifies outcomes independently beyond ok/verified flags.",
@@ -19,27 +19,27 @@
     },
     {
       "id": 2,
-      "prompt": "We need a safe Windows Desktop automation handler (Python design + exact recovery logic) using computer-use-lite to drive a desktop app that spawns native flyouts/Save-As modal dialogs, blocks dangerous OS shortcuts like Win+R, avoids fighting a human moving the mouse, and captures sparse UIA panels cleanly. Provide a maintainable design and concrete recovery helper.",
-      "expected_output": "Complete Windows UIA guide/code using list_desktop_windows -> open_desktop(hwnd=...), filtering minimized offscreen entries, handling ForegroundMismatch by re-enumerating active HWNDs rather than force-clicking background windows, respecting the physical-cursor KillSwitch ('HUMAN TAKEOVER'), documenting the blocked Win/Meta key rejection, verifying file saves independently on disk (catching native Save As UIA desync), and handling low_uia blind crops with PrintWindow awareness.",
+      "prompt": "We need a safe Windows Desktop automation handler (Python design + exact recovery logic) using computer-use-lite to drive a desktop app that spawns native flyouts/Save-As modal dialogs, blocks dangerous OS shortcuts like Win+R, avoids fighting a human moving the mouse, and captures sparse/covered UIA panels cleanly. Provide a maintainable design and concrete recovery helper.",
+      "expected_output": "Complete Windows UIA guide/code using list_desktop_windows -> open_desktop(hwnd=...), filtering minimized offscreen placeholder boxes (preserving valid multi-monitor windows), handling ForegroundMismatch by re-enumerating active HWNDs rather than force-clicking background windows, preserving KillSwitch ('HUMAN TAKEOVER'), documenting blocked Win/Meta keys, verifying file saves independently on disk (catching Win32 #32770 ValuePattern desync even when inspect() reflects typed text), and handling low_uia blind crops with PrintWindow covered-capture behavior and RTL mirroring awareness.",
       "files": [],
       "expectations": [
-        "Uses list_desktop_windows() first (filtering minimized/offscreen boxes and matching process/class/title across locales) and attaches explicitly by hwnd via open_desktop(hwnd=...) or DesktopSession(hwnd).",
+        "Uses list_desktop_windows() first (filtering minimized/offscreen placeholder boxes and matching process/class/title across locales) and attaches explicitly by hwnd via open_desktop(hwnd=...) or DesktopSession(hwnd).",
         "Handles ForegroundMismatch (foreground shifted to modal dialog or flyout) by calling list_desktop_windows() to locate and attach the active dialog HWND or dismiss it instead of bypassing foreground safety.",
         "Preserves the physical-cursor KillSwitch ('HUMAN TAKEOVER') safety mechanism rather than disabling KillSwitch or cursor checks.",
         "Documents/handles blocked OS modifier tokens (win, lwin, rwin, meta, super, command, cmd) cleanly without attempting bypasses.",
-        "Uses low_uia blind_gap regions (and notes PrintWindow priority for covered/cloaked windows and independent disk checks after native Save dialogs) rather than calling desktop-root UIA enumeration."
+        "Verifies file saves directly on disk rather than relying on verified=true or inspect() inside Win32 #32770 Save As dialogs, and handles low_uia blind_gap PrintWindow crops (noting RTL mirroring asymmetry) without desktop-root UIA enumeration."
       ]
     },
     {
       "id": 3,
-      "prompt": "Write a Python module `multi_session_runner.py` (draft code in our output folder, do NOT modify existing repo files) using computer_use_lite directly (or SessionManager) that safely runs concurrent sessions without Playwright asyncio errors or shared task_state.json / crops directory collisions, performs discover -> inspect -> execute_action(type/click) -> scroll + invalidate_revision -> hover_element, catches StaleElementError cleanly, and explains how to run the repo pytest suite in headless Windows CI without UIA.",
-      "expected_output": "Clean Python implementation using SessionManager or isolated per-session Api(..., state_path=..., crops_dir=...) on dedicated worker threads, invalidate_revision after manual scroll(), hover_element(), explicit StaleElementError retry via discover_interactables(), and exact pytest + CUL_SKIP_DESKTOP=1 command for headless Windows CI.",
+      "prompt": "Write a Python module `multi_session_runner.py` (draft code in our output folder, do NOT modify existing repo files) using computer_use_lite directly (or SessionManager) that safely runs concurrent sessions without Playwright asyncio errors or shared task_state.json / crops directory collisions, performs discover -> inspect -> execute_action(type/click) -> scroll + invalidate_revision -> hover_element, catches StaleElementError and cross-origin site-isolated embed discovery boundaries cleanly, and explains how to run the repo pytest suite in headless Windows CI without UIA.",
+      "expected_output": "Clean Python implementation using SessionManager or isolated per-session Api(..., state_path=..., crops_dir=...) on dedicated worker threads, invalidate_revision after manual scroll(), hover_element(), explicit StaleElementError retry via discover_interactables(), honest reporting when embedded third-party frames return empty controls/BLIND_REGIONS:0, and exact pytest + CUL_SKIP_DESKTOP=1 command for headless Windows CI.",
       "files": [],
       "expectations": [
         "Imports canonical symbols from computer_use_lite (Api, BrowserSession, StaleElementError, or SessionManager) rather than raw playwright async hacks or non-existent modules.",
         "Prevents cross-session state/crop collisions by assigning per-session state_path and crops_dir (or delegating to SessionManager).",
         "Prevents Playwright sync_api event-loop/thread-affinity errors by pinning each session to a dedicated worker thread / SessionManager.",
-        "Calls api.invalidate_revision(...) after manual session.scroll(...) (or uses SessionManager.scroll) and handles StaleElementError by re-running discovery.",
+        "Calls api.invalidate_revision(...) after manual session.scroll(...) (or uses SessionManager.scroll) and handles StaleElementError by re-running discovery and reporting unmapped embedded frames cleanly.",
         "Includes exact pytest invocation with CUL_SKIP_DESKTOP=1 for headless Windows CI (noting WinDLL('user32') requires a Windows host at import time)."
       ]
     }
