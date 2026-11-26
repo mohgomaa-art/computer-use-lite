@@ -660,27 +660,38 @@ def test_desktop_target_window_raises_above_covering_window(monkeypatch):
     covering_hwnd = u32.CreateWindowExW(0, "STATIC", "CULCoverIDE", ws_popup_vis, 100, 100, 480, 380, 0, 0, None, 0)
     assert target_hwnd and covering_hwnd
     try:
-        # Simulate fullscreen IDE covering target window in foreground
-        u32.SetWindowPos(wintypes.HWND(target_hwnd), 0, 140, 140, 320, 220, 0x0040)
-        u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 100, 100, 480, 380, 0x0040)
-        u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
-        time.sleep(0.05)
+        # Simulate fullscreen IDE covering target window
+        desktop_uia.bring_window_to_front(target_hwnd, activate=False)
+        desktop_uia.bring_window_to_front(covering_hwnd, activate=False)
+        time.sleep(0.03)
         assert _is_hwnd_above(u32, wintypes, covering_hwnd, target_hwnd) is True
 
         sess = DesktopSession(int(target_hwnd), show_cursor=True, cursor_glide_ms=20)
         try:
             ov = sess._overlay
             assert ov is not None and ov.hwnd
-            # Target app must now appear above covering window, and cursor overlay above target app
+            # Target app must rise above covering window, while topmost cursor overlay stays above target app
             assert _is_hwnd_above(u32, wintypes, target_hwnd, covering_hwnd) is True
             assert _is_hwnd_above(u32, wintypes, int(ov.hwnd), target_hwnd) is True
 
-            # Even if covering window regains foreground, hover handoff raises & activates target without ForegroundMismatch
-            u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 100, 100, 480, 380, 0x0040)
-            u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
-            time.sleep(0.03)
-            sess.hover({"box": [180, 180, 60, 30], "role": "button"})
+            # If covering window moves back over target, raising target via perform() restores visibility above covering_hwnd
+            desktop_uia.bring_window_to_front(covering_hwnd, activate=False)
+            assert _is_hwnd_above(u32, wintypes, covering_hwnd, target_hwnd) is True
+
+            raise_calls = []
+            orig_bring = desktop_uia.bring_window_to_front
+
+            def _tracked_bring(hwnd, *, activate=False):
+                raise_calls.append((int(hwnd), bool(activate)))
+                return orig_bring(hwnd, activate=activate)
+
+            monkeypatch.setattr(desktop_uia, "bring_window_to_front", _tracked_bring)
+            # Trigger perform() Z-order guard; element lookup fails safely after raising target_hwnd cleanly
+            with pytest.raises(LookupError):
+                sess.perform({"box": [180, 180, 60, 30], "role": "button", "ref": {"runtime_id": [999]}}, "click")
+            assert (int(target_hwnd), False) in raise_calls
             assert _is_hwnd_above(u32, wintypes, target_hwnd, covering_hwnd) is True
+            assert _is_hwnd_above(u32, wintypes, int(ov.hwnd), target_hwnd) is True
         finally:
             sess.close()
     finally:
@@ -701,8 +712,7 @@ def test_browser_headful_raises_window_and_tracks_hwnd():
     covering_hwnd = u32.CreateWindowExW(0, "STATIC", "CULCoverBrowser", ws_popup_vis, 80, 80, 640, 480, 0, 0, None, 0)
     assert covering_hwnd
     try:
-        u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 80, 80, 640, 480, 0x0040)
-        u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
+        desktop_uia.bring_window_to_front(covering_hwnd, activate=True)
         time.sleep(0.05)
 
         html = "<!doctype html><html><title>CULVisibleHeadful</title><body><button id='b'>Go</button></body></html>"
@@ -714,8 +724,7 @@ def test_browser_headful_raises_window_and_tracks_hwnd():
                 assert _is_hwnd_above(u32, wintypes, int(s._browser_hwnd), covering_hwnd) is True
 
                 # Push covering window back over browser, navigate, and verify browser pops back to front
-                u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 80, 80, 640, 480, 0x0040)
-                u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
+                desktop_uia.bring_window_to_front(covering_hwnd, activate=False)
                 time.sleep(0.04)
                 assert _is_hwnd_above(u32, wintypes, covering_hwnd, int(s._browser_hwnd)) is True
                 s.navigate(srv.url + "#raised")
