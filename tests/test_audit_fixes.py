@@ -517,3 +517,109 @@ def test_p0_1_site_per_process_oopif_discovery_gt_and_actions(tmp_path, monkeypa
         srv_a.server_close()
         srv_b.shutdown()
         srv_b.server_close()
+
+
+# ---------------------------------------------------------------------------
+# P0-2: Multi-tab (target="_blank") lifecycle, tab switch & Cursor Overlay
+# ---------------------------------------------------------------------------
+def test_p0_2_multi_tab_tracking_switch_close_and_overlay(tmp_path, monkeypatch):
+    monkeypatch.setenv("CUL_MCP_ALLOW_PRIVATE_URLS", "1")
+    html_root = (
+        "<!doctype html><html><body style='margin:20px'><title>Opener Tab</title>"
+        "<a id='open_child' href='/child' target='_blank'>Open Child</a>"
+        "<button id='stay' onclick=\"document.getElementById('s_out').textContent='opener_ok'\">StayAction</button>"
+        "<div id='s_out'>opener_init</div></body></html>"
+    )
+    html_child = (
+        "<!doctype html><html><body style='margin:20px'><title>Child Tab</title>"
+        "<button id='child_btn' onclick=\"document.getElementById('c_out').textContent='child_ok'\">ChildAction</button>"
+        "<div id='c_out'>child_init</div></body></html>"
+    )
+
+    class _TabHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            p = self.path.split("?", 1)[0]
+            body = html_child if p == "/child" else html_root
+            data = body.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, *args):
+            return
+
+    srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), _TabHandler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base_url = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        # 1. Direct BrowserSession + Api + show_cursor continuity across tabs
+        bs = BrowserSession(url=f"{base_url}/", headless=True, viewport=(1280, 720), show_cursor=True, cursor_glide_ms=0)
+        try:
+            api = Api(bs, state_path=tmp_path / "p0_2_tabs.json")
+            api.discover_interactables(export_crops=False)
+            link = next(r for r in api.resolver.records if r.get("name") == "Open Child")
+            res = api.execute_action(link["id"], "click")
+            assert res["ok"] is True
+            assert res["verified"] is True, f"Opening target='_blank' tab was not reported verified: {res}"
+
+            tabs = bs.tabs()
+            assert len(tabs) == 2 and tabs[0]["active"] is True and "/child" in tabs[1]["url"]
+            new_tabs = bs.consume_new_tabs()
+            assert len(new_tabs) == 1 and new_tabs[0]["index"] == 1 and "/child" in new_tabs[0]["url"]
+
+            sw = bs.switch_tab(1)
+            assert sw["active_tab_index"] == 1 and "/child" in sw["url"]
+            assert bs.page.evaluate("() => Boolean(window[Symbol.for('cul.agent.cursor')])") is True
+            api.discover_interactables(export_crops=False)
+            c_btn = next(r for r in api.resolver.records if r.get("name") == "ChildAction")
+            c_res = api.execute_action(c_btn["id"], "click")
+            assert c_res["verified"] is True
+            assert bs.page.inner_text("#c_out") == "child_ok"
+
+            # Also verify URL-substring switching back to opener and back to child
+            bs.switch_tab("127.0.0.1")
+            cl = bs.close_tab(1)
+            assert cl["tab_count"] == 1
+            api.discover_interactables(export_crops=False)
+            s_btn = next(r for r in api.resolver.records if r.get("name") == "StayAction")
+            assert api.execute_action(s_btn["id"], "click")["verified"] is True
+            assert bs.page.inner_text("#s_out") == "opener_ok"
+            with pytest.raises(ValueError, match="last remaining"):
+                bs.close_tab()
+        finally:
+            bs.close()
+
+        # 2. SessionManager navigate(list_tabs / switch_tab / close_tab) + act opened_tab notification
+        async def _run_mgr():
+            mgr = SessionManager()
+            try:
+                opened = await mgr.open_browser(url=f"{base_url}/", headless=True, auto_discover=True)
+                sid = opened["session_id"]
+                lines = [ln.split("|") for ln in opened["discovery"]["line_map"].splitlines() if ln.startswith("e")]
+                link_id = next(cols[0] for cols in lines if "Open Child" in cols[2])
+
+                act_res = await mgr.act(sid, link_id, "click")
+                assert act_res.get("opened_tab", {}).get("index") == 1
+                assert act_res.get("tab_count") == 2
+
+                listed_tabs = await mgr.navigate(sid, action="list_tabs")
+                assert listed_tabs["tab_count"] == 2 and listed_tabs["active_tab_index"] == 0
+
+                switched = await mgr.navigate(sid, action="switch_tab", url="1", auto_discover=True)
+                assert switched["active_tab_index"] == 1 and "/child" in switched["url"]
+                assert "ChildAction" in switched["discovery"]["line_map"]
+                assert mgr.list_sessions()[0]["tab_count"] == 2
+                assert "/child" in mgr.list_sessions()[0]["target"]
+
+                closed_tab = await mgr.navigate(sid, action="close_tab", auto_discover=True)
+                assert closed_tab["tab_count"] == 1 and closed_tab["active_tab_index"] == 0
+                assert "StayAction" in closed_tab["discovery"]["line_map"]
+            finally:
+                await mgr.close_all()
+
+        asyncio.run(_run_mgr())
+    finally:
+        srv.shutdown()
+        srv.server_close()

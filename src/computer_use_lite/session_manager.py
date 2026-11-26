@@ -141,6 +141,8 @@ class _SessionWorker:
         self.session_id = session_id
         self.kind = kind
         self.target_summary = target_summary
+        self.tab_count = 1 if kind == "browser" else 0
+        self.active_tab_index = 0
         self.created_at = time.time()
         self._tmp_dir = tempfile.TemporaryDirectory(prefix=f"cul_mcp_{session_id}_")
         root = Path(self._tmp_dir.name)
@@ -241,7 +243,7 @@ class _SessionWorker:
 
     def metadata(self) -> dict:
         api = self._api
-        return {
+        meta = {
             "session_id": self.session_id,
             "kind": self.kind,
             "target": self.target_summary,
@@ -249,6 +251,10 @@ class _SessionWorker:
             "elements": len(api.resolver.records) if api is not None else 0,
             "blind_regions": len(api.regions) if api is not None else 0,
         }
+        if self.kind == "browser":
+            meta["tab_count"] = self.tab_count
+            meta["active_tab_index"] = self.active_tab_index
+        return meta
 
     def close(self, timeout: float = 5.0) -> None:
         with self._cv:
@@ -372,6 +378,26 @@ class SessionManager:
                 worker.target_summary = pg.url
             except Exception:
                 pass
+        if hasattr(sess, "tabs"):
+            try:
+                tabs = sess.tabs()
+                worker.tab_count = len(tabs)
+                worker.active_tab_index = next((t["index"] for t in tabs if t.get("active")), 0)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _attach_tab_delta(payload: dict, sess) -> None:
+        if not hasattr(sess, "consume_new_tabs"):
+            return
+        try:
+            new_tabs = sess.consume_new_tabs()
+            tabs = sess.tabs()
+            payload["tab_count"] = len(tabs)
+            if new_tabs:
+                payload["opened_tab"] = new_tabs[-1]
+        except Exception:
+            pass
 
     # -- lifecycle tools -------------------------------------------------------
     async def open_browser(
@@ -594,6 +620,7 @@ class SessionManager:
                 revision=revision,
                 clear=clear,
             )
+            self._attach_tab_delta(res, sess)
             self._sync_browser_target(worker, sess)
             return res
 
@@ -616,21 +643,45 @@ class SessionManager:
         url: str | None = None,
         action: str = "goto",
         auto_discover: bool = False,
+        tab_index: int | None = None,
     ) -> dict:
-        if action not in ("goto", "back"):
-            raise ValueError(f"Unsupported navigate action {action!r}; choose 'goto' or 'back'.")
+        if action not in ("goto", "back", "list_tabs", "switch_tab", "close_tab"):
+            raise ValueError(
+                f"Unsupported navigate action {action!r}; choose 'goto', 'back', 'list_tabs', 'switch_tab', or 'close_tab'."
+            )
         worker = self._get_worker(session_id)
         if worker.kind != "browser":
             raise ValueError("navigate() is only supported on browser sessions.")
         safe_url = validate_navigation_url(url) if action == "goto" else None
 
         def op(sess: BrowserSession, api: Api) -> dict:
+            if action == "list_tabs":
+                tabs = sess.tabs()
+                self._sync_browser_target(worker, sess)
+                active_idx = next((t["index"] for t in tabs if t.get("active")), 0)
+                return {
+                    "ok": True,
+                    "action": "list_tabs",
+                    "tabs": tabs,
+                    "tab_count": len(tabs),
+                    "active_tab_index": active_idx,
+                    "url": sess.page.url,
+                    "title": sess.page.title(),
+                    "revision": api.resolver.revision,
+                }
+
             def _run_nav() -> dict:
                 if action == "goto":
                     info = sess.navigate(safe_url)
-                else:
+                elif action == "back":
                     info = sess.back()
-                worker.target_summary = info["url"]
+                elif action == "switch_tab":
+                    target = tab_index if tab_index is not None else url
+                    info = sess.switch_tab(target)
+                else:
+                    target = tab_index if tab_index is not None else url
+                    info = sess.close_tab(target)
+                self._sync_browser_target(worker, sess)
                 new_rev = api.invalidate_revision(f"navigate:{action}", detail=info["url"])
                 res = {"ok": True, "action": action, **info, "revision": new_rev}
                 if auto_discover:
@@ -656,9 +707,11 @@ class SessionManager:
 
         def op(sess, api: Api) -> dict:
             info = sess.press_key(key)
-            self._sync_browser_target(worker, sess)
             new_rev = api.invalidate_revision("press_key", detail=info.get("key"))
-            return {"ok": True, **info, "revision": new_rev}
+            res = {"ok": True, **info, "revision": new_rev}
+            self._attach_tab_delta(res, sess)
+            self._sync_browser_target(worker, sess)
+            return res
 
         return await worker.call(op, timeout=20.0)
 
@@ -674,8 +727,10 @@ class SessionManager:
 
         def op(sess, api: Api) -> dict:
             info = sess.click_coordinate(int(x), int(y), button=button, clicks=int(clicks))
-            self._sync_browser_target(worker, sess)
             new_rev = api.invalidate_revision("click_at", detail=f"{x},{y}")
-            return {"ok": True, **info, "revision": new_rev}
+            res = {"ok": True, **info, "revision": new_rev}
+            self._attach_tab_delta(res, sess)
+            self._sync_browser_target(worker, sess)
+            return res
 
         return await worker.call(op, timeout=20.0)

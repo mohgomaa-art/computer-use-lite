@@ -146,8 +146,14 @@ _NODE_PROBE_JS = """function(doScroll) {
       }
     }
   }
+  const tgtEl = (elem.closest && elem.closest('a[target]')) || elem;
+  const opensNewTab = Boolean(
+    (tgtEl.tagName === 'A' && String(tgtEl.target || '').toLowerCase() === '_blank') ||
+    /window\\.open\\s*\\(/.test(elem.getAttribute('onclick') || '')
+  );
   return {
     gone: false, disabled: false, offscreen: false, occluded: !ok, cross_origin: crossOrigin,
+    opens_new_tab: opensNewTab,
     box: [Math.round(ax * 10) / 10, Math.round(ay * 10) / 10,
           Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]
   };
@@ -560,6 +566,12 @@ class BrowserSession:
         self._debug_port = None
         self.headless = bool(headless)
         self._browser_hwnd = None
+        self._connect_url = connect
+        self._direct_ws = direct_ws
+        self._context = None
+        self._pages = []
+        self._known_page_ids = set()
+        self._pending_new_pages = []
         self.show_cursor = resolve_overlay_enabled(bool(headless) and not bool(connect), show_cursor)
         self.cursor_glide_ms = resolve_glide_ms(bool(headless) and not bool(connect), cursor_glide_ms)
         try:
@@ -567,6 +579,7 @@ class BrowserSession:
                 self.browser = self._pw.chromium.connect_over_cdp(connect)
                 ctx = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
                 self.page = self._select_active_page(ctx)
+                self._bind_context_pages(ctx)
                 if self.show_cursor:
                     self._install_cursor_overlay(ctx, evaluate_now=True)
             else:
@@ -576,6 +589,7 @@ class BrowserSession:
                     launch_args.append(f"--remote-debugging-port={self._debug_port}")
                 self.browser = self._pw.chromium.launch(headless=headless, args=launch_args)
                 self.page = self.browser.new_page(viewport={"width": viewport[0], "height": viewport[1]})
+                self._bind_context_pages(self.page.context)
                 if self.show_cursor:
                     self._install_cursor_overlay(self.page.context, evaluate_now=False)
                 if url:
@@ -638,6 +652,204 @@ class BrowserSession:
             if sc > best_score:
                 best, best_score = pg, sc
         return best
+
+    def _bind_context_pages(self, ctx):
+        self._context = ctx
+        try:
+            pages = list(ctx.pages)
+        except Exception:
+            pages = []
+        if self.page not in pages:
+            pages.append(self.page)
+        self._pages = [p for p in pages if not self._is_page_closed(p)]
+        self._known_page_ids = {id(p) for p in self._pages}
+        try:
+            ctx.on("page", self._on_new_page)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _is_page_closed(pg) -> bool:
+        try:
+            return bool(pg.is_closed())
+        except Exception:
+            return True
+
+    def _on_new_page(self, pg) -> None:
+        if self._is_page_closed(pg):
+            return
+        if pg not in self._pages:
+            self._pages.append(pg)
+        if id(pg) not in self._known_page_ids:
+            self._known_page_ids.add(id(pg))
+            self._pending_new_pages.append(pg)
+
+    def _reconcile_pages(self) -> list:
+        live = [p for p in self._pages if not self._is_page_closed(p)]
+        if self._context is not None:
+            try:
+                ctx_pages = list(self._context.pages)
+            except Exception:
+                ctx_pages = []
+            for p in ctx_pages:
+                if not self._is_page_closed(p) and p not in live:
+                    live.append(p)
+                    if id(p) not in self._known_page_ids:
+                        self._known_page_ids.add(id(p))
+                        self._pending_new_pages.append(p)
+        if not live and not self._is_page_closed(self.page):
+            live = [self.page]
+        self._pages = live
+        return live
+
+    @staticmethod
+    def _page_info(pg, idx: int, active: bool) -> dict:
+        try:
+            url = pg.url
+        except Exception:
+            url = ""
+        try:
+            title = pg.title()
+        except Exception:
+            title = ""
+        return {"index": idx, "url": url, "title": title, "active": bool(active)}
+
+    def tabs(self) -> list[dict]:
+        """Return ordered open tabs with URL, title, and active flag."""
+        try:
+            self.page.wait_for_timeout(1)
+        except Exception:
+            pass
+        pages = self._reconcile_pages()
+        return [self._page_info(p, i, p is self.page) for i, p in enumerate(pages)]
+
+    def consume_new_tabs(self) -> list[dict]:
+        """Drain newly opened tabs detected since the previous check."""
+        pages = self._reconcile_pages()
+        if not self._pending_new_pages:
+            return []
+        pending = list(self._pending_new_pages)
+        self._pending_new_pages.clear()
+        out = []
+        for pg in pending:
+            if self._is_page_closed(pg):
+                continue
+            try:
+                if not pg.url or pg.url == "about:blank":
+                    pg.wait_for_load_state("domcontentloaded", timeout=1500)
+            except Exception:
+                pass
+            if pg in pages:
+                idx = pages.index(pg)
+                out.append(self._page_info(pg, idx, pg is self.page))
+        return out
+
+    def _resolve_tab(self, target) -> tuple[int, object]:
+        pages = self._reconcile_pages()
+        if not pages:
+            raise ValueError("No open browser tabs remain")
+        if isinstance(target, int) and not isinstance(target, bool):
+            idx = target
+            if 0 <= idx < len(pages):
+                return idx, pages[idx]
+            raise ValueError(f"Tab index {target} out of range (0..{len(pages) - 1})")
+        key = str(target).strip() if target is not None else ""
+        if not key:
+            raise ValueError("Specify tab_index or a URL/title substring in url to select a tab")
+        if key.isdigit():
+            idx = int(key)
+            if 0 <= idx < len(pages):
+                return idx, pages[idx]
+            raise ValueError(f"Tab index {idx} out of range (0..{len(pages) - 1})")
+        low = key.lower()
+        for idx, pg in enumerate(pages):
+            info = self._page_info(pg, idx, pg is self.page)
+            if low in (info["url"] or "").lower() or low in (info["title"] or "").lower():
+                return idx, pg
+        raise ValueError(f"No open tab matched {target!r}")
+
+    def switch_tab(self, target) -> dict:
+        """Switch active tab by index or URL/title substring and rebind DirectCdpClient."""
+        idx, pg = self._resolve_tab(target)
+        try:
+            pg.bring_to_front()
+        except Exception:
+            pass
+        try:
+            if not pg.url or pg.url == "about:blank":
+                pg.wait_for_load_state("domcontentloaded", timeout=3000)
+        except Exception:
+            pass
+        if pg is not self.page:
+            old_cdp = getattr(self, "cdp", None)
+            if old_cdp is not None and hasattr(old_cdp, "close"):
+                try:
+                    old_cdp.close()
+                except Exception:
+                    pass
+            self.page = pg
+            self.cdp = self._attach_cdp(self._connect_url, self._direct_ws)
+        self.viewport = self._query_viewport() or self.viewport
+        if self.show_cursor:
+            self._ensure_cursor_mounted()
+        all_tabs = self.tabs()
+        info = self._page_info(pg, idx, True)
+        return {
+            "active_tab_index": idx,
+            "url": info["url"],
+            "title": info["title"],
+            "tab_count": len(all_tabs),
+            "tabs": all_tabs,
+        }
+
+    def close_tab(self, target=None) -> dict:
+        """Close an open tab cleanly, switching back to a surviving tab if active."""
+        pages = self._reconcile_pages()
+        if len(pages) <= 1:
+            raise ValueError("Cannot close the last remaining browser tab; use close_session().")
+        if target is None or (isinstance(target, str) and not target.strip()):
+            idx = pages.index(self.page) if self.page in pages else 0
+            pg = pages[idx]
+        else:
+            idx, pg = self._resolve_tab(target)
+        closed_info = self._page_info(pg, idx, pg is self.page)
+        was_active = pg is self.page
+        if was_active and getattr(self, "cdp", None) is not None and hasattr(self.cdp, "close"):
+            try:
+                self.cdp.close()
+            except Exception:
+                pass
+            self.cdp = None
+        try:
+            pg.close()
+        except Exception:
+            pass
+        self._pages = [p for p in self._pages if p is not pg and not self._is_page_closed(p)]
+        self._pending_new_pages = [p for p in self._pending_new_pages if p is not pg and not self._is_page_closed(p)]
+        if was_active or self._is_page_closed(self.page):
+            remaining = self._reconcile_pages()
+            next_idx = min(idx, len(remaining) - 1)
+            next_pg = remaining[next_idx]
+            self.page = next_pg
+            try:
+                next_pg.bring_to_front()
+            except Exception:
+                pass
+            self.cdp = self._attach_cdp(self._connect_url, self._direct_ws)
+            self.viewport = self._query_viewport() or self.viewport
+            if self.show_cursor:
+                self._ensure_cursor_mounted()
+        all_tabs = self.tabs()
+        active_idx = next((t["index"] for t in all_tabs if t["active"]), 0)
+        active_info = self._page_info(self.page, active_idx, True)
+        return {
+            "closed": closed_info,
+            "active_tab_index": active_idx,
+            "url": active_info["url"],
+            "title": active_info["title"],
+            "tab_count": len(all_tabs),
+            "tabs": all_tabs,
+        }
 
     def _query_viewport(self):
         try:
@@ -1602,12 +1814,14 @@ class BrowserSession:
         sid = ref.get("cdp_session_id")
         bx = el.get("box")
         x, y = self._center(el)
+        expects_popup = False
         obj_id = self._resolve_node_id(el)
         if obj_id:
             state = self._call_on_node(obj_id, _NODE_PROBE_JS, True, session_id=sid)
             if state:
                 if state.get("disabled"):
                     raise RuntimeError("element is disabled")
+                expects_popup = bool(state.get("opens_new_tab"))
                 bx = state.get("box") or el["box"]
                 if state.get("cross_origin") or sid:
                     try:
@@ -1622,9 +1836,18 @@ class BrowserSession:
 
         cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
         self._move_cursor(x, y, cid, halo=bx)
+        before_tabs = len(self._reconcile_pages()) if (action == "click" and expects_popup) else 0
         if action in ("click", "type", "focus"):
             self._dispatch_cursor("click", round(float(x), 1), round(float(y), 1), cid)
             self.page.mouse.click(x, y)
+            if action == "click" and expects_popup:
+                for _ in range(14):
+                    if len(self._reconcile_pages()) > before_tabs:
+                        break
+                    try:
+                        self.page.wait_for_timeout(15)
+                    except Exception:
+                        break
         if action == "type":
             if clear:
                 self.page.keyboard.press("Control+a")
@@ -1796,15 +2019,22 @@ class BrowserSession:
         focus_fp = f"{raw.get('ae_tag', '')}:len={len(ae_val)}:h={val_hash}"
         if raw.get("ae_secret"):
             focus_fp = f"{raw.get('ae_tag', '')}:[REDACTED]:len={len(ae_val)}:h={val_hash}"
+        tab_count = len(self._reconcile_pages())
         return {
             "url": self._safe_url() or url,
             "title": raw.get("title", ""),
             "focus": focus_fp,
             "text": raw.get("text", ""),
             "n": raw.get("n", 0),
+            "tabs": tab_count,
         }
 
     def close(self):
+        if getattr(self, "_context", None) is not None:
+            try:
+                self._context.remove_listener("page", self._on_new_page)
+            except Exception:
+                pass
         try:
             if getattr(self, "cdp", None) is not None and hasattr(self.cdp, "close"):
                 self.cdp.close()

@@ -122,6 +122,12 @@ class _FixtureHttpServer:
             "/css_hover": _CSS_HOVER_HTML.encode("utf-8"),
             "/canvas": _CANVAS_HTML.encode("utf-8"),
             "/probe": _PROBE_HTML.encode("utf-8"),
+            "/tabs": (
+                b'<!doctype html><html><body style="margin:20px">'
+                b'<a id="new_tab" href="/page2" target="_blank">OpenPage2Tab</a>'
+                b'<button id="opener_btn" onclick="this.textContent=\'OpenerDone\'">OpenerStay</button>'
+                b'</body></html>'
+            ),
         }
 
         class Handler(BaseHTTPRequestHandler):
@@ -695,6 +701,56 @@ def test_mcp_cul_mcp_headful_toggle_and_explicit_override():
         probe_c, hdr_c, _ = await _probe_one("1", {"headless": True})
         assert probe_c == "ua_headless:true;cursor_api:false", probe_c
         assert "HEADLESS:true" in hdr_c and "CURSOR:off" in hdr_c, hdr_c
+
+    anyio.run(scenario)
+
+
+def test_mcp_multi_tab_target_blank_lifecycle():
+    async def scenario():
+        with _FixtureHttpServer() as srv, tempfile.TemporaryFile(mode="w+", encoding="utf-8") as errlog:
+            async with stdio_client(_server_params(), errlog=errlog) as (read, write):
+                async with ClientSession(read, write) as client:
+                    await client.initialize()
+                    tools = {t.name for t in (await client.list_tools()).tools}
+                    assert len(tools) == 13
+
+                    opened = await client.call_tool("open_browser", {"url": f"{srv.base_url}/tabs", "headless": True})
+                    assert not opened.isError
+                    sid, _, els = _parse_session_and_elements(opened.content[0].text)
+                    link_id = _find_by_name(els, "OpenPage2Tab", role="link")
+
+                    act_res = json.loads((await client.call_tool(
+                        "act", {"session_id": sid, "element_id": link_id, "action": "click"}
+                    )).content[0].text)
+                    assert act_res["ok"] is True
+                    assert act_res["verified"] is True
+                    assert act_res.get("tab_count") == 2
+                    assert act_res.get("opened_tab", {}).get("index") == 1
+
+                    listed = json.loads((await client.call_tool(
+                        "navigate", {"session_id": sid, "action": "list_tabs"}
+                    )).content[0].text)
+                    assert listed["tab_count"] == 2
+                    assert listed["active_tab_index"] == 0
+
+                    switched = await client.call_tool(
+                        "navigate", {"session_id": sid, "action": "switch_tab", "url": "1", "auto_discover": True}
+                    )
+                    assert not switched.isError
+                    _, _, els2 = _parse_session_and_elements(switched.content[0].text)
+                    p2_id = _find_by_name(els2, "Page2Action", role="button")
+                    p2_act = json.loads((await client.call_tool(
+                        "act", {"session_id": sid, "element_id": p2_id, "action": "click"}
+                    )).content[0].text)
+                    assert p2_act["ok"] is True
+
+                    closed = await client.call_tool(
+                        "navigate", {"session_id": sid, "action": "close_tab", "auto_discover": True}
+                    )
+                    assert not closed.isError
+                    _, _, els3 = _parse_session_and_elements(closed.content[0].text)
+                    _find_by_name(els3, "OpenerStay", role="button")
+                    await client.call_tool("close_session", {"session_id": sid})
 
     anyio.run(scenario)
 

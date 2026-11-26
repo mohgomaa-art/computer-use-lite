@@ -424,7 +424,10 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
 
     @server.tool(
         name="navigate",
-        description="Navigate an active browser session ('goto' an http(s) URL or 'back' in history) and bump revision.",
+        description=(
+            "Navigate an active browser session ('goto' an http(s) URL, 'back' in history, "
+            "'list_tabs', 'switch_tab', or 'close_tab') and bump revision on mutations."
+        ),
         annotations=ToolAnnotations(
             title="Navigate Browser",
             readOnlyHint=False,
@@ -436,8 +439,9 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
     async def navigate(
         session_id: str,
         url: str | None = None,
-        action: Literal["goto", "back"] = "goto",
+        action: Literal["goto", "back", "list_tabs", "switch_tab", "close_tab"] = "goto",
         auto_discover: bool = False,
+        tab_index: int | None = None,
     ) -> CallToolResult:
         try:
             res = await mgr.navigate(
@@ -445,6 +449,7 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
                 url=url,
                 action=action,
                 auto_discover=auto_discover,
+                tab_index=tab_index,
             )
             if "discovery" in res:
                 return _discovery_result(res, extra_meta={"session_id": session_id, **res})
