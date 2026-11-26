@@ -440,7 +440,7 @@ class BrowserSession:
     # -- discovery --------------------------------------------------------------
     def discover(self):
         snap = self.cdp.send("DOMSnapshot.captureSnapshot", {
-            "computedStyles": ["cursor", "visibility", "pointer-events"],
+            "computedStyles": ["cursor", "visibility", "pointer-events", "overflow-x", "overflow-y", "position"],
             "includePaintOrder": True,
         })
         tbl = snap["strings"]
@@ -482,12 +482,16 @@ class BrowserSession:
         doc_occ_ctx = {}
         aria_labels = {}
         tag_by_bid = {}
+        label_entries = {}
 
         n_tbl = len(tbl)
         pointer_ids = {i for i, s in enumerate(tbl) if s == "pointer"}
         hidden_ids = {i for i, s in enumerate(tbl) if s == "hidden"}
         none_ids = {i for i, s in enumerate(tbl) if s == "none"}
         text_tag_ids = {i for i, s in enumerate(tbl) if s == "#text"}
+        clip_overflow_ids = {i for i, s in enumerate(tbl) if s in ("hidden", "auto", "scroll", "clip")}
+        fixed_pos_ids = {i for i, s in enumerate(tbl) if s == "fixed"}
+        root_tag_ids = {i for i, s in enumerate(tbl) if s.lower() in ("#document", "html", "body")}
 
         def _rect_at(lay_bounds, li, ox, oy):
             q = lay_bounds[li]
@@ -660,6 +664,7 @@ class BrowserSession:
             ctx = {
                 "ox": ox, "oy": oy,
                 "parents": parents, "node_names": node_names,
+                "attrs_list": attrs_list,
                 "lay_nodes": lay_nodes, "lay_bounds": lay_bounds,
                 "lay_styles": lay_styles, "paint_orders": paint_orders,
                 "ni_to_li": ni_to_li, "sorted": None, "queries": 0,
@@ -753,6 +758,8 @@ class BrowserSession:
                 if aria_lbl:
                     aria_labels[bid] = aria_lbl
                 tag_by_bid[bid] = tag
+                if tag == "label":
+                    label_entries[bid] = (d_idx, ni, (attrs.get("for") or "").strip())
                 role = sem_role or "clickable"
                 source = "dom:oopif" if sem_role else ("isClickable" if ni in clicked else "cursor:pointer")
                 elements[bid] = {
@@ -812,6 +819,100 @@ class BrowserSession:
                 "ref": {"kind": "browser", "backend_node_id": bid},
             }
 
+        # Drop elements clipped outside non-root overflow scroll/hidden ancestors
+        for bid, el in list(elements.items()):
+            if el.get("enabled") is False or el.get("occluded") or bid not in bid_loc:
+                continue
+            d_idx, ni = bid_loc[bid]
+            ctx = doc_occ_ctx.get(d_idx)
+            if ctx is None:
+                continue
+            li = ctx["ni_to_li"][ni] if 0 <= ni < len(ctx["ni_to_li"]) else -1
+            lay_styles = ctx["lay_styles"]
+            if 0 <= li < len(lay_styles):
+                seg = lay_styles[li]
+                if len(seg) > 5:
+                    s5 = seg[5]
+                    if (s5 in fixed_pos_ids) if isinstance(s5, int) else (_text(tbl, s5) == "fixed"):
+                        continue
+            b = el["box"]
+            cx, cy = b[0] + b[2] / 2.0, b[1] + b[3] / 2.0
+            parents = ctx["parents"]
+            node_names = ctx["node_names"]
+            ni_to_li = ctx["ni_to_li"]
+            lay_bounds = ctx["lay_bounds"]
+            ox, oy = ctx["ox"], ctx["oy"]
+            cur = parents[ni] if 0 <= ni < len(parents) else -1
+            steps = 0
+            while 0 <= cur < len(parents) and steps < 64:
+                if cur < len(node_names):
+                    tn = node_names[cur]
+                    if (tn in root_tag_ids) if isinstance(tn, int) else (_text(tbl, tn).lower() in ("#document", "html", "body")):
+                        break
+                cli = ni_to_li[cur] if 0 <= cur < len(ni_to_li) else -1
+                if 0 <= cli < len(lay_styles):
+                    cseg = lay_styles[cli]
+                    if len(cseg) > 4:
+                        s3, s4 = cseg[3], cseg[4]
+                        cx_clip = (s3 in clip_overflow_ids) if isinstance(s3, int) else (_text(tbl, s3) in ("hidden", "auto", "scroll", "clip"))
+                        cy_clip = (s4 in clip_overflow_ids) if isinstance(s4, int) else (_text(tbl, s4) in ("hidden", "auto", "scroll", "clip"))
+                        if cx_clip or cy_clip:
+                            ab = _rect_at(lay_bounds, cli, ox, oy)
+                            if ab is not None and ab[2] > 0 and ab[3] > 0:
+                                if (cx_clip and not (ab[0] <= cx <= ab[0] + ab[2])) or (
+                                    cy_clip and not (ab[1] <= cy <= ab[1] + ab[3])
+                                ):
+                                    elements.pop(bid, None)
+                                    break
+                nxt = parents[cur]
+                if nxt < 0 or nxt == cur:
+                    break
+                cur = nxt
+                steps += 1
+
+        # Drop redundant <label> clickables whose associated control is already active and visible
+        if label_entries:
+            id_maps = {}
+            control_roles = {"textbox", "searchbox", "combobox", "checkbox", "radio", "switch"}
+            for lbid, (ld_idx, l_ni, for_id) in label_entries.items():
+                if lbid not in elements:
+                    continue
+                target_bid = None
+                if for_id:
+                    if ld_idx not in id_maps:
+                        m = {}
+                        ctx = doc_occ_ctx[ld_idx]
+                        a_list = ctx["attrs_list"]
+                        b_list = doc_bids.get(ld_idx, ())
+                        for c_ni, raw_a in enumerate(a_list):
+                            if c_ni >= len(b_list) or not raw_a:
+                                continue
+                            ad = _attrs_dict(tbl, raw_a)
+                            eid_attr = (ad.get("id") or "").strip()
+                            if eid_attr and eid_attr not in m:
+                                m[eid_attr] = b_list[c_ni]
+                        id_maps[ld_idx] = m
+                    target_bid = id_maps[ld_idx].get(for_id)
+                else:
+                    l_parents = doc_parents.get(ld_idx, ())
+                    for c_bid, c_el in elements.items():
+                        if c_bid == lbid or c_el.get("role") not in control_roles or c_bid not in bid_loc:
+                            continue
+                        cd_idx, c_ni = bid_loc[c_bid]
+                        if cd_idx == ld_idx and _is_ancestor(l_parents, l_ni, c_ni):
+                            target_bid = c_bid
+                            break
+                if target_bid and target_bid != lbid:
+                    t_el = elements.get(target_bid)
+                    if (
+                        t_el is not None
+                        and t_el.get("enabled") is not False
+                        and not t_el.get("occluded")
+                        and t_el["box"][2] > 1
+                        and t_el["box"][3] > 1
+                    ):
+                        elements.pop(lbid, None)
+
         self._prune_nested_clickables(elements, bid_loc, doc_parents, doc_bids, aria_labels, tag_by_bid)
         self._collect_css_hover_triggers(elements, box_for_bid, is_occluded_bid)
         return [e for e in elements.values() if e.get("enabled") is not False and not e.get("occluded")]
@@ -833,12 +934,23 @@ class BrowserSession:
             while 0 <= cur < len(parents) and steps < 32:
                 if cur < len(bids):
                     anc = elements.get(bids[cur])
-                    if anc is not None and anc.get("role") in ax_parent_roles:
+                    if anc is not None:
+                        anc_role = anc.get("role")
                         child_aria = aria_labels.get(bid, "")
-                        anc_name = (anc.get("name") or "").lower()
-                        if not child_aria or child_aria.lower() in anc_name:
-                            to_drop.append(bid)
-                        break
+                        anc_name = (anc.get("name") or "").strip().lower()
+                        if anc_role in ax_parent_roles:
+                            if not child_aria or child_aria.lower() in anc_name:
+                                to_drop.append(bid)
+                            break
+                        if anc_role == "clickable":
+                            ch_name = (el.get("name") or "").strip().lower()
+                            if tag_by_bid.get(bid) == "#text" or (
+                                el.get("source") == "cursor:pointer"
+                                and (not child_aria or child_aria.lower() in anc_name)
+                                and (not ch_name or ch_name == anc_name)
+                            ):
+                                to_drop.append(bid)
+                                break
                 nxt = parents[cur]
                 if nxt < 0 or nxt == cur:
                     break
