@@ -532,7 +532,7 @@ class DesktopSession:
             raise self._err
 
         if resolve_desktop_overlay_enabled(show_cursor):
-            bring_window_to_front(self.hwnd, activate=True)
+            bring_window_to_front(self.hwnd, activate=False)
             try:
                 bx, by, bw, bh = self.bounds()
                 ix, iy = bx + bw / 2.0, by + bh / 2.0
@@ -644,9 +644,19 @@ class DesktopSession:
 
     # -- discovery --------------------------------------------------------------
     def _scan(self):
-        root = self._uia.ElementFromHandle(self.hwnd)
-        found = root.FindAllBuildCache(UIA.TreeScope_Subtree,
-                                       self._uia.CreateTrueCondition(), self._cache)
+        found = None
+        for attempt in range(3):
+            try:
+                root = self._uia.ElementFromHandle(self.hwnd)
+                found = root.FindAllBuildCache(UIA.TreeScope_Subtree,
+                                               self._uia.CreateTrueCondition(), self._cache)
+                break
+            except Exception as exc:
+                hres = exc.args[0] if getattr(exc, "args", None) else None
+                if attempt < 2 and hres in (-2146233083, -2147023436) and _u32.IsWindow(wintypes.HWND(int(self.hwnd))):
+                    time.sleep(0.15)
+                    continue
+                raise
         out = []
         for i in range(found.Length):
             el = found.GetElement(i)
@@ -813,7 +823,7 @@ class DesktopSession:
                 pass
 
     def perform(self, el, action, value=None):
-        if self.show_cursor:
+        if getattr(self, "show_cursor", False):
             bring_window_to_front(self.hwnd, activate=False)
         box = el.get("box") or [0, 0, 0, 0]
         cx, cy = int(box[0] + box[2] / 2), int(box[1] + box[3] / 2)
