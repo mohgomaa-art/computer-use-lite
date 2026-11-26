@@ -70,7 +70,7 @@ python -m pip install -e ".[dev,benchmarks]"
 python -m playwright install chromium
 ```
 
-Dependencies declared in [`pyproject.toml`](pyproject.toml): `playwright>=1.40`, `pillow>=10.0`, `websockets>=14.0`, `mcp>=1.25.0`, plus Windows dependencies `uiautomation>=2.0.29` and `comtypes>=1.5.0` (see [NOTICE](NOTICE)).
+Dependencies declared in [`pyproject.toml`](pyproject.toml): `playwright>=1.40`, `pillow>=10.0`, `websockets>=14.0`, `mcp>=1.25.0,<2`, plus Windows dependencies `uiautomation>=2.0.29` and `comtypes>=1.5.0` (see [NOTICE](NOTICE)).
 
 ---
 

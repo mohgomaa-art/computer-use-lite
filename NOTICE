@@ -19,7 +19,7 @@ Verified via Python package metadata (`importlib.metadata` on 2026-11-26):
 3. websockets (>=14.0; tested 17.2)
    License: BSD-3-Clause — permissive; compatible with Apache-2.0.
 
-4. mcp (>=1.25.0; tested 1.30.0)
+4. mcp (>=1.25.0,<2; tested 1.30.0)
    License: MIT — compatible with Apache-2.0.
 
 5. uiautomation (>=2.0.29; tested 2.0.29, Windows-only)

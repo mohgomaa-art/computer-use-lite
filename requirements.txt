@@ -1,6 +1,6 @@
 playwright>=1.40
 pillow>=10.0
 websockets>=14.0
-mcp>=1.25.0
+mcp>=1.25.0,<2
 uiautomation>=2.0.29; sys_platform == "win32"  # Windows UIA support
 comtypes>=1.5.0; sys_platform == "win32"       # Windows UIA COM client
