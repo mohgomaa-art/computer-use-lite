@@ -66,6 +66,10 @@ def _discovery_result(payload: dict, extra_meta: dict | None = None) -> CallTool
             if key in extra_meta and extra_meta[key] not in (None, ""):
                 val = str(extra_meta[key]).replace("\n", " ")[:120]
                 meta_parts.append(f"{key.upper()}:{val}")
+        if "headless" in extra_meta and extra_meta["headless"] is not None:
+            meta_parts.append(f"HEADLESS:{str(bool(extra_meta['headless'])).lower()}")
+        if "show_cursor" in extra_meta and extra_meta["show_cursor"] is not None:
+            meta_parts.append(f"CURSOR:{'on' if extra_meta['show_cursor'] else 'off'}")
     if "latency_ms" in stats:
         meta_parts.append(f"LATENCY_MS:{stats['latency_ms']}")
     if "tokens" in stats:
@@ -306,7 +310,12 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
     async def list_sessions() -> CallToolResult:
         try:
             sessions = mgr.list_sessions()
-            return _ok_text({"sessions": sessions, "count": len(sessions)})
+            return _ok_text({
+                "sessions": sessions,
+                "count": len(sessions),
+                "server_pid": os.getpid(),
+                "headful_default": not _resolve_mcp_headless(None),
+            })
         except Exception as exc:  # noqa: BLE001
             return _error_result(exc)
 

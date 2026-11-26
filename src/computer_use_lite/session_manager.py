@@ -406,6 +406,8 @@ class SessionManager:
                 "url": sess.page.url,
                 "title": sess.page.title(),
                 "viewport": list(sess.bounds()),
+                "headless": bool(headless),
+                "show_cursor": bool(getattr(sess, "show_cursor", False)),
             }
             if auto_discover:
                 payload["discovery"] = self._with_busy_cursor(
@@ -497,6 +499,7 @@ class SessionManager:
                 "process_name": proc_name,
                 "title": win_title,
                 "bounds": list(sess.bounds()),
+                "show_cursor": bool(getattr(sess, "show_cursor", False)),
             }
             if auto_discover:
                 payload["discovery"] = self._with_busy_cursor(

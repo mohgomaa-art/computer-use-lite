@@ -654,7 +654,7 @@ def test_err12_err13_err14_no_session_leak_untitled_proc_and_fg_error():
 
 
 def test_mcp_cul_mcp_headful_toggle_and_explicit_override():
-    async def _probe_one(headful_env: str | None, open_args: dict) -> str:
+    async def _probe_one(headful_env: str | None, open_args: dict) -> tuple[str, str, dict]:
         params = _server_params()
         params.env.pop("CUL_AGENT_CURSOR", None)
         if headful_env is None:
@@ -671,23 +671,30 @@ def test_mcp_cul_mcp_headful_toggle_and_explicit_override():
                     args = {"url": f"{srv.base_url}/probe", **open_args}
                     opened = await client.call_tool("open_browser", args)
                     assert not opened.isError
+                    header = opened.content[0].text.splitlines()[0]
+                    listed = json.loads((await client.call_tool("list_sessions", {})).content[0].text)
                     sid, _, els = _parse_session_and_elements(opened.content[0].text)
                     label = next(cols[2] for cols in els.values() if "ua_headless:" in (cols[2] or ""))
                     await client.call_tool("close_session", {"session_id": sid})
-                    return label
+                    return label, header, listed
 
     async def scenario():
         # (a) Unset CUL_MCP_HEADFUL + omitted headless -> stays headless (0 cursor overhead)
-        probe_a = await _probe_one(None, {})
+        probe_a, hdr_a, list_a = await _probe_one(None, {})
         assert probe_a == "ua_headless:true;cursor_api:false", probe_a
+        assert "HEADLESS:true" in hdr_a and "CURSOR:off" in hdr_a, hdr_a
+        assert isinstance(list_a["server_pid"], int) and list_a["headful_default"] is False, list_a
 
         # (b) CUL_MCP_HEADFUL=1 + omitted headless -> opens headful + auto-enables 3D cursor
-        probe_b = await _probe_one("1", {})
+        probe_b, hdr_b, list_b = await _probe_one("1", {})
         assert probe_b == "ua_headless:false;cursor_api:true", probe_b
+        assert "HEADLESS:false" in hdr_b and "CURSOR:on" in hdr_b, hdr_b
+        assert isinstance(list_b["server_pid"], int) and list_b["headful_default"] is True, list_b
 
         # (c) CUL_MCP_HEADFUL=1 + explicit headless=True -> honors explicit headless=True
-        probe_c = await _probe_one("1", {"headless": True})
+        probe_c, hdr_c, _ = await _probe_one("1", {"headless": True})
         assert probe_c == "ua_headless:true;cursor_api:false", probe_c
+        assert "HEADLESS:true" in hdr_c and "CURSOR:off" in hdr_c, hdr_c
 
     anyio.run(scenario)
 

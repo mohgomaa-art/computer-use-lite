@@ -435,8 +435,10 @@ def build_overlay_init_script() -> str:
 
   let root = null, anchor = null, rig = null, press = null, morph = null, offset = null;
   let hostSvg = null, shapeLayer = null, dropShadow = null, halo = null, ripples = null, wake = null, wakeCtx = null;
-  let activeId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
-  let prevX = 640, prevY = 360, rafId = 0, busy = false, lastShDx = '2.2', lastShDy = '3.0';
+  let activeId = 'default', preBusyId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
+  let prevX = 640, prevY = 360, rafId = 0, busy = false, lastTickTs = 0;
+  let pressTimer = 0, pressAnim = null, cursorSheet = null;
+  let lastHaloKey = '', lastHaloSize = '', lastHaloTone = '';
   let lastOutcome = null, lastOutcomeReason = '', clickCount = 0, outcomeCount = 0;
   const particles = [];
   const RING_TONES = {{
@@ -468,7 +470,23 @@ def build_overlay_init_script() -> str:
     return el;
   }}
 
+  function installCursorSuppression() {{
+    try {{
+      if (!('adoptedStyleSheets' in document) || typeof CSSStyleSheet === 'undefined') return;
+      if (!cursorSheet) {{
+        cursorSheet = new CSSStyleSheet();
+        cursorSheet.replaceSync('html,body,*{{cursor:none!important;}}');
+      }}
+      const sheets = document.adoptedStyleSheets || [];
+      if (!sheets.includes(cursorSheet)) {{
+        document.adoptedStyleSheets = [...sheets, cursorSheet];
+      }}
+    }} catch (_e) {{
+      // Continue cleanly if adoptedStyleSheets is blocked by the page.
+    }}
+  }}
   function ensureMounted() {{
+    installCursorSuppression();
     if (anchor && anchor.isConnected) return true;
     const targetParent = document.documentElement;
     if (!targetParent) return false;
@@ -554,6 +572,7 @@ def build_overlay_init_script() -> str:
     const ox = -(spec.hotspot[0] * ratio);
     const oy = -(spec.hotspot[1] * ratio);
     offset.style.transform = `translate3d(${{ox}}px, ${{oy}}px, 0px)`;
+    if (id !== 'progress' && id !== 'not-allowed') preBusyId = id;
     if (shapeLayer && (id !== activeId || shapeLayer.childNodes.length === 0)) {{
       activeId = id;
       while (shapeLayer.firstChild) shapeLayer.removeChild(shapeLayer.firstChild);
@@ -578,22 +597,21 @@ def build_overlay_init_script() -> str:
     if (!rafId) rafId = window.requestAnimationFrame(tick);
   }}
 
-  function tick() {{
+  function tick(ts) {{
     rafId = 0;
+    const now = typeof ts === 'number' ? ts : (window.performance ? performance.now() : Date.now());
+    const dt = lastTickTs ? Math.min(2.5, Math.max(0.25, (now - lastTickTs) / 16.6667)) : 1;
+    lastTickTs = now;
     const dx = curX - prevX, dy = curY - prevY;
     prevX = curX; prevY = curY;
     const speed = Math.hypot(dx, dy);
     const ty = Math.max(-12, Math.min(12, dx * 0.65));
     const tx = Math.max(-12, Math.min(12, -dy * 0.65));
-    tvx = (tvx + (tx - tiltX) * 0.22) * 0.68;
-    tvy = (tvy + (ty - tiltY) * 0.22) * 0.68;
-    tiltX += tvx; tiltY += tvy;
-    lastShDx = (2.2 - tiltY * 0.14).toFixed(2);
-    lastShDy = (3.0 + tiltX * 0.14).toFixed(2);
-    if (dropShadow) {{
-      dropShadow.setAttribute('dx', lastShDx);
-      dropShadow.setAttribute('dy', lastShDy);
-    }}
+    const damp = Math.pow(0.68, dt);
+    const spring = Math.min(1, 0.22 * dt);
+    tvx = (tvx + (tx - tiltX) * spring) * damp;
+    tvy = (tvy + (ty - tiltY) * spring) * damp;
+    tiltX += tvx * dt; tiltY += tvy * dt;
     if (rig) rig.style.transform = `rotateX(${{tiltX.toFixed(2)}}deg) rotateY(${{tiltY.toFixed(2)}}deg)`;
 
     if (speed > 4 && wakeCtx) {{
@@ -604,10 +622,12 @@ def build_overlay_init_script() -> str:
       if (particles.length > 18) particles.shift();
     }}
     if (wakeCtx && (particles.length > 0 || speed > 4)) {{
+      const alphaDecay = Math.pow(0.84, dt);
+      const radiusDecay = Math.pow(0.96, dt);
       wakeCtx.clearRect(0, 0, wake.width, wake.height);
       for (let i = particles.length - 1; i >= 0; i--) {{
         const p = particles[i];
-        p.a *= 0.84; p.r *= 0.96;
+        p.a *= alphaDecay; p.r *= radiusDecay;
         if (p.a < 0.015) {{ particles.splice(i, 1); continue; }}
         wakeCtx.beginPath();
         wakeCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
@@ -617,10 +637,12 @@ def build_overlay_init_script() -> str:
     }}
     if (particles.length > 0 || Math.abs(tiltX) > 0.05 || Math.abs(tiltY) > 0.05 || Math.abs(tvx) > 0.05 || Math.abs(tvy) > 0.05) {{
       scheduleTick();
-    }} else if (rig) {{
-      tiltX = 0; tiltY = 0;
-      rig.style.transform = 'none';
-      if (dropShadow) {{ dropShadow.setAttribute('dx', '2.2'); dropShadow.setAttribute('dy', '3.0'); }}
+    }} else {{
+      lastTickTs = 0;
+      if (rig) {{
+        tiltX = 0; tiltY = 0; tvx = 0; tvy = 0;
+        rig.style.transform = 'none';
+      }}
     }}
   }}
 
@@ -648,12 +670,28 @@ def build_overlay_init_script() -> str:
 
   function setHalo(box, tone = 'input') {{
     if (!halo) return;
-    if (!box || box.length < 4) {{ halo.style.opacity = '0'; return; }}
-    const [edge, glow] = RING_TONES[tone] || RING_TONES.input;
-    halo.style.borderColor = edge;
-    halo.style.background = glow.replace(/[\\d.]+\\)$/, '0.09)');
-    halo.style.width = `${{box[2] + 8}}px`;
-    halo.style.height = `${{box[3] + 8}}px`;
+    if (!box || box.length < 4) {{
+      if (lastHaloKey !== '') {{
+        lastHaloKey = '';
+        halo.style.opacity = '0';
+      }}
+      return;
+    }}
+    const key = `${{box[0]}}|${{box[1]}}|${{box[2]}}|${{box[3]}}|${{tone}}`;
+    if (key === lastHaloKey) return;
+    lastHaloKey = key;
+    if (tone !== lastHaloTone) {{
+      lastHaloTone = tone;
+      const [edge, glow] = RING_TONES[tone] || RING_TONES.input;
+      halo.style.borderColor = edge;
+      halo.style.background = glow.replace(/[\\d.]+\\)$/, '0.09)');
+    }}
+    const sizeKey = `${{box[2]}}|${{box[3]}}`;
+    if (sizeKey !== lastHaloSize) {{
+      lastHaloSize = sizeKey;
+      halo.style.width = `${{box[2] + 8}}px`;
+      halo.style.height = `${{box[3] + 8}}px`;
+    }}
     halo.style.transform = `translate3d(${{box[0] - 4}}px, ${{box[1] - 4}}px, 0px)`;
     halo.style.opacity = '1';
   }}
@@ -689,8 +727,37 @@ def build_overlay_init_script() -> str:
       applyShape(cursorId || activeId, true);
       place(x, y, true);
       if (press) {{
-        press.style.transform = 'scale(0.90) translateZ(-6px)';
-        setTimeout(() => {{ if (press) press.style.transform = 'scale(1) translateZ(0px)'; }}, 110);
+        if (pressTimer) {{
+          clearTimeout(pressTimer);
+          pressTimer = 0;
+        }}
+        if (pressAnim) {{
+          try {{ pressAnim.cancel(); }} catch (_e) {{}}
+          pressAnim = null;
+        }}
+        let animated = false;
+        if (typeof press.animate === 'function') {{
+          press.style.transform = 'scale(1) translateZ(0px)';
+          try {{
+            pressAnim = press.animate(
+              [
+                {{ transform: 'scale(0.90) translateZ(-6px)' }},
+                {{ transform: 'scale(1) translateZ(0px)' }},
+              ],
+              {{ duration: 130, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'none' }}
+            );
+            pressAnim.onfinish = () => {{ pressAnim = null; }};
+            pressAnim.oncancel = () => {{ pressAnim = null; }};
+            animated = true;
+          }} catch (_e) {{}}
+        }}
+        if (!animated) {{
+          press.style.transform = 'scale(0.90) translateZ(-6px)';
+          pressTimer = setTimeout(() => {{
+            pressTimer = 0;
+            if (press) press.style.transform = 'scale(1) translateZ(0px)';
+          }}, 110);
+        }}
       }}
       spawnRipple(x, y, 'input');
     }},
@@ -715,8 +782,15 @@ def build_overlay_init_script() -> str:
     }},
     setBusy(flag) {{
       if (!ensureMounted()) return;
-      busy = Boolean(flag);
-      applyShape(busy ? 'progress' : 'default', true);
+      const nextBusy = Boolean(flag);
+      if (nextBusy === busy) return;
+      busy = nextBusy;
+      if (busy) {{
+        if (activeId !== 'progress' && activeId !== 'not-allowed') preBusyId = activeId;
+        applyShape('progress', true);
+      }} else if (activeId === 'progress') {{
+        applyShape(preBusyId || 'default', true);
+      }}
     }},
     getState() {{
       const spec = SPECS[activeId] || SPECS.default;
@@ -737,6 +811,9 @@ def build_overlay_init_script() -> str:
         morphOrigin: morph ? morph.style.transformOrigin : '',
         offsetTransform: offset ? offset.style.transform : '',
         offsetMatchesHotspot: Boolean(offset && offset.style.transform === expected),
+        tiltX: Number(tiltX.toFixed(2)),
+        tiltY: Number(tiltY.toFixed(2)),
+        rigTransform: rig ? rig.style.transform : '',
         shadowDx: dropShadow ? dropShadow.getAttribute('dx') : '',
         shadowDy: dropShadow ? dropShadow.getAttribute('dy') : '',
       }};

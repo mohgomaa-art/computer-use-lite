@@ -21,7 +21,9 @@ import asyncio
 import collections
 import hashlib
 import json
+import os
 import socket
+import sys
 import threading
 import urllib.parse
 
@@ -556,6 +558,8 @@ class BrowserSession:
         self._pw = sync_playwright().start()
         self.browser = None
         self._debug_port = None
+        self.headless = bool(headless)
+        self._browser_hwnd = None
         self.show_cursor = resolve_overlay_enabled(bool(headless) and not bool(connect), show_cursor)
         self.cursor_glide_ms = resolve_glide_ms(bool(headless) and not bool(connect), cursor_glide_ms)
         try:
@@ -576,6 +580,8 @@ class BrowserSession:
                     self._install_cursor_overlay(self.page.context, evaluate_now=False)
                 if url:
                     self.page.goto(url, wait_until="load", timeout=60000)
+                if not self.headless:
+                    self._raise_playwright_browser_window(activate=True)
             self.viewport = self._query_viewport() or tuple(viewport)
             self.cdp = self._attach_cdp(connect, direct_ws)
             if self.show_cursor:
@@ -1589,6 +1595,8 @@ class BrowserSession:
     def perform(self, el, action, value=None, clear=True):
         if el.get("enabled") is False:
             raise RuntimeError(f"element {el.get('id') or el.get('name')} is disabled")
+        if not self.headless and self.show_cursor:
+            self._raise_playwright_browser_window(activate=False)
 
         ref = el.get("ref") or {}
         sid = ref.get("cdp_session_id")
@@ -1632,8 +1640,75 @@ class BrowserSession:
         self.page.mouse.move(x, y)
         return {"x": x, "y": y}
 
+    def _find_descendant_chrome_hwnd(self):
+        """Locate visible Chromium top-level HWND spawned under this Playwright driver."""
+        if sys.platform != "win32":
+            return None
+        try:
+            import psutil
+            from . import desktop_uia
+        except Exception:
+            return None
+        try:
+            child_pids = {
+                p.pid
+                for p in psutil.Process(os.getpid()).children(recursive=True)
+                if "chrome" in (p.name() or "").lower()
+            }
+        except Exception:
+            return None
+        if not child_pids:
+            return None
+        try:
+            title_hint = (self.page.title() or "").strip().lower()
+        except Exception:
+            title_hint = ""
+        matches = [
+            w for w in desktop_uia.list_windows(class_name="Chrome_WidgetWin_1", limit=120)
+            if w.get("pid") in child_pids and (w.get("box") or [0, 0, 0, 0])[2] >= 100 and (w.get("box") or [0, 0, 0, 0])[3] >= 100
+        ]
+        if not matches:
+            return None
+        if title_hint:
+            for w in matches:
+                if title_hint in (w.get("title") or "").lower():
+                    return int(w["hwnd"])
+        return int(matches[0]["hwnd"])
+
+    def _raise_playwright_browser_window(self, *, activate: bool = True):
+        """Bring headful Playwright tab/window above maximized windows when interactive."""
+        if self.headless or os.environ.get("CUL_SKIP_DESKTOP", "").strip() == "1":
+            return None
+        if sys.platform != "win32":
+            try:
+                self.page.bring_to_front()
+            except Exception:
+                pass
+            return None
+        try:
+            from ctypes import wintypes
+            from .desktop_uia import _u32, bring_window_to_front
+        except Exception:
+            return None
+        hwnd = self._browser_hwnd
+        if hwnd and _u32.IsWindow(wintypes.HWND(int(hwnd))):
+            if int(_u32.GetForegroundWindow() or 0) == int(hwnd):
+                return hwnd
+        else:
+            hwnd = self._find_descendant_chrome_hwnd()
+            self._browser_hwnd = hwnd
+        try:
+            self.page.bring_to_front()
+        except Exception:
+            pass
+        if hwnd:
+            bring_window_to_front(hwnd, activate=activate)
+        return hwnd
+
     def navigate(self, url):
         self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        if not self.headless:
+            self._raise_playwright_browser_window(activate=False)
         return {"url": self.page.url, "title": self.page.title()}
 
     def back(self):

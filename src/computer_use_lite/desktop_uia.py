@@ -19,6 +19,8 @@ tree costs a single round trip per snapshot. Never touches the Desktop Root.
 """
 import ctypes
 import hashlib
+import os
+import sys
 import threading
 import time
 import warnings
@@ -71,6 +73,14 @@ MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP = 0x0020, 0x0040
 MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL = 0x0800, 0x1000
 KEYEVENTF_UNICODE, KEYEVENTF_KEYUP = 0x0004, 0x0002
 SW_RESTORE = 9
+SW_SHOWNOACTIVATE = 4
+SW_SHOWNA = 8
+_HWND_TOPMOST = wintypes.HWND(-1)
+_HWND_NOTOPMOST = wintypes.HWND(-2)
+_SWP_NOSIZE = 0x0001
+_SWP_NOMOVE = 0x0002
+_SWP_NOACTIVATE = 0x0010
+_SWP_SHOWWINDOW = 0x0040
 WM_GETOBJECT = 0x003D
 OBJID_CLIENT = -4
 SMTO_ABORTIFHUNG = 0x0002
@@ -125,6 +135,26 @@ _u32.SystemParametersInfoW.argtypes = [wintypes.UINT, wintypes.UINT, ctypes.c_vo
 _u32.SystemParametersInfoW.restype = wintypes.BOOL
 _u32.EnumChildWindows.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.LPARAM]
 _u32.EnumChildWindows.restype = wintypes.BOOL
+_u32.IsWindow.argtypes = [wintypes.HWND]
+_u32.IsWindow.restype = wintypes.BOOL
+_u32.IsWindowVisible.argtypes = [wintypes.HWND]
+_u32.IsWindowVisible.restype = wintypes.BOOL
+_u32.IsIconic.argtypes = [wintypes.HWND]
+_u32.IsIconic.restype = wintypes.BOOL
+_u32.SetWindowPos.argtypes = [
+    wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+    ctypes.c_int, ctypes.c_int, wintypes.UINT,
+]
+_u32.SetWindowPos.restype = wintypes.BOOL
+_u32.BringWindowToTop.argtypes = [wintypes.HWND]
+_u32.BringWindowToTop.restype = wintypes.BOOL
+_u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+_u32.GetWindowThreadProcessId.restype = wintypes.DWORD
+_u32.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
+_u32.AttachThreadInput.restype = wintypes.BOOL
+_k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+_k32.GetCurrentThreadId.argtypes = []
+_k32.GetCurrentThreadId.restype = wintypes.DWORD
 
 
 def cursor_pos():
@@ -156,6 +186,55 @@ class KillSwitch:
         self.last = tuple(xy)
 
 
+def _activate_with_thread_attach(hwnd):
+    """Best-effort SetForegroundWindow handoff when background MCP hits Foreground Lock."""
+    hw = wintypes.HWND(int(hwnd))
+    if _u32.SetForegroundWindow(hw):
+        return True
+    if not _u32.IsWindow(hw):
+        return False
+    fg = _u32.GetForegroundWindow()
+    cur_tid = _k32.GetCurrentThreadId()
+    fg_tid = _u32.GetWindowThreadProcessId(wintypes.HWND(fg), None) if fg else 0
+    tgt_tid = _u32.GetWindowThreadProcessId(hw, None)
+    attached_fg = bool(fg_tid and fg_tid != cur_tid and _u32.AttachThreadInput(cur_tid, fg_tid, True))
+    attached_tgt = bool(tgt_tid and tgt_tid not in (cur_tid, fg_tid) and _u32.AttachThreadInput(cur_tid, tgt_tid, True))
+    try:
+        _u32.BringWindowToTop(hw)
+        _u32.SetForegroundWindow(hw)
+    finally:
+        if attached_tgt:
+            _u32.AttachThreadInput(cur_tid, tgt_tid, False)
+        if attached_fg:
+            _u32.AttachThreadInput(cur_tid, fg_tid, False)
+    return int(_u32.GetForegroundWindow() or 0) == int(hwnd)
+
+
+def bring_window_to_front(hwnd, *, activate=False):
+    """Raise a target window above covering windows while remaining below topmost cursor overlays."""
+    if not hwnd or sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP", "").strip() == "1":
+        return False
+    val = int(hwnd)
+    if is_overlay_hwnd(val):
+        return False
+    hw = wintypes.HWND(val)
+    if not _u32.IsWindow(hw):
+        return False
+    fg_now = int(_u32.GetForegroundWindow() or 0)
+    if fg_now == val and not _u32.IsIconic(hw) and _u32.IsWindowVisible(hw):
+        return True
+    if _u32.IsIconic(hw):
+        _u32.ShowWindow(hw, SW_RESTORE if activate else SW_SHOWNOACTIVATE)
+    elif not _u32.IsWindowVisible(hw):
+        _u32.ShowWindow(hw, SW_SHOWNA)
+    flags = _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE | _SWP_SHOWWINDOW
+    _u32.SetWindowPos(hw, _HWND_TOPMOST, 0, 0, 0, 0, flags)
+    _u32.SetWindowPos(hw, _HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+    if activate and int(_u32.GetForegroundWindow() or 0) != val:
+        _activate_with_thread_attach(val)
+    return True
+
+
 def _ensure_foreground(hwnd):
     if not hwnd:
         return
@@ -163,7 +242,8 @@ def _ensure_foreground(hwnd):
     if fg == hwnd:
         return
     _u32.ShowWindow(wintypes.HWND(hwnd), SW_RESTORE)
-    _u32.SetForegroundWindow(wintypes.HWND(hwnd))
+    if not _u32.SetForegroundWindow(wintypes.HWND(hwnd)) and _u32.IsWindow(wintypes.HWND(hwnd)):
+        _activate_with_thread_attach(hwnd)
     time.sleep(0.05)
     fg = _u32.GetForegroundWindow()
     if fg != hwnd:
@@ -408,6 +488,7 @@ class DesktopSession:
             raise self._err
 
         if resolve_desktop_overlay_enabled(show_cursor):
+            bring_window_to_front(self.hwnd, activate=True)
             try:
                 bx, by, bw, bh = self.bounds()
                 ix, iy = bx + bw / 2.0, by + bh / 2.0
@@ -667,10 +748,12 @@ class DesktopSession:
                 pass
 
     def perform(self, el, action, value=None):
+        if self.show_cursor:
+            bring_window_to_front(self.hwnd, activate=False)
         box = el.get("box") or [0, 0, 0, 0]
         cx, cy = int(box[0] + box[2] / 2), int(box[1] + box[3] / 2)
         cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
-        self._overlay_move(cx, cy, cid, box=box, wait=(action in ("hover", "click", "invoke")))
+        self._overlay_move(cx, cy, cid, box=box, wait=(action in ("hover", "click", "invoke", "type")))
         if action in ("click", "invoke", "type", "focus"):
             self._overlay_click(cx, cy, cid)
 

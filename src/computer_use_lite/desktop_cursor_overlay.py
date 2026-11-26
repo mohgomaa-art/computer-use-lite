@@ -16,9 +16,9 @@
 
 Renders the unified Frosted Obsidian-Glass & Satin Chrome 3D cursor onto a dedicated
 click-through WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE
-HWND pumped strictly by its own Win32 GUI thread — never on DesktopSession's COM MTA
-worker thread, never calling SetForegroundWindow/Activate, and never invoking SendInput
-for animation glides so KillSwitch never false-triggers HUMAN TAKEOVER.
+HWND pumped strictly by its own high-resolution 60.0 Hz Win32 GUI thread — never on
+DesktopSession's COM MTA worker thread, never calling SetForegroundWindow/Activate,
+and never invoking SendInput for animation glides so KillSwitch never false-triggers.
 """
 from __future__ import annotations
 
@@ -27,7 +27,6 @@ import ctypes
 from ctypes import wintypes
 import math
 import os
-from pathlib import Path
 import sys
 import threading
 import time
@@ -51,15 +50,20 @@ _SWP_NOACTIVATE = 0x0010
 _ULW_ALPHA = 0x00000002
 _WM_DESTROY = 0x0002
 _WM_CLOSE = 0x0010
+_WM_QUIT = 0x0012
 _WM_MOUSEACTIVATE = 0x0021
 _WM_NCHITTEST = 0x0084
-_WM_TIMER = 0x0113
 _WM_APP = 0x8000
 _WM_APP_SYNC = _WM_APP + 1
 _MA_NOACTIVATE = 3
 _HTTRANSPARENT = -1
-_TIMER_ID = 101
-_FRAME_MS = 33
+_PM_REMOVE = 0x0001
+_QS_ALLINPUT = 0x04FF
+_INFINITE = 0xFFFFFFFF
+_CREATE_WAITABLE_TIMER_HIGH_RESOLUTION = 0x00000002
+_TIMER_ALL_ACCESS = 0x1F0003
+_FRAME_NS = 16_666_667  # 60.0 Hz exact vblank cadence
+_SPRITE_SURF_SIZE = 112
 
 _REGISTRY_LOCK = threading.Lock()
 _ACTIVE_OVERLAYS: dict[int, "DesktopCursorOverlay"] = {}
@@ -89,11 +93,11 @@ def resolve_desktop_glide_ms(glide_ms: int | None = None) -> int:
             return max(0, min(int(env), 600))
         except ValueError:
             pass
-    return 90
+    return 160
 
 
 def is_overlay_hwnd(hwnd: int | None) -> bool:
-    """Return True if hwnd belongs to an active/registered Computer-Use-Lite cursor overlay."""
+    """Return True if hwnd belongs to an active/registered Computer-Use-Lite cursor or halo overlay."""
     if not hwnd or sys.platform != "win32":
         return False
     val = int(hwnd)
@@ -114,7 +118,7 @@ def is_overlay_hwnd(hwnd: int | None) -> bool:
 def temporarily_hidden_overlays():
     """Temporarily hide overlays that lack OS capture exclusion while snapping desktop crops."""
     with _REGISTRY_LOCK:
-        targets = [ov for ov in _ACTIVE_OVERLAYS.values() if not ov.excluded_from_capture]
+        targets = list({id(ov): ov for ov in _ACTIVE_OVERLAYS.values() if not ov.excluded_from_capture}.values())
     hidden: list[DesktopCursorOverlay] = []
     for ov in targets:
         try:
@@ -138,6 +142,14 @@ def temporarily_hidden_overlays():
 def _rgba_hex(hex_col: str, alpha: int = 255) -> tuple[int, int, int, int]:
     h = hex_col.lstrip("#")
     return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), alpha)
+
+
+def _to_premul_bgra(im) -> bytes:
+    """Convert an RGBA Pillow Image cleanly into premultiplied BGRA bytes for UpdateLayeredWindow."""
+    premul = im.convert("RGBa")
+    r_ch, g_ch, b_ch, a_ch = premul.split()
+    from PIL import Image
+    return Image.merge("RGBA", (b_ch, g_ch, r_ch, a_ch)).tobytes()
 
 
 def _render_cursor_sprite(cursor_id: str, size_px: int = 32) -> tuple[object, int, int]:
@@ -232,7 +244,6 @@ def _render_cursor_sprite(cursor_id: str, size_px: int = 32) -> tuple[object, in
         d.polygon(pts(poly), fill=body_col, outline=rim_col)
         d.ellipse((pt(29, 29), pt(35, 35)), fill=cyan_col)
     else:
-        # Crosshair reticle fallback covering precision/unknown variants
         arms = [
             [(29.5, 6), (34.5, 6), (34.5, 23), (29.5, 23)],
             [(29.5, 41), (34.5, 41), (34.5, 58), (29.5, 58)],
@@ -245,7 +256,6 @@ def _render_cursor_sprite(cursor_id: str, size_px: int = 32) -> tuple[object, in
         d.ellipse((pt(27.8, 27.8), pt(36.2, 36.2)), outline=cyan_col, width=max(2, round(1.5 * ratio)))
         d.ellipse((pt(30.2, 30.2), pt(33.8, 33.8)), fill=spec_col)
 
-    # Soft directional key-light shadow
     alpha_mask = layer.getchannel("A")
     shadow = Image.new("RGBA", (canvas_w, canvas_w), (2, 6, 23, 0))
     shadow.putalpha(alpha_mask.point(lambda p: int(p * 0.45)))
@@ -318,9 +328,26 @@ def _load_win32():
     u32 = ctypes.WinDLL("user32", use_last_error=True)
     gdi = ctypes.WinDLL("gdi32", use_last_error=True)
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    try:
+        winmm = ctypes.WinDLL("winmm", use_last_error=False)
+        winmm.timeBeginPeriod.argtypes = [wintypes.UINT]
+        winmm.timeBeginPeriod.restype = wintypes.UINT
+        winmm.timeEndPeriod.argtypes = [wintypes.UINT]
+        winmm.timeEndPeriod.restype = wintypes.UINT
+    except Exception:
+        winmm = None
 
     k32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
     k32.GetModuleHandleW.restype = wintypes.HMODULE
+    k32.CreateWaitableTimerExW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD]
+    k32.CreateWaitableTimerExW.restype = wintypes.HANDLE
+    k32.SetWaitableTimer.argtypes = [
+        wintypes.HANDLE, ctypes.POINTER(ctypes.c_longlong), wintypes.LONG,
+        ctypes.c_void_p, ctypes.c_void_p, wintypes.BOOL,
+    ]
+    k32.SetWaitableTimer.restype = wintypes.BOOL
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    k32.CloseHandle.restype = wintypes.BOOL
 
     u32.RegisterClassExW.argtypes = [ctypes.POINTER(_WNDCLASSEXW)]
     u32.RegisterClassExW.restype = wintypes.ATOM
@@ -354,16 +381,18 @@ def _load_win32():
     u32.PostMessageW.restype = wintypes.BOOL
     u32.PostQuitMessage.argtypes = [ctypes.c_int]
     u32.PostQuitMessage.restype = None
-    u32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
-    u32.GetMessageW.restype = ctypes.c_int
+    u32.PeekMessageW.argtypes = [
+        ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT
+    ]
+    u32.PeekMessageW.restype = wintypes.BOOL
     u32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
     u32.TranslateMessage.restype = wintypes.BOOL
     u32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
     u32.DispatchMessageW.restype = ctypes.c_ssize_t
-    u32.SetTimer.argtypes = [wintypes.HWND, ctypes.c_size_t, wintypes.UINT, ctypes.c_void_p]
-    u32.SetTimer.restype = ctypes.c_size_t
-    u32.KillTimer.argtypes = [wintypes.HWND, ctypes.c_size_t]
-    u32.KillTimer.restype = wintypes.BOOL
+    u32.MsgWaitForMultipleObjects.argtypes = [
+        wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE), wintypes.BOOL, wintypes.DWORD, wintypes.DWORD
+    ]
+    u32.MsgWaitForMultipleObjects.restype = wintypes.DWORD
     u32.GetDC.argtypes = [wintypes.HWND]
     u32.GetDC.restype = wintypes.HDC
     u32.ReleaseDC.argtypes = [wintypes.HWND, wintypes.HDC]
@@ -382,187 +411,28 @@ def _load_win32():
     gdi.SelectObject.restype = wintypes.HGDIOBJ
     gdi.DeleteObject.argtypes = [wintypes.HGDIOBJ]
     gdi.DeleteObject.restype = wintypes.BOOL
-    return u32, gdi, k32
+    return u32, gdi, k32, winmm
 
 
-class DesktopCursorOverlay:
-    """Thread-isolated click-through layered 3D cursor overlay bound cleanly to a DesktopSession."""
+class _LayeredSurface:
+    """Reusable premultiplied-BGRA DIB surface bound to a click-through layered HWND."""
 
-    def __init__(self, initial_xy: tuple[float, float] = (0.0, 0.0), glide_ms: int | None = None):
-        self.glide_ms = resolve_desktop_glide_ms(glide_ms)
-        self.hwnd: int = 0
-        self.thread_ident: int | None = None
-        self.excluded_from_capture: bool = False
-        self._lock = threading.Lock()
-        self._ready = threading.Event()
-        self._closed = False
-        self._init_error: Exception | None = None
-
-        ix, iy = float(initial_xy[0]), float(initial_xy[1])
-        self._state = {
-            "cursor_id": "default",
-            "x": ix,
-            "y": iy,
-            "start_x": ix,
-            "start_y": iy,
-            "target_x": ix,
-            "target_y": iy,
-            "glide_start": 0.0,
-            "glide_ms": 0.0,
-            "busy": False,
-            "halo_box": None,
-            "halo_tone": "input",
-            "halo_until": 0.0,
-            "ripple_xy": None,
-            "ripple_tone": "input",
-            "ripple_start": 0.0,
-            "ripple_ms": 380.0,
-            "last_outcome": None,
-            "last_outcome_reason": "",
-            "click_count": 0,
-            "outcome_count": 0,
-            "visible": False,
-            "capture_suppressed": False,
-        }
-
-        self._sprites: dict[str, tuple[object, int, int]] = {}
-        self._u32 = None
-        self._gdi = None
-        self._k32 = None
-        self._wndproc_ref = None
-        self._class_name = ""
-        self._hinst = None
+    def __init__(self, u32, gdi, hwnd: int):
+        self._u32 = u32
+        self._gdi = gdi
+        self.hwnd = int(hwnd)
         self._mem_dc = None
         self._hbmp = None
         self._old_bmp = None
         self._bits = None
         self._buf_wh = (0, 0)
-        self._timer_running = False
+        self.visible = False
+        self.pixel_key = None
 
-        self._thread = threading.Thread(target=self._gui_loop, name="CULDesktopCursorOverlay", daemon=True)
-        self._thread.start()
-        if not self._ready.wait(timeout=3.0):
-            raise TimeoutError("DesktopCursorOverlay GUI thread did not initialize within 3 s")
-        if self._init_error is not None:
-            raise self._init_error
-
-    # -- Win32 GUI message-pump thread (strictly separate from UIA COM MTA) ---
-    def _gui_loop(self) -> None:
-        self.thread_ident = threading.get_ident()
-        try:
-            u32, gdi, k32 = _load_win32()
-            self._u32, self._gdi, self._k32 = u32, gdi, k32
-            self._hinst = k32.GetModuleHandleW(None)
-            self._class_name = f"{OVERLAY_CLASS_PREFIX}_{os.getpid()}_{id(self)}"
-
-            def _wndproc(hwnd, msg, wp, lp):
-                if msg == _WM_MOUSEACTIVATE:
-                    return _MA_NOACTIVATE
-                if msg == _WM_NCHITTEST:
-                    return _HTTRANSPARENT
-                if msg == _WM_APP_SYNC:
-                    try:
-                        self._render_tick()
-                    except Exception:
-                        self._stop_timer(hwnd)
-                    return 0
-                if msg == _WM_TIMER and wp == _TIMER_ID:
-                    try:
-                        self._render_tick()
-                    except Exception:
-                        self._stop_timer(hwnd)
-                    return 0
-                if msg == _WM_CLOSE:
-                    u32.DestroyWindow(hwnd)
-                    return 0
-                if msg == _WM_DESTROY:
-                    self._stop_timer(hwnd)
-                    u32.PostQuitMessage(0)
-                    return 0
-                return u32.DefWindowProcW(hwnd, msg, wp, lp)
-
-            self._wndproc_ref = _WNDPROC(_wndproc)
-            wc = _WNDCLASSEXW(
-                ctypes.sizeof(_WNDCLASSEXW), 0, self._wndproc_ref, 0, 0,
-                self._hinst, None, None, None, None, self._class_name, None,
-            )
-            if not u32.RegisterClassExW(ctypes.byref(wc)):
-                err = ctypes.get_last_error()
-                raise OSError(f"RegisterClassExW failed: {err}")
-
-            ex_style = (
-                _WS_EX_LAYERED | _WS_EX_TRANSPARENT | _WS_EX_TOPMOST
-                | _WS_EX_TOOLWINDOW | _WS_EX_NOACTIVATE
-            )
-            hwnd_raw = u32.CreateWindowExW(
-                ex_style, self._class_name, "", _WS_POPUP,
-                0, 0, 96, 96, None, None, self._hinst, None,
-            )
-            if not hwnd_raw:
-                raise OSError(f"CreateWindowExW failed: {ctypes.get_last_error()}")
-            self.hwnd = int(hwnd_raw)
-            with _REGISTRY_LOCK:
-                _ACTIVE_OVERLAYS[self.hwnd] = self
-
-            try:
-                self.excluded_from_capture = bool(
-                    u32.SetWindowDisplayAffinity(wintypes.HWND(self.hwnd), _WDA_EXCLUDEFROMCAPTURE)
-                )
-            except Exception:
-                self.excluded_from_capture = False
-
-            self._ready.set()
-
-            msg = wintypes.MSG()
-            while u32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-                u32.TranslateMessage(ctypes.byref(msg))
-                u32.DispatchMessageW(ctypes.byref(msg))
-        except Exception as exc:
-            self._init_error = exc
-            self._ready.set()
-        finally:
-            hwnd_val = self.hwnd
-            if hwnd_val:
-                with _REGISTRY_LOCK:
-                    _ACTIVE_OVERLAYS.pop(hwnd_val, None)
-            self._free_surface()
-            if self._u32 is not None and self._class_name:
-                try:
-                    self._u32.UnregisterClassW(self._class_name, self._hinst)
-                except Exception:
-                    pass
-            self.hwnd = 0
-
-    def _stop_timer(self, hwnd: int) -> None:
-        if self._timer_running and self._u32 is not None and hwnd:
-            try:
-                self._u32.KillTimer(wintypes.HWND(hwnd), _TIMER_ID)
-            except Exception:
-                pass
-            self._timer_running = False
-
-    def _ensure_timer(self, hwnd: int) -> None:
-        if not self._timer_running and self._u32 is not None and hwnd:
-            self._u32.SetTimer(wintypes.HWND(hwnd), _TIMER_ID, _FRAME_MS, None)
-            self._timer_running = True
-
-    def _free_surface(self) -> None:
-        if self._gdi is not None and self._mem_dc:
-            if self._old_bmp:
-                self._gdi.SelectObject(self._mem_dc, self._old_bmp)
-                self._old_bmp = None
-            if self._hbmp:
-                self._gdi.DeleteObject(self._hbmp)
-                self._hbmp = None
-            self._gdi.DeleteDC(self._mem_dc)
-            self._mem_dc = None
-        self._bits = None
-        self._buf_wh = (0, 0)
-
-    def _ensure_surface(self, width: int, height: int) -> None:
+    def ensure(self, width: int, height: int) -> None:
         if self._buf_wh == (width, height) and self._bits is not None:
             return
-        self._free_surface()
+        self.free()
         screen_dc = self._u32.GetDC(None)
         try:
             self._mem_dc = self._gdi.CreateCompatibleDC(screen_dc)
@@ -578,30 +448,341 @@ class DesktopCursorOverlay:
             self._old_bmp = self._gdi.SelectObject(self._mem_dc, self._hbmp)
             self._bits = bits.value
             self._buf_wh = (width, height)
+            self.pixel_key = None
         finally:
             self._u32.ReleaseDC(None, screen_dc)
 
-    def _sprite_for(self, cursor_id: str) -> tuple[object, int, int]:
-        key = cursor_id if cursor_id in CURSOR_SPECS else "default"
+    def present(self, x: int, y: int, width: int, height: int, bgra_bytes: bytes | None) -> None:
+        self.ensure(width, height)
+        if bgra_bytes is not None:
+            ctypes.memmove(self._bits, bgra_bytes, len(bgra_bytes))
+        screen_dc = self._u32.GetDC(None)
+        try:
+            pt_dst = wintypes.POINT(int(x), int(y))
+            pt_src = wintypes.POINT(0, 0)
+            sz = _SIZE(int(width), int(height))
+            blend = _BLENDFUNCTION(0, 0, 255, 1)
+            self._u32.UpdateLayeredWindow(
+                wintypes.HWND(self.hwnd), screen_dc, ctypes.byref(pt_dst), ctypes.byref(sz),
+                self._mem_dc, ctypes.byref(pt_src), 0, ctypes.byref(blend), _ULW_ALPHA,
+            )
+        finally:
+            self._u32.ReleaseDC(None, screen_dc)
+        if not self.visible:
+            self.visible = True
+            self._u32.ShowWindow(wintypes.HWND(self.hwnd), _SW_SHOWNOACTIVATE)
+            self._u32.SetWindowPos(
+                wintypes.HWND(self.hwnd), wintypes.HWND(-1), 0, 0, 0, 0,
+                _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE,
+            )
+
+    def hide(self) -> None:
+        if self.visible:
+            self.visible = False
+            self._u32.ShowWindow(wintypes.HWND(self.hwnd), _SW_HIDE)
+
+    def free(self) -> None:
+        if self._mem_dc:
+            if self._old_bmp:
+                self._gdi.SelectObject(self._mem_dc, self._old_bmp)
+                self._old_bmp = None
+            if self._hbmp:
+                self._gdi.DeleteObject(self._hbmp)
+                self._hbmp = None
+            self._gdi.DeleteDC(self._mem_dc)
+            self._mem_dc = None
+        self._bits = None
+        self._buf_wh = (0, 0)
+        self.pixel_key = None
+
+
+class DesktopCursorOverlay:
+    """Thread-isolated 60.0 Hz click-through layered 3D cursor overlay for DesktopSession."""
+
+    def __init__(self, initial_xy: tuple[float, float] = (0.0, 0.0), glide_ms: int | None = None):
+        self.glide_ms = resolve_desktop_glide_ms(glide_ms)
+        self.hwnd: int = 0
+        self._halo_hwnd: int = 0
+        self.thread_ident: int | None = None
+        self.excluded_from_capture: bool = False
+        self._lock = threading.Lock()
+        self._ready = threading.Event()
+        self._closed = False
+        self._init_error: Exception | None = None
+
+        ix, iy = float(initial_xy[0]), float(initial_xy[1])
+        self._state = {
+            "cursor_id": "default",
+            "pre_busy_cursor_id": "default",
+            "x": ix,
+            "y": iy,
+            "start_x": ix,
+            "start_y": iy,
+            "target_x": ix,
+            "target_y": iy,
+            "glide_start": 0.0,
+            "glide_ms": 0.0,
+            "press_until": 0.0,
+            "busy": False,
+            "halo_box": None,
+            "halo_tone": "input",
+            "halo_until": 0.0,
+            "ripple_xy": None,
+            "ripple_tone": "input",
+            "ripple_start": 0.0,
+            "ripple_ms": 380.0,
+            "last_outcome": None,
+            "last_outcome_reason": "",
+            "click_count": 0,
+            "outcome_count": 0,
+            "frame_count": 0,
+            "last_fps": 0.0,
+            "visible": False,
+            "capture_suppressed": False,
+        }
+
+        self._sprites: dict[tuple[str, bool], tuple[object, bytes, int, int]] = {}
+        self._u32 = None
+        self._gdi = None
+        self._k32 = None
+        self._winmm = None
+        self._wndproc_ref = None
+        self._class_name = ""
+        self._hinst = None
+        self._cursor_surf: _LayeredSurface | None = None
+        self._halo_surf: _LayeredSurface | None = None
+        self._animating = False
+        self._dirty = False
+        self._last_frame_ns = 0
+        self._period_active = False
+
+        self._thread = threading.Thread(target=self._gui_loop, name="CULDesktopCursorOverlay", daemon=True)
+        self._thread.start()
+        if not self._ready.wait(timeout=3.0):
+            raise TimeoutError("DesktopCursorOverlay GUI thread did not initialize within 3 s")
+        if self._init_error is not None:
+            raise self._init_error
+
+    # -- Win32 GUI high-resolution 60 Hz message-pump thread -----------------
+    def _create_overlay_hwnd(self, u32, ex_style: int) -> int:
+        hwnd_raw = u32.CreateWindowExW(
+            ex_style, self._class_name, "", _WS_POPUP,
+            0, 0, _SPRITE_SURF_SIZE, _SPRITE_SURF_SIZE, None, None, self._hinst, None,
+        )
+        if not hwnd_raw:
+            raise OSError(f"CreateWindowExW failed: {ctypes.get_last_error()}")
+        return int(hwnd_raw)
+
+    def _gui_loop(self) -> None:
+        self.thread_ident = threading.get_ident()
+        timer_h = None
+        high_res = False
+        try:
+            u32, gdi, k32, winmm = _load_win32()
+            self._u32, self._gdi, self._k32, self._winmm = u32, gdi, k32, winmm
+            self._hinst = k32.GetModuleHandleW(None)
+            self._class_name = f"{OVERLAY_CLASS_PREFIX}_{os.getpid()}_{id(self)}"
+
+            def _wndproc(hwnd, msg, wp, lp):
+                if msg == _WM_MOUSEACTIVATE:
+                    return _MA_NOACTIVATE
+                if msg == _WM_NCHITTEST:
+                    return _HTTRANSPARENT
+                if msg == _WM_APP_SYNC:
+                    self._dirty = True
+                    return 0
+                if msg == _WM_CLOSE:
+                    for h in (self._halo_hwnd, self.hwnd):
+                        if h:
+                            u32.DestroyWindow(wintypes.HWND(h))
+                    return 0
+                if msg == _WM_DESTROY:
+                    if hwnd == self.hwnd:
+                        u32.PostQuitMessage(0)
+                    return 0
+                return u32.DefWindowProcW(hwnd, msg, wp, lp)
+
+            self._wndproc_ref = _WNDPROC(_wndproc)
+            wc = _WNDCLASSEXW(
+                ctypes.sizeof(_WNDCLASSEXW), 0, self._wndproc_ref, 0, 0,
+                self._hinst, None, None, None, None, self._class_name, None,
+            )
+            if not u32.RegisterClassExW(ctypes.byref(wc)):
+                raise OSError(f"RegisterClassExW failed: {ctypes.get_last_error()}")
+
+            ex_style = (
+                _WS_EX_LAYERED | _WS_EX_TRANSPARENT | _WS_EX_TOPMOST
+                | _WS_EX_TOOLWINDOW | _WS_EX_NOACTIVATE
+            )
+            self.hwnd = self._create_overlay_hwnd(u32, ex_style)
+            self._halo_hwnd = self._create_overlay_hwnd(u32, ex_style)
+            self._cursor_surf = _LayeredSurface(u32, gdi, self.hwnd)
+            self._halo_surf = _LayeredSurface(u32, gdi, self._halo_hwnd)
+
+            with _REGISTRY_LOCK:
+                _ACTIVE_OVERLAYS[self.hwnd] = self
+                _ACTIVE_OVERLAYS[self._halo_hwnd] = self
+
+            excl_ok = True
+            for h in (self.hwnd, self._halo_hwnd):
+                try:
+                    excl_ok = bool(u32.SetWindowDisplayAffinity(wintypes.HWND(h), _WDA_EXCLUDEFROMCAPTURE)) and excl_ok
+                except Exception:
+                    excl_ok = False
+            self.excluded_from_capture = excl_ok
+
+            timer_h = k32.CreateWaitableTimerExW(None, None, _CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, _TIMER_ALL_ACCESS)
+            if timer_h:
+                high_res = True
+            else:
+                timer_h = k32.CreateWaitableTimerExW(None, None, 0, _TIMER_ALL_ACCESS)
+
+            self._ready.set()
+
+            msg = wintypes.MSG()
+            due = ctypes.c_longlong(0)
+            timer_arr = (wintypes.HANDLE * 1)(timer_h) if timer_h else None
+            next_frame_ns = 0
+
+            while True:
+                while u32.PeekMessageW(ctypes.byref(msg), None, 0, 0, _PM_REMOVE):
+                    if msg.message == _WM_QUIT:
+                        return
+                    u32.TranslateMessage(ctypes.byref(msg))
+                    u32.DispatchMessageW(ctypes.byref(msg))
+
+                now_ns = time.perf_counter_ns()
+                if self._dirty or (self._animating and now_ns >= next_frame_ns):
+                    self._dirty = False
+                    try:
+                        self._render_tick()
+                    except Exception:
+                        self._animating = False
+                    now_ns = time.perf_counter_ns()
+                    if self._animating:
+                        if not high_res and winmm is not None and not self._period_active:
+                            winmm.timeBeginPeriod(1)
+                            self._period_active = True
+                        if next_frame_ns <= 0 or (now_ns - next_frame_ns) > 2 * _FRAME_NS:
+                            next_frame_ns = now_ns + _FRAME_NS
+                        else:
+                            next_frame_ns += _FRAME_NS
+                    else:
+                        next_frame_ns = 0
+                        if self._period_active and winmm is not None:
+                            winmm.timeEndPeriod(1)
+                            self._period_active = False
+
+                if self._animating and timer_h and timer_arr is not None:
+                    rem_ns = max(500_000, next_frame_ns - time.perf_counter_ns())
+                    due.value = -(rem_ns // 100)
+                    k32.SetWaitableTimer(timer_h, ctypes.byref(due), 0, None, None, False)
+                    u32.MsgWaitForMultipleObjects(1, timer_arr, False, 50, _QS_ALLINPUT)
+                else:
+                    u32.MsgWaitForMultipleObjects(0, None, False, _INFINITE, _QS_ALLINPUT)
+        except Exception as exc:
+            self._init_error = exc
+            self._ready.set()
+        finally:
+            if self._period_active and self._winmm is not None:
+                try:
+                    self._winmm.timeEndPeriod(1)
+                except Exception:
+                    pass
+                self._period_active = False
+            if timer_h and self._k32 is not None:
+                try:
+                    self._k32.CloseHandle(timer_h)
+                except Exception:
+                    pass
+            with _REGISTRY_LOCK:
+                for h in (self.hwnd, self._halo_hwnd):
+                    if h:
+                        _ACTIVE_OVERLAYS.pop(h, None)
+            if self._cursor_surf is not None:
+                self._cursor_surf.free()
+            if self._halo_surf is not None:
+                self._halo_surf.free()
+            if self._u32 is not None and self._class_name:
+                try:
+                    self._u32.UnregisterClassW(self._class_name, self._hinst)
+                except Exception:
+                    pass
+            self.hwnd = 0
+            self._halo_hwnd = 0
+
+    def _sprite_for(self, cursor_id: str, pressed: bool) -> tuple[object, bytes, int, int]:
+        from PIL import Image
+
+        cid = cursor_id if cursor_id in CURSOR_SPECS else "default"
+        key = (cid, bool(pressed))
         cached = self._sprites.get(key)
         if cached is None:
-            cached = _render_cursor_sprite(key, 32)
+            im, hx, hy = _render_cursor_sprite(cid, 32)
+            if pressed:
+                # 90% tactile press squash anchored strictly around hotspot (hx, hy)
+                w, h = im.size
+                sw, sh = max(4, round(w * 0.90)), max(4, round(h * 0.90))
+                scaled = im.resize((sw, sh), Image.Resampling.LANCZOS)
+                nhx, nhy = round(hx * 0.90), round(hy * 0.90)
+                canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+                canvas.alpha_composite(scaled, dest=(hx - nhx, hy - nhy))
+                im = canvas
+            bgra = _to_premul_bgra(im)
+            cached = (im, bgra, hx, hy)
             self._sprites[key] = cached
         return cached
+
+    def _update_halo_layer(self, halo_box: list[float] | None, halo_tone: str) -> None:
+        from PIL import Image, ImageDraw
+
+        surf = self._halo_surf
+        if surf is None:
+            return
+        if halo_box is None:
+            surf.hide()
+            return
+        bx, by, bw, bh = [int(round(v)) for v in halo_box[:4]]
+        if bw <= 1 or bh <= 1 or bw > 1400 or bh > 980:
+            surf.hide()
+            return
+        pad = 6
+        wl, wt = bx - pad, by - pad
+        ww, wh = bw + pad * 2, bh + pad * 2
+        key = (wl, wt, ww, wh, halo_tone)
+        if key == surf.pixel_key and surf.visible:
+            return
+        tone_map = {
+            "input": (56, 189, 248),
+            "verified": (16, 185, 129),
+            "unverified": (245, 158, 11),
+            "error": (244, 63, 94),
+        }
+        rgb = tone_map.get(halo_tone, (56, 189, 248))
+        im = Image.new("RGBA", (ww, wh), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle(
+            (1, 1, ww - 2, wh - 2), radius=9, fill=(*rgb, 24), outline=(*rgb, 195), width=2
+        )
+        surf.present(wl, wt, ww, wh, _to_premul_bgra(im))
+        surf.pixel_key = key
 
     def _render_tick(self) -> None:
         from PIL import Image, ImageDraw
 
-        hwnd = self.hwnd
-        if not hwnd:
+        if not self.hwnd or self._cursor_surf is None:
+            self._animating = False
             return
         now = time.perf_counter()
+        now_ns = time.perf_counter_ns()
         with self._lock:
             st = dict(self._state)
             if st["capture_suppressed"]:
                 self._state["visible"] = False
-                self._stop_timer(hwnd)
-                self._u32.ShowWindow(wintypes.HWND(hwnd), _SW_HIDE)
+                self._animating = False
+                self._cursor_surf.hide()
+                if self._halo_surf is not None:
+                    self._halo_surf.hide()
                 return
 
             animating = st["busy"]
@@ -623,6 +804,10 @@ class DesktopCursorOverlay:
                 else:
                     animating = True
 
+            pressed = now < st["press_until"]
+            if pressed:
+                animating = True
+
             ripple_t = None
             if st["ripple_xy"] is not None:
                 rt = (now - st["ripple_start"]) * 1000.0 / st["ripple_ms"]
@@ -638,98 +823,72 @@ class DesktopCursorOverlay:
             elif halo_box is not None:
                 animating = True
 
-        sprite, hx, hy = self._sprite_for(st["cursor_id"])
+            self._state["frame_count"] += 1
+            if self._last_frame_ns > 0 and self._animating:
+                dt_ns = now_ns - self._last_frame_ns
+                if 1_000_000 <= dt_ns <= 200_000_000:
+                    inst_fps = 1_000_000_000.0 / dt_ns
+                    prev_fps = self._state["last_fps"]
+                    self._state["last_fps"] = inst_fps if prev_fps <= 0 else (prev_fps * 0.7 + inst_fps * 0.3)
+            self._last_frame_ns = now_ns
+            self._animating = animating
+
+        self._update_halo_layer(halo_box, st["halo_tone"])
+
+        sprite, _, hx, hy = self._sprite_for(st["cursor_id"], pressed)
         sw, sh = sprite.size
-        base_pad = 36
+        base_pad = (_SPRITE_SURF_SIZE - sw) // 2
         win_l = int(round(cx)) - hx - base_pad
         win_t = int(round(cy)) - hy - base_pad
-        win_r = win_l + sw + base_pad * 2
-        win_b = win_t + sh + base_pad * 2
+        win_w = _SPRITE_SURF_SIZE
+        win_h = _SPRITE_SURF_SIZE
 
-        if halo_box is not None:
-            bx, by, bw, bh = [int(round(v)) for v in halo_box[:4]]
-            cand_l = min(win_l, bx - 10)
-            cand_t = min(win_t, by - 10)
-            cand_r = max(win_r, bx + bw + 10)
-            cand_b = max(win_b, by + bh + 10)
-            if (cand_r - cand_l) <= 720 and (cand_b - cand_t) <= 560:
-                win_l, win_t, win_r, win_b = cand_l, cand_t, cand_r, cand_b
+        ripple_bucket = int(round(ripple_t * 30)) if ripple_t is not None else None
+        busy_deg = int((now * 360.0) % 360) if st["busy"] else 0
+        surf_key = (st["cursor_id"], pressed, ripple_bucket, busy_deg)
+
+        bgra_bytes: bytes | None = None
+        if surf_key != self._cursor_surf.pixel_key or not self._cursor_surf.visible:
+            if ripple_t is None and not st["busy"]:
+                # Fast-path static sprite centered in fixed 112x112 surface (cached per key)
+                static_key = ("_surf", st["cursor_id"], pressed)
+                bgra_bytes = self._sprites.get(static_key)  # type: ignore[assignment]
+                if bgra_bytes is None:
+                    frame = Image.new("RGBA", (win_w, win_h), (0, 0, 0, 0))
+                    frame.alpha_composite(sprite, dest=(base_pad, base_pad))
+                    bgra_bytes = _to_premul_bgra(frame)
+                    self._sprites[static_key] = bgra_bytes  # type: ignore[assignment]
             else:
-                halo_box = None
+                frame = Image.new("RGBA", (win_w, win_h), (0, 0, 0, 0))
+                if ripple_t is not None and st["ripple_xy"] is not None:
+                    rx = int(round(st["ripple_xy"][0])) - win_l
+                    ry = int(round(st["ripple_xy"][1])) - win_t
+                    rad = int(round(6 + 24 * ripple_t))
+                    alpha = max(10, int(round(220 * (1.0 - ripple_t))))
+                    tone_map = {
+                        "input": (56, 189, 248),
+                        "verified": (16, 185, 129),
+                        "unverified": (245, 158, 11),
+                        "error": (244, 63, 94),
+                    }
+                    rgb = tone_map.get(st["ripple_tone"], (56, 189, 248))
+                    draw = ImageDraw.Draw(frame)
+                    draw.ellipse((rx - rad, ry - rad, rx + rad, ry + rad), outline=(*rgb, alpha), width=2)
+                frame.alpha_composite(sprite, dest=(base_pad, base_pad))
+                if st["busy"]:
+                    draw = ImageDraw.Draw(frame)
+                    ocx = base_pad + int(round(46 * 32 / 64)) + 8
+                    ocy = base_pad + int(round(46 * 32 / 64)) + 8
+                    draw.arc((ocx - 10, ocy - 10, ocx + 10, ocy + 10), start=busy_deg, end=busy_deg + 210, fill=(56, 189, 248, 240), width=2)
+                bgra_bytes = _to_premul_bgra(frame)
 
-        win_w = max(96, win_r - win_l)
-        win_h = max(96, win_b - win_t)
-        frame = Image.new("RGBA", (win_w, win_h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(frame)
-
-        tone_map = {
-            "input": (56, 189, 248),
-            "verified": (16, 185, 129),
-            "unverified": (245, 158, 11),
-            "error": (244, 63, 94),
-        }
-        if halo_box is not None:
-            rgb = tone_map.get(st["halo_tone"], (56, 189, 248))
-            bx, by, bw, bh = [int(round(v)) for v in halo_box[:4]]
-            hl = max(2, bx - 4 - win_l)
-            ht = max(2, by - 4 - win_t)
-            hr = min(win_w - 3, bx + bw + 4 - win_l)
-            hb = min(win_h - 3, by + bh + 4 - win_t)
-            if hr > hl + 4 and hb > ht + 4:
-                draw.rounded_rectangle((hl, ht, hr, hb), radius=8, fill=(*rgb, 22), outline=(*rgb, 185), width=2)
-
-        if ripple_t is not None and st["ripple_xy"] is not None:
-            rx = int(round(st["ripple_xy"][0])) - win_l
-            ry = int(round(st["ripple_xy"][1])) - win_t
-            rad = int(round(6 + 24 * ripple_t))
-            alpha = max(10, int(round(220 * (1.0 - ripple_t))))
-            rgb = tone_map.get(st["ripple_tone"], (56, 189, 248))
-            draw.ellipse((rx - rad, ry - rad, rx + rad, ry + rad), outline=(*rgb, alpha), width=2)
-
-        sx = int(round(cx)) - hx - win_l
-        sy = int(round(cy)) - hy - win_t
-        frame.alpha_composite(sprite, dest=(sx, sy))
-
-        if st["busy"]:
-            ang = int((now * 320.0) % 360)
-            ocx = sx + int(round(46 * 32 / 64)) + 8
-            ocy = sy + int(round(46 * 32 / 64)) + 8
-            draw.arc((ocx - 10, ocy - 10, ocx + 10, ocy + 10), start=ang, end=ang + 210, fill=(56, 189, 248, 240), width=2)
-
-        premul = frame.convert("RGBa")
-        r_ch, g_ch, b_ch, a_ch = premul.split()
-        bgra_bytes = Image.merge("RGBA", (b_ch, g_ch, r_ch, a_ch)).tobytes()
-
-        self._ensure_surface(win_w, win_h)
-        ctypes.memmove(self._bits, bgra_bytes, len(bgra_bytes))
-
-        screen_dc = self._u32.GetDC(None)
-        try:
-            pt_dst = wintypes.POINT(win_l, win_t)
-            pt_src = wintypes.POINT(0, 0)
-            sz = _SIZE(win_w, win_h)
-            blend = _BLENDFUNCTION(0, 0, 255, 1)
-            self._u32.UpdateLayeredWindow(
-                wintypes.HWND(hwnd), screen_dc, ctypes.byref(pt_dst), ctypes.byref(sz),
-                self._mem_dc, ctypes.byref(pt_src), 0, ctypes.byref(blend), _ULW_ALPHA,
-            )
-        finally:
-            self._u32.ReleaseDC(None, screen_dc)
+        # Position-only moves pass bgra_bytes=None (0 pixel copies, <0.05 ms DWM UpdateLayeredWindow!)
+        self._cursor_surf.present(win_l, win_t, win_w, win_h, bgra_bytes)
+        if bgra_bytes is not None:
+            self._cursor_surf.pixel_key = surf_key
 
         with self._lock:
-            was_vis = self._state["visible"]
             self._state["visible"] = True
-        if not was_vis:
-            self._u32.ShowWindow(wintypes.HWND(hwnd), _SW_SHOWNOACTIVATE)
-            self._u32.SetWindowPos(
-                wintypes.HWND(hwnd), wintypes.HWND(-1), 0, 0, 0, 0,
-                _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOACTIVATE,
-            )
-
-        if animating:
-            self._ensure_timer(hwnd)
-        else:
-            self._stop_timer(hwnd)
 
     def _post_sync(self) -> None:
         if not self._closed and self.hwnd and self._u32 is not None:
@@ -756,6 +915,8 @@ class DesktopCursorOverlay:
             dist = math.hypot(tx - sx, ty - sy)
             actual_ms = float(glide_ms) if (glide_ms > 0 and dist >= 1.5 and self._state["visible"]) else 0.0
             self._state["cursor_id"] = cursor_id
+            if not self._state["busy"]:
+                self._state["pre_busy_cursor_id"] = cursor_id
             self._state["start_x"] = sx
             self._state["start_y"] = sy
             self._state["target_x"] = tx
@@ -768,24 +929,27 @@ class DesktopCursorOverlay:
             if box and len(box) >= 4:
                 self._state["halo_box"] = list(box[:4])
                 self._state["halo_tone"] = "input"
-                self._state["halo_until"] = now + 1.1
+                self._state["halo_until"] = now + 1.25
         self._post_sync()
         if wait and actual_ms > 0.0:
             time.sleep(min(actual_ms, 240.0) / 1000.0)
 
     def click(self, x: float, y: float, cursor_id: str = "pointer") -> None:
-        """Emit neutral input-execution press ripple (distinct from postcondition verification)."""
+        """Emit neutral input-execution press & ripple (distinct from postcondition verification)."""
         if self._closed or not self.hwnd:
             return
         cx, cy = float(x), float(y)
         now = time.perf_counter()
         with self._lock:
             self._state["cursor_id"] = cursor_id
+            if not self._state["busy"]:
+                self._state["pre_busy_cursor_id"] = cursor_id
             self._state["x"] = cx
             self._state["y"] = cy
             self._state["target_x"] = cx
             self._state["target_y"] = cy
             self._state["glide_ms"] = 0.0
+            self._state["press_until"] = now + 0.095
             self._state["ripple_xy"] = (cx, cy)
             self._state["ripple_tone"] = "input"
             self._state["ripple_start"] = now
@@ -834,9 +998,16 @@ class DesktopCursorOverlay:
             return
         now = time.perf_counter()
         with self._lock:
-            self._state["busy"] = bool(flag)
-            self._state["cursor_id"] = "progress" if flag else "default"
-            if not flag:
+            if flag:
+                if not self._state["busy"] and self._state["cursor_id"] not in ("progress", "not-allowed"):
+                    self._state["pre_busy_cursor_id"] = self._state["cursor_id"]
+                self._state["busy"] = True
+                self._state["cursor_id"] = "progress"
+            else:
+                self._state["busy"] = False
+                if self._state["cursor_id"] == "progress":
+                    prev = self._state["pre_busy_cursor_id"]
+                    self._state["cursor_id"] = "default" if prev in ("progress", "not-allowed") else prev
                 self._state["halo_until"] = min(self._state["halo_until"], now + 0.5)
         self._post_sync()
 
@@ -852,6 +1023,7 @@ class DesktopCursorOverlay:
             return {
                 **self._state,
                 "hwnd": self.hwnd,
+                "halo_hwnd": self._halo_hwnd,
                 "thread_ident": self.thread_ident,
                 "excluded_from_capture": self.excluded_from_capture,
             }

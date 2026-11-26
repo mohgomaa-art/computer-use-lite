@@ -227,7 +227,7 @@ def test_zero_discovery_leakage_and_16x16_hotspot_precision(tmp_path):
             assert st["offsetMatchesHotspot"] is True
             assert st["shadowDx"] != "" and st["shadowDy"] != ""
 
-            # Fast glide across viewport must drive live feDropShadow dx/dy velocity shift
+            # Fast glide across viewport must drive GPU-composited 3D velocity tilt without mutating feDropShadow
             mid = s.page.evaluate(
                 """() => new Promise((resolve) => {
                   const c = window[Symbol.for('cul.agent.cursor')];
@@ -235,7 +235,9 @@ def test_zero_discovery_leakage_and_16x16_hotspot_precision(tmp_path):
                   setTimeout(() => resolve(c.getState()), 45);
                 })"""
             )
-            assert mid["shadowDx"] != "2.2" or mid["shadowDy"] != "3.0"
+            assert mid["tiltX"] != 0 or mid["tiltY"] != 0
+            assert "rotate" in mid["rigTransform"]
+            assert mid["shadowDx"] == "2.2" and mid["shadowDy"] == "3.0"
         finally:
             s.close()
 
@@ -493,3 +495,234 @@ def test_desktop_overlay_win32_thread_isolation_capture_and_killswitch(monkeypat
         assert SessionManager._with_busy_cursor(MagicMock(), lambda: "mock_ok") == "mock_ok"
     finally:
         u32.DestroyWindow(wintypes.HWND(target_hwnd))
+
+
+def test_browser_60fps_press_recovery_busy_restore_and_adopted_stylesheet():
+    html_body = """<!doctype html><html><body>
+      <button id="btn">Primary Action</button>
+      <select id="sel" aria-label="Mode Select">
+        <option value="a">Alpha</option>
+        <option value="b">Beta</option>
+      </select>
+      <input id="inp" type="text" aria-label="Note Input" />
+    </body></html>"""
+    with _CspServer(html_body, strict_csp=True) as srv:
+        s = BrowserSession(url=srv.url, headless=True, viewport=(1280, 720), show_cursor=True, cursor_glide_ms=0)
+        errors = []
+        s.page.on("pageerror", lambda err: errors.append(f"pageerror: {err}"))
+        s.page.on("console", lambda msg: errors.append(f"console:{msg.type}:{msg.text}") if msg.type == "error" else None)
+        try:
+            # Strict style-src 'self': native cursor suppression uses adoptedStyleSheets without inline <style>
+            csp_diag = s.page.evaluate(
+                """() => ({
+                  inlineStyles: document.querySelectorAll('style').length,
+                  adoptedCount: (document.adoptedStyleSheets || []).length,
+                  hasCursorNoneRule: Array.from(document.adoptedStyleSheets || []).some((sh) =>
+                    Array.from(sh.cssRules || []).some((r) => (r.cssText || '').includes('cursor: none'))
+                  ),
+                })"""
+            )
+            assert csp_diag["inlineStyles"] == 0
+            assert csp_diag["adoptedCount"] >= 1
+            assert csp_diag["hasCursorNoneRule"] is True
+
+            api = Api(s)
+            api.discover_interactables(export_crops=False)
+            btn = next(r for r in api.resolver.records if r.get("name") == "Primary Action")
+            inp = next(r for r in api.resolver.records if r.get("name") == "Note Input")
+
+            # Hover pointer -> set_cursor_busy(True) -> set_cursor_busy(False) preserves 'pointer'
+            s.hover(btn)
+            s.set_cursor_busy(True)
+            assert s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")["cursorId"] == "progress"
+            s.set_cursor_busy(False)
+            st_btn = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")
+            assert st_btn["busy"] is False
+            assert st_btn["cursorId"] == "pointer"
+
+            # Hover text -> set_cursor_busy toggle preserves 'text'
+            s.hover(inp)
+            s.set_cursor_busy(True)
+            s.set_cursor_busy(False)
+            assert s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")["cursorId"] == "text"
+
+            # Rapid clicks must not leave press container stuck scaled down or mutate dropShadow filter in rAF
+            s.page.evaluate(
+                """() => {
+                  const c = window[Symbol.for('cul.agent.cursor')];
+                  c.click(240, 180, 'pointer');
+                  c.click(245, 182, 'pointer');
+                  c.click(250, 185, 'pointer');
+                }"""
+            )
+            s.page.wait_for_timeout(220)
+            st_after = s.page.evaluate(
+                """() => {
+                  const st = window[Symbol.for('cul.agent.cursor')].getState();
+                  const host = document.querySelector('[data-cul-overlay]');
+                  const pressEl = host && host.shadowRoot ? host.shadowRoot.querySelector('[style*="preserve-3d"] > div') : null;
+                  return {
+                    ...st,
+                    pressComputed: pressEl ? getComputedStyle(pressEl).transform : '',
+                  };
+                }"""
+            )
+            assert st_after["clickCount"] >= 3
+            assert "0.9" not in st_after["pressComputed"]
+            assert st_after["shadowDx"] == "2.2"
+            assert st_after["shadowDy"] == "3.0"
+            assert errors == [], f"Unexpected browser/CSP errors: {errors}"
+        finally:
+            s.close()
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
+    reason="Interactive Win32 desktop overlay test skipped when CUL_SKIP_DESKTOP=1",
+)
+def test_desktop_overlay_60hz_timer_halo_hwnd_and_busy_restore():
+    import ctypes
+    from ctypes import wintypes
+    from computer_use_lite import desktop_uia, desktop_cursor_overlay
+
+    ov = desktop_cursor_overlay.DesktopCursorOverlay(glide_ms=220)
+    ov_hwnd = int(ov.hwnd or 0)
+    halo_hwnd = int(ov._halo_hwnd or 0)
+    try:
+        assert ov_hwnd != 0
+        assert halo_hwnd != 0
+        assert desktop_cursor_overlay.is_overlay_hwnd(halo_hwnd) is True
+        listed_hwnds = {w["hwnd"] for w in desktop_uia.list_windows(limit=200)}
+        assert halo_hwnd not in listed_hwnds
+
+        # Seed initial position then glide across screen under 60Hz high-res waitable timer
+        ov.move_to(120, 120, "pointer", box=[90, 100, 80, 36], wait=False)
+        time.sleep(0.05)
+        f0 = ov.get_state()["frame_count"]
+        ov.move_to(480, 280, "pointer", box=[440, 260, 110, 40], wait=True)
+        time.sleep(0.04)
+        st = ov.get_state()
+        rendered_frames = st["frame_count"] - f0
+        assert rendered_frames >= 8, f"Expected >= 8 frames during 220ms 60Hz glide, got {rendered_frames} (fps={st['last_fps']})"
+        assert st["last_fps"] >= 45.0, f"Expected >= 45 FPS effective pacer cadence, got {st['last_fps']}"
+
+        # set_busy preserves prior active cursor ('pointer' / 'text') instead of snapping to 'default'
+        ov.set_busy(True)
+        assert ov.get_state()["cursor_id"] == "progress"
+        ov.set_busy(False)
+        assert ov.get_state()["cursor_id"] == "pointer"
+
+        ov.move_to(500, 300, "text", wait=False)
+        time.sleep(0.03)
+        ov.set_busy(True)
+        ov.set_busy(False)
+        assert ov.get_state()["cursor_id"] == "text"
+    finally:
+        ov.close()
+
+    time.sleep(0.05)
+    u32 = ctypes.windll.user32
+    assert u32.IsWindow(wintypes.HWND(ov_hwnd)) == 0
+    assert u32.IsWindow(wintypes.HWND(halo_hwnd)) == 0
+    assert not desktop_cursor_overlay.is_overlay_hwnd(halo_hwnd)
+
+
+def _is_hwnd_above(u32, wintypes, upper_hwnd: int, lower_hwnd: int) -> bool:
+    """Return True if upper_hwnd precedes lower_hwnd in Win32 Z-order."""
+    GW_HWNDNEXT = 2
+    u32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
+    u32.GetWindow.restype = wintypes.HWND
+    cur = int(upper_hwnd)
+    seen = {cur}
+    for _ in range(512):
+        nxt = int(u32.GetWindow(wintypes.HWND(cur), GW_HWNDNEXT) or 0)
+        if not nxt or nxt in seen:
+            return False
+        if nxt == int(lower_hwnd):
+            return True
+        seen.add(nxt)
+        cur = nxt
+    return False
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
+    reason="Interactive Win32 window visibility test skipped when CUL_SKIP_DESKTOP=1",
+)
+def test_desktop_target_window_raises_above_covering_window(monkeypatch):
+    import ctypes
+    from ctypes import wintypes
+
+    monkeypatch.delenv("CUL_AGENT_CURSOR", raising=False)
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    ws_popup_vis = 0x80000000 | 0x10000000
+    target_hwnd = u32.CreateWindowExW(0, "STATIC", "CULTgtRaise", ws_popup_vis, 140, 140, 320, 220, 0, 0, None, 0)
+    covering_hwnd = u32.CreateWindowExW(0, "STATIC", "CULCoverIDE", ws_popup_vis, 100, 100, 480, 380, 0, 0, None, 0)
+    assert target_hwnd and covering_hwnd
+    try:
+        # Simulate fullscreen IDE covering target window in foreground
+        u32.SetWindowPos(wintypes.HWND(target_hwnd), 0, 140, 140, 320, 220, 0x0040)
+        u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 100, 100, 480, 380, 0x0040)
+        u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
+        time.sleep(0.05)
+        assert _is_hwnd_above(u32, wintypes, covering_hwnd, target_hwnd) is True
+
+        sess = DesktopSession(int(target_hwnd), show_cursor=True, cursor_glide_ms=20)
+        try:
+            ov = sess._overlay
+            assert ov is not None and ov.hwnd
+            # Target app must now appear above covering window, and cursor overlay above target app
+            assert _is_hwnd_above(u32, wintypes, target_hwnd, covering_hwnd) is True
+            assert _is_hwnd_above(u32, wintypes, int(ov.hwnd), target_hwnd) is True
+
+            # Even if covering window regains foreground, hover handoff raises & activates target without ForegroundMismatch
+            u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 100, 100, 480, 380, 0x0040)
+            u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
+            time.sleep(0.03)
+            sess.hover({"box": [180, 180, 60, 30], "role": "button"})
+            assert _is_hwnd_above(u32, wintypes, target_hwnd, covering_hwnd) is True
+        finally:
+            sess.close()
+    finally:
+        u32.DestroyWindow(wintypes.HWND(covering_hwnd))
+        u32.DestroyWindow(wintypes.HWND(target_hwnd))
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
+    reason="Interactive Win32 headful browser Z-order test skipped when CUL_SKIP_DESKTOP=1",
+)
+def test_browser_headful_raises_window_and_tracks_hwnd():
+    import ctypes
+    from ctypes import wintypes
+
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    ws_popup_vis = 0x80000000 | 0x10000000
+    covering_hwnd = u32.CreateWindowExW(0, "STATIC", "CULCoverBrowser", ws_popup_vis, 80, 80, 640, 480, 0, 0, None, 0)
+    assert covering_hwnd
+    try:
+        u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 80, 80, 640, 480, 0x0040)
+        u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
+        time.sleep(0.05)
+
+        html = "<!doctype html><html><title>CULVisibleHeadful</title><body><button id='b'>Go</button></body></html>"
+        with _CspServer(html, strict_csp=False) as srv:
+            s = BrowserSession(url=srv.url, headless=False, viewport=(900, 620), cursor_glide_ms=0)
+            try:
+                assert s._browser_hwnd is not None and s._browser_hwnd != 0
+                assert u32.IsWindowVisible(wintypes.HWND(int(s._browser_hwnd))) != 0
+                assert _is_hwnd_above(u32, wintypes, int(s._browser_hwnd), covering_hwnd) is True
+
+                # Push covering window back over browser, navigate, and verify browser pops back to front
+                u32.SetWindowPos(wintypes.HWND(covering_hwnd), 0, 80, 80, 640, 480, 0x0040)
+                u32.SetForegroundWindow(wintypes.HWND(covering_hwnd))
+                time.sleep(0.04)
+                assert _is_hwnd_above(u32, wintypes, covering_hwnd, int(s._browser_hwnd)) is True
+                s.navigate(srv.url + "#raised")
+                assert _is_hwnd_above(u32, wintypes, int(s._browser_hwnd), covering_hwnd) is True
+            finally:
+                s.close()
+    finally:
+        u32.DestroyWindow(wintypes.HWND(covering_hwnd))
+
+
