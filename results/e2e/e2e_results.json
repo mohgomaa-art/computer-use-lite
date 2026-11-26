@@ -3,8 +3,8 @@
     {
       "test": "browser_fixture",
       "discovered": 4,
-      "latency_ms": 19.0,
-      "tokens": 54.2,
+      "latency_ms": 16.7,
+      "tokens": 54.8,
       "shot_tokens": 1229,
       "token_ratio": "0.04x",
       "typed_ok": true,
@@ -14,11 +14,11 @@
     },
     {
       "test": "desktop_notepad",
-      "discovered": 23,
-      "latency_ms": 80.1,
-      "tokens": 275.2,
+      "discovered": 25,
+      "latency_ms": 73.3,
+      "tokens": 310.5,
       "shot_tokens": 1229,
-      "token_ratio": "0.22x",
+      "token_ratio": "0.25x",
       "mechanism": {
         "mechanism": "value_pattern"
       },

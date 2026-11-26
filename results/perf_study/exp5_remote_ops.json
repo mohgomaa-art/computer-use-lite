@@ -1,0 +1,1764 @@
+{
+  "targets": {
+    "notepad": {
+      "hwnd": 1313300,
+      "pid": 11536,
+      "dominant_provider_pid": 11536,
+      "provider_pids": {
+        "11536": 56
+      },
+      "findall_baseline_nodes": 56,
+      "top_root_remote_walk_nodes": 1,
+      "top_root_remote_walk_status": 0,
+      "anchored_container": "document_control",
+      "anchored_remote_walk_status": {
+        "status": 0,
+        "extended_error": "0x0",
+        "error_location": -1
+      },
+      "findall_baseline": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 60.155,
+        "cold_first_ms": 61.943,
+        "cold_samples_ms": [
+          61.943,
+          57.567,
+          60.953
+        ],
+        "warm_mean_ms": 59.79,
+        "p50_ms": 57.644,
+        "p95_ms": 70.408,
+        "p99_ms": 71.112,
+        "min_ms": 53.686,
+        "max_ms": 71.288,
+        "warm_samples_ms": [
+          53.686,
+          53.711,
+          54.302,
+          54.569,
+          55.432,
+          55.576,
+          55.843,
+          57.644,
+          58.905,
+          59.36,
+          59.458,
+          68.056,
+          68.985,
+          70.03,
+          71.288
+        ],
+        "client_cpu_ms_total": 328.125,
+        "client_cpu_ms_per_iter": 21.875,
+        "client_cpu_pct": 36.57,
+        "target_cpu_ms_total": 578.125,
+        "rss_delta_kb": 4.0,
+        "ipc_round_trips": 1,
+        "response_bytes": null,
+        "node_count": 56,
+        "interactive_count": 28,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 56,
+          "ipc_round_trips": 1
+        }
+      },
+      "remote_op_subtree_walk": {
+        "stats": {
+          "n_cold": 3,
+          "n_warm": 15,
+          "cold_mean_ms": 1.016,
+          "cold_first_ms": 1.444,
+          "cold_samples_ms": [
+            1.444,
+            0.84,
+            0.762
+          ],
+          "warm_mean_ms": 1.123,
+          "p50_ms": 1.193,
+          "p95_ms": 1.621,
+          "p99_ms": 1.757,
+          "min_ms": 0.694,
+          "max_ms": 1.791,
+          "warm_samples_ms": [
+            0.694,
+            0.713,
+            0.766,
+            0.843,
+            0.877,
+            0.941,
+            1.006,
+            1.193,
+            1.236,
+            1.288,
+            1.29,
+            1.328,
+            1.335,
+            1.548,
+            1.791
+          ],
+          "client_cpu_ms_total": 0.0,
+          "client_cpu_ms_per_iter": 0.0,
+          "client_cpu_pct": 0.0,
+          "target_cpu_ms_total": 15.625,
+          "rss_delta_kb": 0.0,
+          "ipc_round_trips": 1,
+          "response_bytes": 693,
+          "node_count": 1,
+          "interactive_count": 0,
+          "error_count": 0,
+          "errors": [],
+          "meta": {
+            "node_count": 1,
+            "ipc_round_trips": 1,
+            "response_bytes": 693
+          }
+        },
+        "accuracy_vs_findall": {
+          "baseline_count": 56,
+          "candidate_count": 1,
+          "matched_count": 1,
+          "recall": 0.0179,
+          "precision": 1.0,
+          "role_accuracy": 0.0,
+          "name_exact_rate": 0.0,
+          "name_token_f1": 0.0,
+          "actionability_match": 1.0,
+          "bounds_iou_mean": 0.8516,
+          "bounds_max_err_px": 113,
+          "missing_count": 55,
+          "false_positive_count": 0,
+          "failure_breakdown": {
+            "unknown": 55
+          },
+          "missing_samples": [
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                257,
+                242,
+                1428,
+                687
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "textbox",
+              "name": "محرر نص",
+              "box": [
+                257,
+                242,
+                1428,
+                687
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                433,
+                177,
+                1212,
+                32
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                433,
+                177,
+                1212,
+                32
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "tab",
+              "name": "",
+              "box": [
+                433,
+                177,
+                1212,
+                32
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "list",
+              "name": "",
+              "box": [
+                470,
+                177,
+                1173,
+                32
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "tab",
+              "name": "bench_note.txt. غير معدّل.",
+              "box": [
+                1404,
+                177,
+                232,
+                32
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "text",
+              "name": "bench_note.txt",
+              "box": [
+                1551,
+                185,
+                76,
+                15
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "tab",
+              "name": "bench_note.txt. غير معدّل.",
+              "box": [
+                1171,
+                177,
+                232,
+                32
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "text",
+              "name": "bench_note.txt",
+              "box": [
+                1318,
+                185,
+                76,
+                15
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "tab",
+              "name": "bench_note.txt. غير معدّل.",
+              "box": [
+                939,
+                177,
+                232,
+                32
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "text",
+              "name": "bench_note.txt",
+              "box": [
+                1086,
+                185,
+                76,
+                15
+              ],
+              "category": "unknown",
+              "gt_id": null
+            }
+          ],
+          "false_positive_samples": []
+        }
+      },
+      "batch_k_elements_n": 1,
+      "batch_k_skipped_cross_connection": 29,
+      "standard_com_k_reads": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 1.099,
+        "cold_first_ms": 0.986,
+        "cold_samples_ms": [
+          0.986,
+          0.901,
+          1.41
+        ],
+        "warm_mean_ms": 1.065,
+        "p50_ms": 1.091,
+        "p95_ms": 1.319,
+        "p99_ms": 1.378,
+        "min_ms": 0.856,
+        "max_ms": 1.392,
+        "warm_samples_ms": [
+          0.856,
+          0.884,
+          0.889,
+          0.89,
+          0.92,
+          0.921,
+          1.032,
+          1.091,
+          1.097,
+          1.11,
+          1.118,
+          1.238,
+          1.255,
+          1.288,
+          1.392
+        ],
+        "client_cpu_ms_total": 0.0,
+        "client_cpu_ms_per_iter": 0.0,
+        "client_cpu_pct": 0.0,
+        "target_cpu_ms_total": 15.625,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 5,
+        "response_bytes": null,
+        "node_count": 1,
+        "interactive_count": 0,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 1,
+          "ipc_round_trips": 5
+        }
+      },
+      "remote_op_k_batch": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 0.724,
+        "cold_first_ms": 0.815,
+        "cold_samples_ms": [
+          0.815,
+          0.675,
+          0.682
+        ],
+        "warm_mean_ms": 0.935,
+        "p50_ms": 1.01,
+        "p95_ms": 1.245,
+        "p99_ms": 1.368,
+        "min_ms": 0.606,
+        "max_ms": 1.398,
+        "warm_samples_ms": [
+          0.606,
+          0.606,
+          0.611,
+          0.658,
+          0.769,
+          0.823,
+          0.859,
+          1.01,
+          1.06,
+          1.093,
+          1.102,
+          1.114,
+          1.139,
+          1.179,
+          1.398
+        ],
+        "client_cpu_ms_total": 0.0,
+        "client_cpu_ms_per_iter": 0.0,
+        "client_cpu_pct": 0.0,
+        "target_cpu_ms_total": 15.625,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 1,
+        "response_bytes": 245,
+        "node_count": 1,
+        "interactive_count": 0,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 1,
+          "ipc_round_trips": 1,
+          "response_bytes": 245,
+          "status": 0
+        }
+      }
+    },
+    "explorer": {
+      "hwnd": 1116798,
+      "pid": 19652,
+      "dominant_provider_pid": 19652,
+      "provider_pids": {
+        "19652": 139,
+        "0": 1
+      },
+      "findall_baseline_nodes": 140,
+      "top_root_remote_walk_nodes": 80,
+      "top_root_remote_walk_status": 0,
+      "anchored_container": "top_hwnd",
+      "anchored_remote_walk_status": {
+        "status": 0,
+        "extended_error": "0x0",
+        "error_location": -1
+      },
+      "findall_baseline": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 190.835,
+        "cold_first_ms": 226.755,
+        "cold_samples_ms": [
+          226.755,
+          176.598,
+          169.152
+        ],
+        "warm_mean_ms": 213.835,
+        "p50_ms": 206.887,
+        "p95_ms": 245.33,
+        "p99_ms": 252.75,
+        "min_ms": 181.895,
+        "max_ms": 254.605,
+        "warm_samples_ms": [
+          181.895,
+          190.297,
+          196.578,
+          203.203,
+          203.483,
+          203.487,
+          206.861,
+          206.887,
+          208.46,
+          212.99,
+          218.364,
+          238.933,
+          240.125,
+          241.355,
+          254.605
+        ],
+        "client_cpu_ms_total": 1015.625,
+        "client_cpu_ms_per_iter": 67.708,
+        "client_cpu_pct": 31.65,
+        "target_cpu_ms_total": 2218.75,
+        "rss_delta_kb": 68.0,
+        "ipc_round_trips": 1,
+        "response_bytes": null,
+        "node_count": 140,
+        "interactive_count": 79,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 140,
+          "ipc_round_trips": 1
+        }
+      },
+      "remote_op_subtree_walk": {
+        "stats": {
+          "n_cold": 3,
+          "n_warm": 15,
+          "cold_mean_ms": 38.474,
+          "cold_first_ms": 32.934,
+          "cold_samples_ms": [
+            32.934,
+            38.27,
+            44.219
+          ],
+          "warm_mean_ms": 39.662,
+          "p50_ms": 37.937,
+          "p95_ms": 50.913,
+          "p99_ms": 51.349,
+          "min_ms": 32.787,
+          "max_ms": 51.458,
+          "warm_samples_ms": [
+            32.787,
+            33.013,
+            33.278,
+            34.048,
+            35.437,
+            35.448,
+            35.482,
+            37.937,
+            39.917,
+            40.789,
+            41.327,
+            44.491,
+            48.841,
+            50.679,
+            51.458
+          ],
+          "client_cpu_ms_total": 250.0,
+          "client_cpu_ms_per_iter": 16.667,
+          "client_cpu_pct": 42.0,
+          "target_cpu_ms_total": 328.125,
+          "rss_delta_kb": 0.0,
+          "ipc_round_trips": 1,
+          "response_bytes": 693,
+          "node_count": 80,
+          "interactive_count": 16,
+          "error_count": 0,
+          "errors": [],
+          "meta": {
+            "node_count": 80,
+            "ipc_round_trips": 1,
+            "response_bytes": 693
+          }
+        },
+        "accuracy_vs_findall": {
+          "baseline_count": 140,
+          "candidate_count": 80,
+          "matched_count": 60,
+          "recall": 0.4286,
+          "precision": 0.75,
+          "role_accuracy": 0.7667,
+          "name_exact_rate": 0.9667,
+          "name_token_f1": 0.9667,
+          "actionability_match": 0.8,
+          "bounds_iou_mean": 1.0,
+          "bounds_max_err_px": 0,
+          "missing_count": 80,
+          "false_positive_count": 20,
+          "failure_breakdown": {
+            "unknown": 80
+          },
+          "missing_samples": [
+            {
+              "role": "group",
+              "name": "Property Field",
+              "box": [
+                493,
+                1000,
+                52,
+                24
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "text",
+              "name": "4 items",
+              "box": [
+                498,
+                1000,
+                42,
+                24
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "group",
+              "name": "View Modes",
+              "box": [
+                1860,
+                1000,
+                48,
+                24
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "radio",
+              "name": "Details",
+              "box": [
+                1860,
+                1000,
+                24,
+                24
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "radio",
+              "name": "Large Icons",
+              "box": [
+                1884,
+                1000,
+                24,
+                24
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "scrollbar",
+              "name": "Vertical",
+              "box": [
+                790,
+                363,
+                17,
+                637
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Line up",
+              "box": [
+                790,
+                363,
+                17,
+                17
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Page up",
+              "box": [
+                790,
+                380,
+                17,
+                50
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "thumb",
+              "name": "Position",
+              "box": [
+                790,
+                430,
+                17,
+                452
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Page down",
+              "box": [
+                790,
+                882,
+                17,
+                101
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Line down",
+              "box": [
+                790,
+                983,
+                17,
+                17
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "treeitem",
+              "name": "Desktop",
+              "box": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "category": "unknown",
+              "gt_id": null
+            }
+          ],
+          "false_positive_samples": [
+            {
+              "role": "titlebar",
+              "name": "",
+              "box": [
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            {
+              "role": "pane",
+              "name": "Explorer Pane",
+              "box": [
+                486,
+                363,
+                1426,
+                661
+              ]
+            },
+            {
+              "role": "pane",
+              "name": "Folder Layout Pane",
+              "box": [
+                486,
+                363,
+                1426,
+                661
+              ]
+            },
+            {
+              "role": "button",
+              "name": "",
+              "box": [
+                700,
+                283,
+                16,
+                16
+              ]
+            },
+            {
+              "role": "button",
+              "name": "",
+              "box": [
+                725,
+                279,
+                26,
+                24
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                751,
+                279,
+                750,
+                24
+              ]
+            },
+            {
+              "role": "text",
+              "name": "",
+              "box": [
+                751,
+                246,
+                12,
+                12
+              ]
+            },
+            {
+              "role": "text",
+              "name": "",
+              "box": [
+                507,
+                285,
+                12,
+                12
+              ]
+            },
+            {
+              "role": "text",
+              "name": "",
+              "box": [
+                555,
+                285,
+                12,
+                12
+              ]
+            },
+            {
+              "role": "text",
+              "name": "",
+              "box": [
+                603,
+                285,
+                12,
+                12
+              ]
+            },
+            {
+              "role": "text",
+              "name": "",
+              "box": [
+                651,
+                285,
+                12,
+                12
+              ]
+            },
+            {
+              "role": "edit",
+              "name": "Address Bar",
+              "box": [
+                687,
+                275,
+                855,
+                32
+              ]
+            }
+          ]
+        }
+      },
+      "batch_k_elements_n": 1,
+      "batch_k_skipped_cross_connection": 29,
+      "standard_com_k_reads": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 0.625,
+        "cold_first_ms": 0.456,
+        "cold_samples_ms": [
+          0.456,
+          0.896,
+          0.522
+        ],
+        "warm_mean_ms": 0.507,
+        "p50_ms": 0.393,
+        "p95_ms": 0.927,
+        "p99_ms": 0.988,
+        "min_ms": 0.366,
+        "max_ms": 1.004,
+        "warm_samples_ms": [
+          0.366,
+          0.368,
+          0.373,
+          0.373,
+          0.38,
+          0.381,
+          0.387,
+          0.393,
+          0.403,
+          0.417,
+          0.498,
+          0.575,
+          0.799,
+          0.894,
+          1.004
+        ],
+        "client_cpu_ms_total": 15.625,
+        "client_cpu_ms_per_iter": 1.042,
+        "client_cpu_pct": 204.34,
+        "target_cpu_ms_total": 0.0,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 5,
+        "response_bytes": null,
+        "node_count": 1,
+        "interactive_count": 0,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 1,
+          "ipc_round_trips": 5
+        }
+      },
+      "remote_op_k_batch": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 0.54,
+        "cold_first_ms": 0.645,
+        "cold_samples_ms": [
+          0.645,
+          0.546,
+          0.429
+        ],
+        "warm_mean_ms": 0.427,
+        "p50_ms": 0.333,
+        "p95_ms": 0.8,
+        "p99_ms": 1.027,
+        "min_ms": 0.311,
+        "max_ms": 1.083,
+        "warm_samples_ms": [
+          0.311,
+          0.312,
+          0.312,
+          0.314,
+          0.316,
+          0.318,
+          0.328,
+          0.333,
+          0.368,
+          0.372,
+          0.372,
+          0.393,
+          0.603,
+          0.678,
+          1.083
+        ],
+        "client_cpu_ms_total": 15.625,
+        "client_cpu_ms_per_iter": 1.042,
+        "client_cpu_pct": 242.81,
+        "target_cpu_ms_total": 0.0,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 1,
+        "response_bytes": 245,
+        "node_count": 1,
+        "interactive_count": 0,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 1,
+          "ipc_round_trips": 1,
+          "response_bytes": 245,
+          "status": 0
+        }
+      }
+    },
+    "chromium": {
+      "hwnd": 789154,
+      "pid": 19896,
+      "dominant_provider_pid": 19896,
+      "provider_pids": {
+        "19896": 35
+      },
+      "findall_baseline_nodes": 35,
+      "top_root_remote_walk_nodes": 1,
+      "top_root_remote_walk_status": 0,
+      "anchored_container": "first_child_container",
+      "anchored_remote_walk_status": {
+        "status": 0,
+        "extended_error": "0x0",
+        "error_location": -1
+      },
+      "findall_baseline": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 48.717,
+        "cold_first_ms": 49.339,
+        "cold_samples_ms": [
+          49.339,
+          50.496,
+          46.316
+        ],
+        "warm_mean_ms": 41.395,
+        "p50_ms": 39.01,
+        "p95_ms": 55.5,
+        "p99_ms": 58.687,
+        "min_ms": 35.496,
+        "max_ms": 59.484,
+        "warm_samples_ms": [
+          35.496,
+          35.59,
+          35.774,
+          35.917,
+          36.238,
+          38.173,
+          38.342,
+          39.01,
+          40.721,
+          41.314,
+          43.474,
+          43.613,
+          43.986,
+          53.792,
+          59.484
+        ],
+        "client_cpu_ms_total": 234.375,
+        "client_cpu_ms_per_iter": 15.625,
+        "client_cpu_pct": 37.7,
+        "target_cpu_ms_total": 375.0,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 1,
+        "response_bytes": null,
+        "node_count": 35,
+        "interactive_count": 33,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 35,
+          "ipc_round_trips": 1
+        }
+      },
+      "remote_op_subtree_walk": {
+        "stats": {
+          "n_cold": 3,
+          "n_warm": 15,
+          "cold_mean_ms": 4.625,
+          "cold_first_ms": 12.165,
+          "cold_samples_ms": [
+            12.165,
+            0.793,
+            0.918
+          ],
+          "warm_mean_ms": 0.838,
+          "p50_ms": 0.68,
+          "p95_ms": 1.273,
+          "p99_ms": 1.458,
+          "min_ms": 0.623,
+          "max_ms": 1.504,
+          "warm_samples_ms": [
+            0.623,
+            0.623,
+            0.625,
+            0.628,
+            0.629,
+            0.636,
+            0.649,
+            0.68,
+            0.698,
+            0.923,
+            0.982,
+            1.093,
+            1.107,
+            1.174,
+            1.504
+          ],
+          "client_cpu_ms_total": 0.0,
+          "client_cpu_ms_per_iter": 0.0,
+          "client_cpu_pct": 0.0,
+          "target_cpu_ms_total": 15.625,
+          "rss_delta_kb": 4.0,
+          "ipc_round_trips": 1,
+          "response_bytes": 693,
+          "node_count": 1,
+          "interactive_count": 0,
+          "error_count": 0,
+          "errors": [],
+          "meta": {
+            "node_count": 1,
+            "ipc_round_trips": 1,
+            "response_bytes": 693
+          }
+        },
+        "accuracy_vs_findall": {
+          "baseline_count": 35,
+          "candidate_count": 1,
+          "matched_count": 1,
+          "recall": 0.0286,
+          "precision": 1.0,
+          "role_accuracy": 0.0,
+          "name_exact_rate": 0.0,
+          "name_token_f1": 0.0,
+          "actionability_match": 1.0,
+          "bounds_iou_mean": 0.9743,
+          "bounds_max_err_px": 16,
+          "missing_count": 34,
+          "false_positive_count": 0,
+          "failure_breakdown": {
+            "unknown": 34
+          },
+          "missing_samples": [
+            {
+              "role": "pane",
+              "name": "Computer Use Lite Adversarial Corpus - Google Chrome for Testing",
+              "box": [
+                48,
+                40,
+                1060,
+                720
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                48,
+                40,
+                1060,
+                720
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                48,
+                40,
+                1060,
+                720
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                971,
+                41,
+                137,
+                39
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Minimize",
+              "box": [
+                971,
+                41,
+                45,
+                39
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Maximize",
+              "box": [
+                1016,
+                41,
+                46,
+                39
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Close",
+              "box": [
+                1062,
+                41,
+                46,
+                39
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                48,
+                40,
+                1060,
+                720
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                48,
+                80,
+                1060,
+                46
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "toolbar",
+              "name": "",
+              "box": [
+                48,
+                80,
+                1060,
+                46
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Back",
+              "box": [
+                54,
+                86,
+                34,
+                34
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "button",
+              "name": "Forward",
+              "box": [
+                90,
+                86,
+                34,
+                34
+              ],
+              "category": "unknown",
+              "gt_id": null
+            }
+          ],
+          "false_positive_samples": []
+        }
+      },
+      "batch_k_elements_n": 30,
+      "batch_k_skipped_cross_connection": 0,
+      "standard_com_k_reads": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 19.621,
+        "cold_first_ms": 24.115,
+        "cold_samples_ms": [
+          24.115,
+          17.514,
+          17.234
+        ],
+        "warm_mean_ms": 17.194,
+        "p50_ms": 16.875,
+        "p95_ms": 18.822,
+        "p99_ms": 19.43,
+        "min_ms": 15.721,
+        "max_ms": 19.582,
+        "warm_samples_ms": [
+          15.721,
+          15.935,
+          16.445,
+          16.473,
+          16.624,
+          16.699,
+          16.722,
+          16.875,
+          17.202,
+          17.343,
+          17.602,
+          18.059,
+          18.132,
+          18.496,
+          19.582
+        ],
+        "client_cpu_ms_total": 140.625,
+        "client_cpu_ms_per_iter": 9.375,
+        "client_cpu_pct": 54.49,
+        "target_cpu_ms_total": 140.625,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 150,
+        "response_bytes": null,
+        "node_count": 30,
+        "interactive_count": 0,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 30,
+          "ipc_round_trips": 150
+        }
+      },
+      "remote_op_k_batch": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 5.09,
+        "cold_first_ms": 4.756,
+        "cold_samples_ms": [
+          4.756,
+          4.831,
+          5.682
+        ],
+        "warm_mean_ms": 9.409,
+        "p50_ms": 8.952,
+        "p95_ms": 12.473,
+        "p99_ms": 13.256,
+        "min_ms": 6.245,
+        "max_ms": 13.452,
+        "warm_samples_ms": [
+          6.245,
+          6.268,
+          7.526,
+          7.883,
+          8.086,
+          8.61,
+          8.904,
+          8.952,
+          9.663,
+          9.785,
+          10.101,
+          11.675,
+          11.933,
+          12.054,
+          13.452
+        ],
+        "client_cpu_ms_total": 125.0,
+        "client_cpu_ms_per_iter": 8.333,
+        "client_cpu_pct": 88.46,
+        "target_cpu_ms_total": 15.625,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 1,
+        "response_bytes": 4885,
+        "node_count": 30,
+        "interactive_count": 10,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 30,
+          "ipc_round_trips": 1,
+          "response_bytes": 4885,
+          "status": 0
+        }
+      }
+    },
+    "electron": {
+      "hwnd": 592596,
+      "pid": 14828,
+      "dominant_provider_pid": 14828,
+      "provider_pids": {
+        "14828": 34,
+        "18832": 1
+      },
+      "findall_baseline_nodes": 35,
+      "top_root_remote_walk_nodes": 1,
+      "top_root_remote_walk_status": 0,
+      "anchored_container": "document_control",
+      "anchored_remote_walk_status": {
+        "status": 0,
+        "extended_error": "0x0",
+        "error_location": -1
+      },
+      "findall_baseline": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 18.942,
+        "cold_first_ms": 18.176,
+        "cold_samples_ms": [
+          18.176,
+          19.514,
+          19.136
+        ],
+        "warm_mean_ms": 21.404,
+        "p50_ms": 20.69,
+        "p95_ms": 25.477,
+        "p99_ms": 26.65,
+        "min_ms": 18.055,
+        "max_ms": 26.943,
+        "warm_samples_ms": [
+          18.055,
+          18.93,
+          19.291,
+          19.568,
+          20.037,
+          20.282,
+          20.414,
+          20.69,
+          20.839,
+          21.464,
+          22.727,
+          23.002,
+          23.964,
+          24.849,
+          26.943
+        ],
+        "client_cpu_ms_total": 93.75,
+        "client_cpu_ms_per_iter": 6.25,
+        "client_cpu_pct": 29.17,
+        "target_cpu_ms_total": 203.125,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 1,
+        "response_bytes": null,
+        "node_count": 35,
+        "interactive_count": 6,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 35,
+          "ipc_round_trips": 1
+        }
+      },
+      "remote_op_subtree_walk": {
+        "stats": {
+          "n_cold": 3,
+          "n_warm": 15,
+          "cold_mean_ms": 7.587,
+          "cold_first_ms": 7.586,
+          "cold_samples_ms": [
+            7.586,
+            6.414,
+            8.761
+          ],
+          "warm_mean_ms": 10.301,
+          "p50_ms": 10.119,
+          "p95_ms": 13.639,
+          "p99_ms": 15.63,
+          "min_ms": 5.518,
+          "max_ms": 16.127,
+          "warm_samples_ms": [
+            5.518,
+            6.474,
+            7.965,
+            8.737,
+            9.678,
+            9.732,
+            9.806,
+            10.119,
+            10.63,
+            11.374,
+            11.445,
+            12.167,
+            12.175,
+            12.573,
+            16.127
+          ],
+          "client_cpu_ms_total": 109.375,
+          "client_cpu_ms_per_iter": 7.292,
+          "client_cpu_pct": 70.69,
+          "target_cpu_ms_total": 46.875,
+          "rss_delta_kb": 0.0,
+          "ipc_round_trips": 1,
+          "response_bytes": 693,
+          "node_count": 40,
+          "interactive_count": 5,
+          "error_count": 0,
+          "errors": [],
+          "meta": {
+            "node_count": 40,
+            "ipc_round_trips": 1,
+            "response_bytes": 693
+          }
+        },
+        "accuracy_vs_findall": {
+          "baseline_count": 35,
+          "candidate_count": 40,
+          "matched_count": 25,
+          "recall": 0.7143,
+          "precision": 0.625,
+          "role_accuracy": 0.96,
+          "name_exact_rate": 1.0,
+          "name_token_f1": 1.0,
+          "actionability_match": 1.0,
+          "bounds_iou_mean": 0.9987,
+          "bounds_max_err_px": 16,
+          "missing_count": 10,
+          "false_positive_count": 15,
+          "failure_breakdown": {
+            "unknown": 10
+          },
+          "missing_samples": [
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "Obsidian",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "textbox",
+              "name": "Obsidian",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            },
+            {
+              "role": "pane",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                650
+              ],
+              "category": "unknown",
+              "gt_id": null
+            }
+          ],
+          "false_positive_samples": [
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                560,
+                191,
+                800,
+                30
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                896,
+                247,
+                128,
+                95
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                896,
+                361,
+                128,
+                26
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                896,
+                394,
+                128,
+                18
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                690,
+                431,
+                540,
+                410
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                560,
+                191,
+                88,
+                30
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                690,
+                431,
+                540,
+                410
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                726,
+                443,
+                468,
+                31
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                746,
+                503,
+                271,
+                18
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                746,
+                520,
+                271,
+                20
+              ]
+            },
+            {
+              "role": "group",
+              "name": "",
+              "box": [
+                746,
+                579,
+                274,
+                18
+              ]
+            }
+          ]
+        }
+      },
+      "batch_k_elements_n": 30,
+      "batch_k_skipped_cross_connection": 0,
+      "standard_com_k_reads": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 26.318,
+        "cold_first_ms": 25.522,
+        "cold_samples_ms": [
+          25.522,
+          27.932,
+          25.501
+        ],
+        "warm_mean_ms": 25.26,
+        "p50_ms": 25.122,
+        "p95_ms": 27.595,
+        "p99_ms": 27.943,
+        "min_ms": 23.379,
+        "max_ms": 28.03,
+        "warm_samples_ms": [
+          23.379,
+          23.693,
+          23.928,
+          24.032,
+          24.21,
+          24.382,
+          25.018,
+          25.122,
+          25.344,
+          25.392,
+          25.633,
+          26.026,
+          27.302,
+          27.409,
+          28.03
+        ],
+        "client_cpu_ms_total": 93.75,
+        "client_cpu_ms_per_iter": 6.25,
+        "client_cpu_pct": 24.73,
+        "target_cpu_ms_total": 296.875,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 150,
+        "response_bytes": null,
+        "node_count": 30,
+        "interactive_count": 0,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 30,
+          "ipc_round_trips": 150
+        }
+      },
+      "remote_op_k_batch": {
+        "n_cold": 3,
+        "n_warm": 15,
+        "cold_mean_ms": 9.785,
+        "cold_first_ms": 9.783,
+        "cold_samples_ms": [
+          9.783,
+          8.524,
+          11.049
+        ],
+        "warm_mean_ms": 8.716,
+        "p50_ms": 7.125,
+        "p95_ms": 16.113,
+        "p99_ms": 17.066,
+        "min_ms": 5.623,
+        "max_ms": 17.305,
+        "warm_samples_ms": [
+          5.623,
+          6.009,
+          6.226,
+          6.46,
+          6.535,
+          6.573,
+          6.787,
+          7.125,
+          7.402,
+          8.158,
+          8.679,
+          9.75,
+          12.509,
+          15.603,
+          17.305
+        ],
+        "client_cpu_ms_total": 109.375,
+        "client_cpu_ms_per_iter": 7.292,
+        "client_cpu_pct": 83.52,
+        "target_cpu_ms_total": 15.625,
+        "rss_delta_kb": 0.0,
+        "ipc_round_trips": 1,
+        "response_bytes": 4885,
+        "node_count": 30,
+        "interactive_count": 4,
+        "error_count": 0,
+        "errors": [],
+        "meta": {
+          "node_count": 30,
+          "ipc_round_trips": 1,
+          "response_bytes": 4885,
+          "status": 0
+        }
+      }
+    }
+  }
+}

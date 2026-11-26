@@ -1,0 +1,177 @@
+{
+  "browser": {
+    "url": "http://127.0.0.1:59628/corpus_main.html",
+    "control_box_kind_mismatch_finding": "Production discover() emits content-box via DOM.getBoxModel['content'] for AX-only elements (kind=content) while DOMSnapshot elements emit border-box.",
+    "control_full_discovery_action": {
+      "n_cold": 2,
+      "n_warm": 15,
+      "cold_mean_ms": 40.804,
+      "cold_first_ms": 42.466,
+      "cold_samples_ms": [
+        42.466,
+        39.142
+      ],
+      "warm_mean_ms": 39.727,
+      "p50_ms": 39.269,
+      "p95_ms": 46.318,
+      "p99_ms": 46.553,
+      "min_ms": 34.442,
+      "max_ms": 46.612,
+      "warm_samples_ms": [
+        34.442,
+        34.669,
+        35.844,
+        36.176,
+        36.684,
+        36.984,
+        38.048,
+        39.269,
+        39.617,
+        41.805,
+        42.379,
+        43.497,
+        43.694,
+        46.192,
+        46.612
+      ]
+    },
+    "targeted_freshness_action": {
+      "n_cold": 2,
+      "n_warm": 15,
+      "cold_mean_ms": 9.845,
+      "cold_first_ms": 9.63,
+      "cold_samples_ms": [
+        9.63,
+        10.061
+      ],
+      "warm_mean_ms": 9.859,
+      "p50_ms": 9.543,
+      "p95_ms": 12.063,
+      "p99_ms": 12.788,
+      "min_ms": 8.624,
+      "max_ms": 12.969,
+      "warm_samples_ms": [
+        8.624,
+        8.655,
+        8.832,
+        8.886,
+        8.979,
+        9.08,
+        9.419,
+        9.543,
+        9.652,
+        9.735,
+        9.872,
+        10.699,
+        11.268,
+        11.675,
+        12.969
+      ]
+    },
+    "safety_matrix": {
+      "stale_revision": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      },
+      "modal_occluded": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      },
+      "moved_gt_2px": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      },
+      "disabled_dynamically": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      },
+      "scrolled_out_of_viewport": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      },
+      "removed_from_dom": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      }
+    },
+    "stale_safety_parity_rate": 1.0
+  },
+  "desktop_notepad": {
+    "hwnd": 42469016,
+    "control_full_discovery_action": {
+      "n_cold": 2,
+      "n_warm": 10,
+      "cold_mean_ms": 2092.164,
+      "cold_first_ms": 2089.794,
+      "cold_samples_ms": [
+        2089.794,
+        2094.533
+      ],
+      "warm_mean_ms": 2092.336,
+      "p50_ms": 2094.347,
+      "p95_ms": 2103.411,
+      "p99_ms": 2105.623,
+      "min_ms": 2079.224,
+      "max_ms": 2106.176,
+      "warm_samples_ms": [
+        2079.224,
+        2081.005,
+        2085.744,
+        2088.318,
+        2093.601,
+        2095.093,
+        2095.453,
+        2098.72,
+        2100.031,
+        2106.176
+      ]
+    },
+    "targeted_freshness_action": {
+      "n_cold": 2,
+      "n_warm": 10,
+      "cold_mean_ms": 2010.063,
+      "cold_first_ms": 2010.554,
+      "cold_samples_ms": [
+        2010.554,
+        2009.573
+      ],
+      "warm_mean_ms": 2015.046,
+      "p50_ms": 2013.981,
+      "p95_ms": 2025.197,
+      "p99_ms": 2029.013,
+      "min_ms": 2007.334,
+      "max_ms": 2029.967,
+      "warm_samples_ms": [
+        2007.334,
+        2008.355,
+        2010.687,
+        2011.043,
+        2013.614,
+        2014.347,
+        2016.749,
+        2018.991,
+        2019.367,
+        2029.967
+      ]
+    },
+    "safety_matrix": {
+      "stale_revision": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      },
+      "moved_gt_2px": {
+        "control_refused": true,
+        "targeted_refused": true,
+        "parity": true
+      }
+    },
+    "stale_safety_parity_rate": 1.0
+  }
+}
