@@ -1,68 +1,138 @@
-# Computer Use Lite
+# Computer Use Lite (CUL)
 
-> **Project Status: Work in Progress (`0.1.0`)**  
-> Code, benchmarks, directory structure, and evaluation results are actively evolving and should not be treated as final.
+**Version:** `0.1.0-alpha`  
+**Release Classification:** `Public Research Preview — Experimental — Not Production Ready`  
+**Creator & Lead Developer:** Mohamed Gomaa ([AUTHORS.md](AUTHORS.md))  
+**License:** [Apache-2.0](LICENSE) ([NOTICE](NOTICE), [CITATION.cff](CITATION.cff))
 
-## Purpose
+> [!WARNING]
+> **Experimental Research Preview:** Computer Use Lite is an open research prototype investigating hybrid semantic UI perception and revision-checked control for AI agents. It has verified **open security and platform boundaries** (see [SECURITY.md](SECURITY.md) and [Known Limitations](docs/KNOWN_LIMITATIONS.md)) and is **not production-hardened** for untrusted web navigation or multi-tenant environments.
 
-Computer Use Lite is a local-first UI perception and action engine for **browser automation (via Playwright + Chrome DevTools Protocol)** and **Windows desktop automation (via UI Automation `FindAllBuildCache`)**.  
-Instead of capturing full-screen screenshots on every step, the engine exposes a compact text element map (`Api.line_map()`, capped at 60 elements by default with `filter_query=` drill-down), targeted stale-element checks before actions, redacted task state logging, and on-demand PNG crops only when opaque regions (such as large or sparse `<canvas>` elements or low-UIA windows) are detected.
+---
 
-## Platform Requirements
+## 1. Overview & Research Problem
 
-- **Python:** `>= 3.10` (see [`pyproject.toml`](pyproject.toml))
-- **Browser module (`BrowserSession`):** Chromium via Playwright (`playwright>=1.40`)
-- **Windows Desktop modules (`DesktopSession`, `snapshot`, `blind_gap` desktop crops, `experiments/win32_probe.py`, `experiments/h2_*.py`):**
-  - **Windows-only:** Relies on Win32 DLLs (`user32.dll`, `kernel32.dll`, `dwmapi.dll`), COM (`comtypes`), and `UIAutomationCore.dll`.
-  - **Interactive desktop requirement:** Live OS input injection (`SendInput`), foreground enforcement (`GetForegroundWindow` / `SetForegroundWindow`), physical cursor kill-switch (`KillSwitch`), `GetCursorInfo` (in `experiments/h2_*.py`), and full-screen `ImageGrab.grab` require an interactive `Default` Windows desktop and fail with access-denied errors in isolated non-input sessions.
+Visual "computer-use" agents that send full-resolution viewport or desktop screenshots at every interaction step pay recurring token, latency, and grounding costs, even when interacting with structured DOM forms or native Windows controls.
 
-## Installation
+**Computer Use Lite (CUL)** investigates a narrower hybrid hypothesis:
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev,benchmarks]"
-playwright install chromium
+1. **Semantic first:** Extract interactive elements directly from browser accessibility/DOM snapshots (`DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree`) and native Windows UI Automation (`CUIAutomation8`), returning a compact token representation (`REV:N` + short IDs `e1`, `e2`, ...).
+2. **Coordinate-free revision binding:** Bind actions to element IDs validated against revision counters (`REV:N`), pre-action geometry drift (`> 2` px), and hit-test / occlusion checks rather than blind `(x, y)` coordinates.
+3. **Targeted visual fallback:** Crop PNG regions (`blind_N`) **only** for detected opaque `<canvas>` surfaces or low-UIA areas (`blind_gap.py`).
+
+The repository preserves **both verified improvements and negative/unsolved findings** (including rejected cursor-grid experiments, cross-origin iframe gaps under strict Chromium site isolation, and unrun live VLM evaluations) so researchers and engineers can evaluate the architecture transparently.
+
+---
+
+## 2. Implemented Capabilities
+
+| Layer | Implementation ([src/computer_use_lite/](src/computer_use_lite/)) | Current Scope & Status |
+| :--- | :--- | :--- |
+| **Browser Perception & Control** | [`browser_cdp.py`](src/computer_use_lite/browser_cdp.py), [`hover.py`](src/computer_use_lite/hover.py) | Persistent `DirectCdpClient` WebSocket (`websockets`) + Playwright Chromium launch/attach, 2-call `DOMSnapshot` + `AXTree`, paint-order & `overflow` clipping, hover reveal checks, `elementFromPoint` target checks |
+| **Windows Desktop UIA** | [`desktop_uia.py`](src/computer_use_lite/desktop_uia.py) | **Windows-only:** dedicated COM MTA worker (`CUIAutomation8`, `AutoSetFocus=0`), `FindAllBuildCache`, UIA pattern execution -> `SendInput` fallback, foreground HWND enforcement, `KillSwitch` pointer abort |
+| **Semantic Element API** | [`api.py`](src/computer_use_lite/api.py), [`resolver.py`](src/computer_use_lite/resolver.py), [`snapshot.py`](src/computer_use_lite/snapshot.py) | Unified `Api`, `REV:N` compact `line_map` (default `60`-element cap, `filter_query`), `> 2` px drift/occlusion/removal refusal, `inspect_element()` password redaction |
+| **Targeted Visual Fallback** | [`blind_gap.py`](src/computer_use_lite/blind_gap.py) | Emits PNG crops only when unmatched `<canvas>` (`>= 240x160` px or sparse UI `< 6` controls) or `low_uia` surfaces exist; prioritizes Win32 `PrintWindow` over `ImageGrab` when target windows are covered |
+| **State & Value Redaction** | [`state.py`](src/computer_use_lite/state.py) | Atomic temp-file `TaskState` persistence; strips raw non-`None` action `"value"` fields to `{value_length, value_sha256, value_redacted: true}` |
+| **MCP Server** | [`mcp_server.py`](src/computer_use_lite/mcp_server.py), [`session_manager.py`](src/computer_use_lite/session_manager.py) | `stdio` FastMCP server exposing `13` tools with per-session worker thread isolation, host/scheme SSRF entry checks, viewport/limit clamping, and blocked OS modifier hotkeys |
+| **Compatibility Shims** | [`src/engine/`](src/engine/) | Thin `importlib` module aliases re-exporting `computer_use_lite.*` |
+
+Full component diagrams and module notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
+## 3. Repository Map
+
+- [src/computer_use_lite/](src/computer_use_lite/) — Core engine and `stdio` MCP server (`src/engine/` holds module alias shims).
+- [tests/](tests/) — Unit, audit-fix regression, MCP `stdio`, benchmark-contract, and E2E suites.
+- [benchmarks/](benchmarks/) — Phase D multi-target benchmark, 9-experiment performance study, dual-origin corpus, and 20-task agent harness.
+- [experiments/](experiments/) & [archive/stale_h2_grid/](archive/stale_h2_grid/) — Historical exploratory scripts (`H1`, `H1b`, `H2`, `win32_probe.py`) and explicitly archived invalid experiments preserved as negative evidence.
+- [results/](results/) — Measured JSON/Markdown datasets for `H1`–`H3`, `benchmarks_real`, `e2e_results`, `perf_study`, and `agent_benchmark` oracle validation.
+- [docs/](docs/) — Canonical research and engineering documentation:
+  - [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+  - [ARCHITECTURE_DECISION.md](docs/ARCHITECTURE_DECISION.md) *(historical architecture decision baseline)*
+  - [RESEARCH_METHODOLOGY.md](docs/RESEARCH_METHODOLOGY.md)
+  - [BENCHMARKS.md](docs/BENCHMARKS.md)
+  - [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)
+  - [RESEARCH_HISTORY.md](docs/RESEARCH_HISTORY.md)
+
+---
+
+## 4. Installation
+
+**Requirements:**
+- **OS:** Windows 10/11 required for runtime execution (`desktop_uia.py` and `snapshot.py` load `ctypes.WinDLL("user32")` at import time; see [Known Limitations](docs/KNOWN_LIMITATIONS.md#platform--windows-uia-boundaries)).
+- **Python:** `>=3.10` (verified in CI and local benchmarks on Python `3.12`).
+
+```bash
+git clone <repository-url>
+cd computer-use-lite
+
+python -m pip install -e ".[dev,benchmarks]"
+python -m playwright install chromium
 ```
 
-## Quick Start
+Dependencies installed automatically: `playwright>=1.40`, `pillow>=10.0`, `websockets>=14.0`, `mcp>=1.25.0`, plus Windows extras `uiautomation>=2.0.29` and `comtypes>=1.5.0` (see [NOTICE](NOTICE) for third-party licenses).
 
-Browser example (from `computer_use_lite` or compatibility alias `engine`):
+---
+
+## 5. Quick Start
+
+### Python API (Browser Example)
 
 ```python
+from pathlib import Path
 from computer_use_lite import Api, BrowserSession
 
-session = BrowserSession(url="https://example.com", headless=True, viewport=(1280, 720))
+session = BrowserSession(
+    url="https://example.com",
+    headless=True,
+    viewport=(1280, 720),
+)
 try:
-    api = Api(session)
-    print(api.discover_interactables())
-    # Inspect or act on a discovered ID (e.g., e1)
-    # details = api.inspect_element("e1")
-    # result = api.execute_action("e1", "click")
+    api = Api(
+        session,
+        state_path=Path("./runtime/task_state.json"),
+        crops_dir=Path("./runtime/crops"),
+    )
+    line_map = api.discover_interactables(max_elements=60)
+    print(line_map)
+    # Example output header: "REV:1" followed by compact rows such as:
+    # "e1 link 'More information...' [x,y,w,h]"
+
+    # Execute against explicit revision + element ID from line_map:
+    result = api.execute_action("e1", "click", revision=1)
+    print(result)
 finally:
     session.close()
 ```
 
-Windows desktop example (Windows interactive session, targeting an existing window handle `hwnd`):
+### Windows Desktop Session (`DesktopSession`)
 
 ```python
 from computer_use_lite import Api, DesktopSession
+from computer_use_lite.desktop_uia import list_windows
 
-session = DesktopSession(hwnd)
-api = Api(session)
-print(api.discover_interactables())
+windows = list_windows(title_contains="Notepad")
+if windows:
+    session = DesktopSession(windows[0]["hwnd"])
+    try:
+        api = Api(session)
+        print(api.discover_interactables(max_elements=40))
+    finally:
+        session.close()
 ```
 
-Backwards-compatible imports (`from engine import Api, BrowserSession, DesktopSession, ...`) are preserved via `src/engine/`.
+### MCP Server (`stdio`)
 
-## MCP Server (Model Context Protocol)
+Start via console script or module entrypoint:
 
-Computer Use Lite ships an ultra-low-latency `stdio` MCP server (`computer_use_lite.mcp_server` / CLI entrypoint `computer-use-lite-mcp`) exposing 13 unified tools with MCP `ToolAnnotations`, thread-pinned isolated sessions (`state_fsync=False` on disposable temp `TaskState`), `http(s)` public URL validation blocking loopback, private (RFC1918/ULA), link-local/metadata, and unspecified targets by default (`CUL_MCP_ALLOW_PRIVATE_URLS=1` opt-in for private/local HTTP; `CUL_MCP_ALLOW_FILE_URLS=1` opt-in for `file://`), and automatic inline `ImageContent` crops **only** when an opaque canvas or sparse-UIA blind region is detected.
+```bash
+computer-use-lite-mcp
+# or
+python -m computer_use_lite.mcp_server
+```
 
-- **Start directly:** `computer-use-lite-mcp` (or `python -m computer_use_lite.mcp_server`)
-- **Available tools:** `open_browser`, `list_desktop_windows`, `open_desktop`, `close_session`, `list_sessions`, `discover`, `inspect`, `act`, `hover`, `navigate`, `scroll`, `press_key`, `click_at`
-
-Example client configuration (**Claude Desktop** `claude_desktop_config.json`, **Cursor** `.cursor/mcp.json`, or any stdio MCP host):
+Example MCP client configuration:
 
 ```json
 {
@@ -70,90 +140,98 @@ Example client configuration (**Claude Desktop** `claude_desktop_config.json`, *
     "computer-use-lite": {
       "command": "python",
       "args": ["-m", "computer_use_lite.mcp_server"],
-      "cwd": "/path/to/computer-use-lite"
+      "env": {}
     }
   }
 }
 ```
 
-## Architecture Overview
+Set `"CUL_MCP_ALLOW_PRIVATE_URLS": "1"` in `env` **only** when testing trusted localhost/private network fixtures (`open_browser` / `navigate` block loopback, private, and link-local hosts by default).
 
-Package modules in `src/computer_use_lite/`:
-
-- **`snapshot.py` (M0):** Captures target window geometry (`DwmGetWindowAttribute` / `GetWindowRect`), process name, client origin, and thread-safe monotonic revisions.
-- **`browser_cdp.py` (M1-Browser):** Discovers interactive DOM/AX nodes (including `searchbox` and semantic tags/roles in cross-origin OOPIF `DOMSnapshot` frames) using `DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree`, prunes redundant `<label>`/nested fragments and overflow-clipped nodes, performs lazy candidate occlusion filtering, checks live occlusion via `elementFromPoint`, clears/scrolls inputs, and selects active tabs in `connect` mode.
-- **`desktop_uia.py` (M1-Windows, Windows-only):** Runs HWND-scoped UIA `FindAllBuildCache` on a COM worker thread, executes `Invoke -> Toggle -> SelectionItem -> ExpandCollapse -> SendInput`, activates Chromium/Electron accessibility (`WM_GETOBJECT` / temporary `SPI_SETSCREENREADER`), and enforces foreground + 5 px `KillSwitch` safety.
-- **`blind_gap.py` (M2):** Detects large (`>= 25%`) or sparse (`>= 5%`) `<canvas>` elements and low-UIA desktop surfaces (`< 6` controls), exporting cropped PNGs on demand (prioritizing `PrintWindow` before `ImageGrab` when a desktop `hwnd` is covered, non-foreground, minimized, or cloaked). Cursor-probing prototypes were not shipped into the engine (see [`docs/ARCHITECTURE_DECISION.md`](docs/ARCHITECTURE_DECISION.md)).
-- **`resolver.py` (M3):** Performs IoU deduplication (`0.75`), assigns stable `eN` IDs, tracks hover deltas (`reconcile_hover`), and enforces `assert_fresh` (revision mismatch, disappearance/disabled, occlusion, or `> 2` px movement).
-- **`hover.py` (M4):** Explicit single-element `hover_and_diff()` that prunes disappeared controls and appends newly revealed controls.
-- **`api.py` & `state.py` (M5):** Implements `discover_interactables`, `inspect_element`, `execute_action`, capped/filtered `line_map`, and atomic `TaskState` persistence with SHA-256 + length value redaction.
-
-## Repository Layout
-
-- `src/computer_use_lite/` — Core engine source package (`src/engine/` provides backwards-compatible imports)
-- `tests/` — Audit regression tests ([`tests/test_engine_audit.py`](tests/test_engine_audit.py)), live E2E suite ([`tests/test_e2e.py`](tests/test_e2e.py)), benchmark contracts ([`tests/test_benchmarks_study.py`](tests/test_benchmarks_study.py)), and HTML fixtures
-- `experiments/` — Standalone exploration scripts (`h1_*`, `h2_*`, `win32_probe.py`) and fixtures
-- `benchmarks/` — Multi-target real-app runner ([`benchmark_real.py`](benchmarks/benchmark_real.py)), isolated 9-candidate study suite ([`run_all.py`](benchmarks/run_all.py), [`bench_uia.py`](benchmarks/bench_uia.py), [`bench_remote_ops.py`](benchmarks/bench_remote_ops.py), [`bench_browser.py`](benchmarks/bench_browser.py), [`bench_action_freshness.py`](benchmarks/bench_action_freshness.py)), and 20-task paired agent harness ([`bench_agent_20tasks.py`](benchmarks/bench_agent_20tasks.py), [`agent_tasks.py`](benchmarks/agent_tasks.py))
-- `results/` — Recorded experiment, benchmark, E2E, and study outputs ([`results/perf_study/BENCHMARK_REPORT.md`](results/perf_study/BENCHMARK_REPORT.md))
-- `docs/` — Architecture decision record ([`docs/ARCHITECTURE_DECISION.md`](docs/ARCHITECTURE_DECISION.md))
-- `archive/` — Historical, invalidated, or ephemeral artifacts retained with status labels (see [`archive/README.md`](archive/README.md))
-
-## Running Tests
-
-Full Windows local run (headless Chromium + Windows UIA tests):
-
-```powershell
-pytest -v
-python tests/test_e2e.py
-```
-
-Non-interactive CI-safe run (skips live Windows UIA / headful desktop tests marked `@pytest.mark.windows_desktop`):
-
-```powershell
-$env:CUL_SKIP_DESKTOP = "1"
-pytest -v -rs
-```
-
-## Known Limitations
-
-- Desktop automation (`DesktopSession`, `snapshot`, `experiments/h2_*`) does not run on Linux/macOS and does not walk the Windows Desktop Root (`HWND`-scoped only).
-- Importing `computer_use_lite` loads Windows `user32` bindings at import time in `desktop_uia.py` and `snapshot.py` (while `blind_gap.py` invokes `user32` inside desktop `export()`).
-- Live Win32 cursor/input/screen-grab verification fails inside isolated non-interactive desktops (`ERROR_ACCESS_DENIED`).
-- Opaque UIs (`<canvas>`, unaccessible native widgets) are exposed as cropped PNG regions for caller inspection rather than decoded into semantic controls automatically.
-- Copyright holder attribution in [`LICENSE`](LICENSE), [`NOTICE`](NOTICE), and [`pyproject.toml`](pyproject.toml) still uses a `[TODO: Copyright Holder]` placeholder pending author confirmation.
+**Exposed `13` MCP tools:**  
+`open_browser`, `list_desktop_windows`, `open_desktop`, `close_session`, `list_sessions`, `discover`, `inspect`, `act`, `hover`, `navigate`, `scroll`, `press_key`, `click_at`.
 
 ---
 
-## Benchmarks & Controlled Performance Study Methodology
+## 6. Running Tests & Benchmarks
 
-- **Machine & Runtime Environment:** Windows 11 (`10.0.26200-SP0`), `11th Gen Intel(R) Core(TM) i5-11400F @ 2.60GHz` (6 physical / 12 logical cores), `15.84 GB RAM`, Python `3.12.10`, Playwright `1.64.0`, `comtypes 1.5.0`.
-- **Single-Variable Benchmark Protocol ([`results/perf_study/BENCHMARK_REPORT.md`](results/perf_study/BENCHMARK_REPORT.md)):**
-  - **UIA (`Exps 1–4`, `exp1_4_uia.json`):** `n_cold = 3`, `n_warm = 20` iterations per variant (`30` warm uncached `ElementFromHandle` calls) across Windows 11 Notepad, File Explorer, Chromium (`chrome://`/fixture with `--force-renderer-accessibility`), and Electron (Obsidian). Cold runs capture first-call initialization on a freshly spawned worker/apartment; warm statistics report `p50`, `p95`, `p99`, IPC count, and per-iteration CPU time.
-  - **UIA Remote Operations (`Exp 5`, `exp5_remote_ops.json`):** `n_cold = 3`, `n_warm = 15` comparing `FindAllBuildCache` vs `CoreAutomationRemoteOperation` subtree walk and `K=30` batch property reads.
-  - **Browser Discovery & Transport (`Exps 6–7, 9`, `exp6_7_9_browser.json`):** `n_cold = 1, n_warm = 10` across 4 adversarial corpus states (`initial_viewport`, `drawer_open`, `modal_occluded`, `scrolled_view`) and `n_cold = 2, n_warm = 10` on real sites (GitHub Trending, YouTube, Gmail sign-in, Google Maps); `n_cold = 2, n_warm = 15` for Exp 7 transport comparison.
-  - **Post-Action Targeted Freshness (`Exp 8`, `exp8_freshness.json`):** `n_cold = 2, n_warm = 15` (Browser) and `n_cold = 2, n_warm = 10` (Desktop Notepad), testing `stale_safety_parity_rate = 1.0` across all 6 browser adversarial conditions (`stale_revision`, `modal_occluded`, `moved_gt_2px`, `disabled_dynamically`, `scrolled_out_of_viewport`, `removed_from_dom`) and both desktop conditions (`stale_revision`, `moved_gt_2px`).
-- **Ground Truth (GT) & Statistical Noise Caveats:**
-  - **Adversarial Corpus (`Exp 6`, `Exp 9`):** Evaluated against deterministic DOM/Shadow-DOM/cross-origin-iframe GT (`extract_corpus_ground_truth()`), explicitly verifying closed Shadow DOM (`closed_shadow_dom`) and cross-origin OOPIF (`cross_origin_iframe`) visibility.
-  - **Real Public Sites (`Exp 6`):** No external curated GT exists; `ablation_cdp_no_boxmodel_loop` and `candidate_js_single_frame` are scored (`vs_control`) against viewport-filtered `Control CDP` (`BrowserSession.discover()`), which explains why Control CDP appears as `1.0000` in comparison tables. On GitHub Trending, `Control CDP` emits `629` raw nodes -> `160` in the `1280x720` viewport (including `106` `cursor:pointer` items and full-viewport wrapper containers) -> `120` after `Resolver.merge()` IoU deduplication, so JS recall is `38.12%` vs raw viewport Control (`49.17%` vs `Resolver`-deduplicated `120` controls).
-  - **Measurement Noise & Direct WebSocket Reality:** Differences of `±3–5 ms` on `p50` fall within Windows scheduling and live-site layout noise. Direct persistent CDP WebSockets save `1.0–3.1 ms` on tiny ping calls (`ping_scroll`), while larger wins (`-98.2 ms` on GitHub Trending, `-15.3 ms` p50 / `-101.7 ms` p95 on Google Maps) come from removing Playwright's Node IPC serialization overhead on `0.7–1.4 MB` `DOMSnapshot` + `AXTree` payloads.
-  - **Windows UIA `~2,000 ms` Action Floor Root Cause:** Diagnostic profiling proved the `~2,006 ms` per-action floor on Win11 Notepad (`SetValue`), Explorer (`Invoke`/`Toggle`/`SetValue`/`Select`), Chromium UIA, and native Win32 controls comes from `IUIAutomation` (`CUIAutomation`) defaulting to `AutoSetFocus = 1`. Switching to `CUIAutomation8` (`IUIAutomation2`) with `AutoSetFocus = 0` drops Notepad `SetValue` from `2,014.32 ms` to `1.71 ms` while preserving semantic background execution.
-- Multi-target token/latency report & raw JSON: [`results/benchmarks/benchmarks_real.md`](results/benchmarks/benchmarks_real.md), [`results/benchmarks/benchmarks_real.json`](results/benchmarks/benchmarks_real.json)
-- Isolated 9-candidate study & script: [`results/perf_study/BENCHMARK_REPORT.md`](results/perf_study/BENCHMARK_REPORT.md), [`benchmarks/benchmark_real.py`](benchmarks/benchmark_real.py)
+### Test Suite
 
-## Test & Verification Results
+```bash
+# Headless browser, security, audit-fix, MCP stdio & benchmark-contract tests
+# (Windows desktop tests skipped when CUL_SKIP_DESKTOP=1)
+CUL_SKIP_DESKTOP=1 pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
 
-- Audit & regression suite: [`tests/test_engine_audit.py`](tests/test_engine_audit.py), [`tests/test_audit_fixes.py`](tests/test_audit_fixes.py)
-- Live E2E suite (writes JSON to temp directory by default unless `--write-results <path>` is passed) & archived Phase D baseline: [`tests/test_e2e.py`](tests/test_e2e.py), [`results/e2e/e2e_results.json`](results/e2e/e2e_results.json)
-- Benchmark contract suite: [`tests/test_benchmarks_study.py`](tests/test_benchmarks_study.py)
+# Full Windows suite including @pytest.mark.windows_desktop E2E & MCP desktop tests
+# (requires an active, unlocked Windows user session)
+pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
+```
 
-## Experiments, Failed Hypotheses, and Architecture Decisions
+On the pre-release Windows baseline (`HEAD`), the full suite measured **`52 passed in 68.86s`**.
 
-- Decision log & keep/drop status: [`docs/ARCHITECTURE_DECISION.md`](docs/ARCHITECTURE_DECISION.md)
-- Browser canvas cursor probes (H1 / H1b): [`results/experiments/h1_report.md`](results/experiments/h1_report.md), [`results/experiments/h1b_report.md`](results/experiments/h1b_report.md), [`results/experiments/h1b_report.json`](results/experiments/h1b_report.json)
-- Desktop Gate 0 calibration (H2 Gate 0): [`results/experiments/h2_gate0.json`](results/experiments/h2_gate0.json), [`results/experiments/h2_gate0_probes.json`](results/experiments/h2_gate0_probes.json)
-- Hover visual diff precondition status (H3): [`results/experiments/h3_report.md`](results/experiments/h3_report.md)
-- Stale / invalidated pre-fix H2 Grid artifacts (negative historical record): [`archive/stale_h2_grid/README.md`](archive/stale_h2_grid/README.md)
+### Benchmark Suites
 
-## License
+```bash
+# 1. Compile sanity check across all modules
+python -m compileall -q src experiments benchmarks tests
 
-Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+# 2. Multi-target real application token/latency check (browser + desktop)
+python -m benchmarks.benchmark_real
+
+# 3. Isolated 9-experiment performance & accuracy study
+python -m benchmarks.run_all --exp all
+
+# 4. 20-task benchmark harness deterministic oracle check (0 LLM API calls)
+python -m benchmarks.bench_agent_20tasks --dry-run-oracle
+```
+
+To run an actual live VLM comparison (`screenshot_baseline` vs `computer_use_lite`), pass `--provider openai|gemini|ollama` and `--model <name>` to `benchmarks.bench_agent_20tasks`.
+
+---
+
+## 7. Key Verified Findings & Honest Scope
+
+Detailed tables, environments, confounds, and negative outcomes live in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [docs/RESEARCH_HISTORY.md](docs/RESEARCH_HISTORY.md).
+
+- **Verified strengths (`[MEASURED]` on local Windows `3.12` environment):**
+  - Dual-origin fixture discovery (`DualOriginCorpusServer`) reached `recall = 1.0` and `precision = 1.0` after `P-04` pruning (`<label>` dedup, nested container collapsing, ancestor `overflow` clipping), and `P-01` reduced Python occlusion processing on a `2,500`-cell dense DOM from `824.40 ms` to `19.32 ms` `p50`.
+  - Targeted `line_map` output stays compact against the repo's `1,229`-token `1280x720` screenshot proxy across tested targets (`form.html`: `54.2` tokens in `17.8 ms`; Notepad: `474.8` tokens in `140.2 ms`; GitHub Trending capped `60`: `654.0` tokens in `215.5 ms`, uncapped `1,263.8`; Explorer capped `60`: `711.0` tokens in `387.7 ms`, uncapped `1,611.0`).
+  - `DirectCdpClient` WebSocket reduces 2-call CDP `Snapshot+AXTree` serialization latency on heavy DOMs (`220.31 -> 122.10 ms` `p50` on GitHub Trending in `Exp 7`), and dedicated COM `MTA` eliminates `446 ms` Notepad / `861 ms` Explorer cold STA initialization stalls (`Exp 1`).
+- **Explicit caveats & negative results:**
+  - **`H1` / `H1b` / `H2` / `H3` cursor probing rejected/abandoned:** Synchronized cursor probing took `14.93 s`, dropping settle windows to `80` px corrupted canvas accuracy to `34.4%`, and `H3` was never built (`results/experiments/h*_report.md`).
+  - **Cross-origin iframe (`OOPIF`) gap remains open:** Under Chrome strict `--site-per-process` and tested live embeds (e.g., `youtube.com/embed`), `DOMSnapshot` + top-session discovery dropped inner controls (`0` elements, `0` blind regions).
+  - **20-task LLM evaluation unrun:** `results/agent_benchmark/harness_validation.json` contains **deterministic oracle checks only (`20/20`, `0` LLM inference runs)** — no live VLM end-to-end token or task-completion victory is claimed yet.
+  - **`TOKENS_EST` is a heuristic (`len(text) / 4`), not an exact BPE tokenizer count**, and `1,229` tokens is a static baseline proxy rather than a cross-vendor billing exact match.
+
+---
+
+## 8. Critical Known Limitations & Security Posture
+
+- **Open SSRF Redirect & Loopback CDP Risk (`[MEASURED]`):** `validate_navigation_url()` blocks loopback, private, CGNAT, link-local, obfuscated IPv4/IPv6 literals, and non-HTTP schemes on initial entry, **but** Chromium `page.goto()` still follows HTTP `302` redirects toward `127.0.0.1` once an external host passes initial validation, and Python-side DNS checks cannot eliminate Chromium-internal DNS rebinding. Local `--remote-debugging-port` endpoints also expose unauthenticated `/json/version` and origin-less WebSocket control to local processes (though Chromium `1.64` rejects browser-originated `Origin:` WS upgrades with `HTTP 403`).
+- **`verified=true` != Semantic Task Completion:** Action `verified=true` verifies targeted element pre-checks/dispatch semantics, not downstream business state (e.g., typing into `<input readonly>` or Win32 `#32770` Save As UIA `ValuePattern.SetValue` vs `IFileSaveDialog` desync).
+- **Platform & Desktop Caveats:** Non-Windows Python import fails without Win32 `user32`; Store Notepad async UIA hydration/tab persistence; `WS_EX_LAYOUTRTL` horizontal coordinate mirroring in `PrintWindow` on RTL Notepad windows; no multi-tab `target="_blank"` browser tab switching.
+
+Read [SECURITY.md](SECURITY.md) and [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) before running CUL on any untrusted page or desktop session.
+
+---
+
+## 9. Roadmap (`v0.1.0-alpha` -> Beyond)
+
+1. Intercept Chromium navigation redirects / sub-frame hops inside `context.route()` to enforce host validation across `302` chains.
+2. Lazy-load Win32 `user32` / COM bindings so browser-only mode imports cleanly on Linux/macOS.
+3. Implement OOPIF target attachment (`Target.setAutoAttach`) + `<iframe src>` cross-origin blind-region fallback under `--site-per-process`.
+4. Add multi-tab session tracking (`Page` target switching) and `KillSwitch` fail-closed initialization.
+5. Run paired live VLM evaluations on the 20-task benchmark (`benchmarks/bench_agent_20tasks.py`) across open and commercial vision models.
+
+---
+
+## 10. Contributing & Citation
+
+Contributions focusing on reproducible bug reports, cross-origin frame tests, platform decoupling, and empirical benchmarks are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). To report security issues responsibly, consult [SECURITY.md](SECURITY.md).
+
+If you cite Computer Use Lite or its empirical methodology in academic or engineering work, see [CITATION.cff](CITATION.cff).
+
+```text
+Copyright 2026 Mohamed Gomaa
+Licensed under the Apache License, Version 2.0 (LICENSE / NOTICE)
+```

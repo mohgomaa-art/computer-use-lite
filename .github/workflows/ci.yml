@@ -27,4 +27,4 @@ jobs:
         run: python -m compileall -q src experiments benchmarks tests
 
       - name: Run non-interactive pytest suite
-        run: pytest -v -rs
+        run: pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning

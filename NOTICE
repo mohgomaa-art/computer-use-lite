@@ -1,12 +1,12 @@
 Computer Use Lite (computer-use-lite)
-Copyright 2026 [TODO: Copyright Holder]
-Author: [TODO: Copyright Holder] (git user.name was unset at repository preparation time)
+Copyright 2026 Mohamed Gomaa
+Creator & Lead Developer: Mohamed Gomaa
 
 This product includes software developed under the Apache License, Version 2.0.
 
 Third-Party Dependencies (Runtime & Test)
 =========================================
-Observed via local Python package metadata (`importlib.metadata`):
+Verified via Python package metadata (`importlib.metadata` on 2026-11-26):
 
 1. playwright (>=1.40; tested 1.64.0)
    License: Apache-2.0 — compatible with Apache-2.0.
@@ -16,24 +16,28 @@ Observed via local Python package metadata (`importlib.metadata`):
 2. pillow (>=10.0; tested 12.3.0)
    License: MIT-CMU — permissive; compatible with Apache-2.0.
 
-3. uiautomation (>=2.0.29; tested 2.0.29, Windows-only)
+3. websockets (>=14.0; tested 17.2)
+   License: BSD-3-Clause — permissive; compatible with Apache-2.0.
+
+4. mcp (>=1.25.0; tested 1.30.0)
+   License: MIT — compatible with Apache-2.0.
+
+5. uiautomation (>=2.0.29; tested 2.0.29, Windows-only)
    License: Apache 2.0 — compatible with Apache-2.0.
 
-4. comtypes (>=1.5.0; tested 1.5.0, Windows-only)
+6. comtypes (>=1.5.0; tested 1.5.0, Windows-only)
    License: MIT — permissive; compatible with Apache-2.0.
 
-5. pytest (>=7.0; tested 9.1.1, optional dev/test dependency)
+7. pytest (>=7.0; tested 9.1.1, optional dev/test dependency)
    License: MIT — permissive; compatible with Apache-2.0.
 
-6. websockets (>=14.0; tested 17.2, optional benchmarks dependency)
+8. psutil (>=6.0; tested 7.2.2, optional benchmarks dependency)
    License: BSD-3-Clause — permissive; compatible with Apache-2.0.
 
-7. psutil (>=6.0; tested 7.2.2, optional benchmarks dependency)
-   License: BSD-3-Clause — permissive; compatible with Apache-2.0.
+Transitive Runtime Packages Verified:
+- anyio (tested 4.15.1): MIT — compatible
+- pyee (tested 14.0.0): MIT — compatible
+- greenlet (tested 3.5.6): MIT AND PSF-2.0 — compatible
+- typing-extensions (tested 4.16.0): PSF-2.0 — compatible
 
-Key Transitive Runtime Dependencies Checked:
-- pyee (14.0.0): MIT — compatible
-- greenlet (3.5.6): MIT AND PSF-2.0 — compatible
-- typing-extensions (4.16.0): PSF-2.0 — compatible
-
-License Conflict Check: No copyleft (GPL/AGPL) or incompatible dependency licenses found.
+License Conflict Check: No copyleft (GPL/AGPL) or incompatible dependency licenses detected.

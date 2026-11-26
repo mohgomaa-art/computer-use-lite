@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: "Computer Use Lite"
+message: "If you reference this software or research evaluation in your work, please cite it using the metadata below."
+type: software
+authors:
+  - family-names: "Gomaa"
+    given-names: "Mohamed"
+version: "0.1.0-alpha"
+date-released: "2026-11-26"
+license: Apache-2.0
+abstract: >-
+  Computer Use Lite is an experimental, local-first semantic computer interaction
+  engine for AI agents combining Chromium DOMSnapshot + Accessibility Tree discovery,
+  Windows UI Automation (UIA), revision-checked element resolution, on-demand
+  visual region cropping for opaque surfaces, and a stdio Model Context Protocol (MCP) server.
+keywords:
+  - computer-use
+  - ai-agents
+  - chrome-devtools-protocol
+  - windows-ui-automation
+  - model-context-protocol
+  - accessibility-tree
