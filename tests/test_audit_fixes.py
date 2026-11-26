@@ -623,3 +623,142 @@ def test_p0_2_multi_tab_tracking_switch_close_and_overlay(tmp_path, monkeypatch)
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+# ---------------------------------------------------------------------------
+# P0-3: Win32 #32770 Save As physical commit & static dialog alert surfacing
+# ---------------------------------------------------------------------------
+@pytest.mark.skipif(sys.platform != "win32", reason="Win32 #32770 Save As dialog test is Windows-only")
+def test_p0_3_win32_save_as_commit_and_dialog_alerts(tmp_path):
+    from computer_use_lite import DesktopSession, desktop_uia
+
+    target_file = tmp_path / "cul_p0_3_verified.txt"
+    untouched_default = tmp_path / "Untitled.txt"
+    expected_bytes = b"CUL_P0_3_PHYSICAL_COMMIT_OK\n"
+
+    save_script = """
+import pathlib, sys, tkinter as tk
+from tkinter import filedialog
+initial_dir = pathlib.Path(sys.argv[1]).resolve()
+allowed_name = sys.argv[2]
+root = tk.Tk()
+root.title("CULP03SaveHost")
+root.geometry("240x120+120+120")
+root.update()
+res = filedialog.asksaveasfilename(
+    parent=root,
+    initialdir=str(initial_dir),
+    initialfile="Untitled.txt",
+    defaultextension=".txt",
+    title="CUL P0-3 Save As",
+)
+root.destroy()
+if res:
+    chosen = pathlib.Path(res).resolve()
+    if chosen.parent != initial_dir or chosen.name != allowed_name:
+        print(f"UNEXPECTED_PATH:{chosen}", flush=True)
+        sys.exit(2)
+    chosen.write_bytes(b"CUL_P0_3_PHYSICAL_COMMIT_OK\\n")
+    print(f"SAVED:{chosen}", flush=True)
+"""
+    alert_script = """
+import ctypes
+ctypes.windll.user32.MessageBoxW(
+    0,
+    "Invalid save path: filename contains illegal characters.",
+    "CUL P0-3 Save As Alert",
+    0x00000030 | 0x00040000,
+)
+"""
+    proc_save = subprocess.Popen(
+        [sys.executable, "-c", save_script, str(tmp_path), target_file.name],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    sess_save = None
+    try:
+        dlg_hwnd = None
+        for _ in range(50):
+            hits = desktop_uia.list_windows(title_contains="CUL P0-3 Save As", class_name="#32770", limit=10)
+            if hits:
+                dlg_hwnd = hits[0]["hwnd"]
+                break
+            time.sleep(0.15)
+        assert dlg_hwnd, "Native #32770 Save As dialog did not open"
+
+        desktop_uia._u32.SetForegroundWindow(dlg_hwnd)
+        sess_save = DesktopSession(dlg_hwnd)
+        api = Api(sess_save, state_path=tmp_path / "p0_3_save_state.json")
+        api.discover_interactables(export_crops=False)
+
+        edit_el = next(
+            r for r in api.resolver.records
+            if r.get("role") == "textbox" and "File name" in (r.get("name") or "")
+        )
+        type_res = api.execute_action(edit_el["id"], "type", value=str(target_file))
+        assert type_res["ok"] is True
+        mech = type_res["mechanism"]["mechanism"] if isinstance(type_res.get("mechanism"), dict) else type_res.get("mechanism")
+        assert mech in ("sendinput_dialog", "wm_char_dialog"), f"Expected physical/WM_CHAR #32770 commit, got: {type_res}"
+
+        api.discover_interactables(export_crops=False)
+        save_btn = next(
+            r for r in api.resolver.records
+            if r.get("role") == "button" and (r.get("name") or "").strip() == "Save"
+        )
+        click_res = api.execute_action(save_btn["id"], "click")
+        assert click_res["ok"] is True
+
+        out, err = proc_save.communicate(timeout=10)
+        assert proc_save.returncode == 0, f"Save dialog failed rc={proc_save.returncode} out={out!r} err={err!r}"
+        assert f"SAVED:{target_file.resolve()}" in out, out
+        assert target_file.is_file(), "Save As did not produce target file on disk"
+        assert target_file.read_bytes() == expected_bytes
+        assert not untouched_default.exists(), "Default Untitled.txt was unexpectedly written"
+    finally:
+        if sess_save is not None:
+            sess_save.close()
+        if proc_save.poll() is None:
+            proc_save.kill()
+            proc_save.wait(timeout=5)
+
+    # Second probe: native #32770 static alert text must surface in dialog_alerts & line_map()
+    proc_alert = subprocess.Popen(
+        [sys.executable, "-c", alert_script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    sess_alert = None
+    try:
+        alert_hwnd = None
+        for _ in range(40):
+            hits = desktop_uia.list_windows(title_contains="CUL P0-3 Save As Alert", class_name="#32770", limit=10)
+            if hits:
+                alert_hwnd = hits[0]["hwnd"]
+                break
+            time.sleep(0.15)
+        assert alert_hwnd, "Native #32770 alert dialog did not open"
+
+        desktop_uia._u32.SetForegroundWindow(alert_hwnd)
+        sess_alert = DesktopSession(alert_hwnd)
+        api_alert = Api(sess_alert, state_path=tmp_path / "p0_3_alert_state.json")
+        api_alert.discover_interactables(export_crops=False)
+        lm = api_alert.line_map()
+
+        alerts = getattr(sess_alert, "dialog_alerts", [])
+        assert any("Invalid save path" in msg for msg in alerts), f"Missing static alert text in dialog_alerts: {alerts}"
+        assert "DIALOG_ALERT:" in lm and "Invalid save path" in lm, f"Missing DIALOG_ALERT in line_map:\n{lm}"
+
+        ok_btn = next(
+            r for r in api_alert.resolver.records
+            if r.get("role") == "button" and (r.get("name") or "").strip() == "OK"
+        )
+        assert api_alert.execute_action(ok_btn["id"], "click")["ok"] is True
+        proc_alert.wait(timeout=5)
+    finally:
+        if sess_alert is not None:
+            sess_alert.close()
+        if proc_alert.poll() is None:
+            proc_alert.kill()
+            proc_alert.wait(timeout=5)

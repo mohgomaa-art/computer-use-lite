@@ -78,6 +78,15 @@ class Api:
         head = (f"REV:{self.resolver.revision} | WIN:{_window_name(self.session)} | "
                 f"ELEMENTS:{len(self.resolver.records)} | "
                 f"BLIND_REGIONS:{len(self.regions)}")
+        alerts = getattr(self.session, "dialog_alerts", None) or []
+        if alerts:
+            safe_alerts = [
+                " ".join(str(msg).replace("|", "/").split())
+                for msg in alerts
+                if str(msg).strip()
+            ]
+            if safe_alerts:
+                head += "\n" + "\n".join(f"DIALOG_ALERT:{msg}" for msg in safe_alerts)
         lines = [head]
         for r in shown:
             x, y, w, h = [int(v) for v in r["box"]]

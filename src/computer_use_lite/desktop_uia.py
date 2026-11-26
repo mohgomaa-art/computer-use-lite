@@ -155,6 +155,50 @@ _u32.AttachThreadInput.restype = wintypes.BOOL
 _k32 = ctypes.WinDLL("kernel32", use_last_error=True)
 _k32.GetCurrentThreadId.argtypes = []
 _k32.GetCurrentThreadId.restype = wintypes.DWORD
+_u32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
+_u32.FindWindowExW.restype = wintypes.HWND
+_u32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+_u32.SendMessageW.restype = ctypes.c_ssize_t
+
+
+def _resolve_dialog_edit_hwnd(element) -> int:
+    """Resolve the Win32 Edit HWND from a #32770 File name Edit or parent ComboBox."""
+    hwnd = int(getattr(element, "CurrentNativeWindowHandle", 0) or 0)
+    if not hwnd:
+        return 0
+    buf = ctypes.create_unicode_buffer(64)
+    _u32.GetClassNameW(hwnd, buf, 64)
+    if buf.value.lower() == "edit":
+        return hwnd
+    child = _u32.FindWindowExW(hwnd, 0, "Edit", None)
+    return int(child or 0)
+
+
+def _commit_dialog_text(dlg_hwnd, element, box, value, kill_switch) -> str:
+    """Commit text into a Win32 #32770 dialog Edit so Common Item Dialog state stays synced."""
+    text = str(value or "")
+    try:
+        _ensure_foreground(dlg_hwnd)
+        element.SetFocus()
+        if box[2] > 2 and box[3] > 2:
+            click_at(int(box[0] + box[2] / 2), int(box[1] + box[3] / 2), hwnd=dlg_hwnd, kill_switch=kill_switch)
+        press(VK_A, (VK_CONTROL,), hwnd=dlg_hwnd)
+        press(VK_DELETE, hwnd=dlg_hwnd)
+        time.sleep(0.02)
+        type_unicode(text, hwnd=dlg_hwnd, kill_switch=kill_switch)
+        return "sendinput_dialog"
+    except (RuntimeError, OSError) as exc:
+        fg_now = _u32.GetForegroundWindow()
+        if "Foreground safety abort" in str(exc) and fg_now not in (0, None, dlg_hwnd):
+            raise
+        edit_hwnd = _resolve_dialog_edit_hwnd(element)
+        if not edit_hwnd:
+            raise
+        _u32.SendMessageW(edit_hwnd, 0x00B1, 0, -1)  # EM_SETSEL(0, -1)
+        _u32.SendMessageW(edit_hwnd, 0x0102, 0x08, 1)  # WM_CHAR VK_BACK clears selection
+        for ch in text:
+            _u32.SendMessageW(edit_hwnd, 0x0102, ord(ch), 1)
+        return "wm_char_dialog"
 
 
 def cursor_pos():
@@ -645,7 +689,7 @@ class DesktopSession:
         inter_n = sum(1 for n in nodes if n["role"] in INTERACTIVE)
         cls = _window_class(self.hwnd)
         is_chromium = cls.startswith("Chrome_WidgetWin")
-        if not self._a11y_tried and ((is_chromium and not has_doc) or inter_n < 6):
+        if cls != "#32770" and not self._a11y_tried and ((is_chromium and not has_doc) or inter_n < 6):
             self._a11y_tried = True
             _activate_accessibility(self.hwnd)
             nodes2 = self._call(self._scan)
@@ -654,7 +698,28 @@ class DesktopSession:
                 nodes2 = self._call(self._scan)
             nodes = nodes2
             inter_n = sum(1 for n in nodes if n["role"] in INTERACTIVE)
-        if inter_n < 6:
+        if cls == "#32770":
+            interactive_names = {
+                " ".join((n.get("name") or "").split())
+                for n in nodes
+                if n.get("role") in INTERACTIVE and (n.get("name") or "").strip()
+            }
+            alerts = []
+            seen_alerts = set()
+            for n in nodes:
+                if n.get("ctype") != "Text":
+                    continue
+                msg = " ".join((n.get("name") or "").split())
+                if len(msg) < 4 or msg.endswith(":") or msg in interactive_names or msg in seen_alerts:
+                    continue
+                seen_alerts.add(msg)
+                alerts.append(msg[:240])
+                if len(alerts) >= 8:
+                    break
+            self.dialog_alerts = alerts
+        else:
+            self.dialog_alerts = []
+        if cls != "#32770" and inter_n < 6:
             self.last_warning = (
                 f"UIA returned suspiciously few interactive nodes ({inter_n} interactive / {len(nodes)} total); "
                 "Chromium/Electron windows may need --force-renderer-accessibility"
@@ -760,6 +825,8 @@ class DesktopSession:
         def run():
             e = self._element(el)
             if action == "type":
+                if _window_class(self.hwnd) == "#32770":
+                    return _commit_dialog_text(self.hwnd, e, box, value, self._kill)
                 try:
                     self._pattern(e, UIA.UIA_ValuePatternId,
                                   UIA.IUIAutomationValuePattern).SetValue(str(value or ""))
