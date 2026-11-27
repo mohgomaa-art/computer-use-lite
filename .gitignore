@@ -47,7 +47,15 @@ desktop.ini
 /research_trace/
 /archive/screenshots/
 /archive/runtime_state/
+# Isolated visualization build/dependency artifacts
+/research_visuals/**/node_modules/
+/research_visuals/**/dist/
+*.tsbuildinfo
+
 *.png
+!/docs/assets/benchmarks/*.png
+!/docs/assets/brand/*.png
+!/docs/assets/evidence/*.png
 *.tmp
 *.bak
 *.orig

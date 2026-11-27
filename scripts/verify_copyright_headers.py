@@ -13,6 +13,9 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+#
+# AI Modification Note: Extended SKIP_DIRS with node_modules and added
+# _audit_ts_js_file() for isolated research_visuals TypeScript/TSX sources.
 """Automated copyright, SPDX, and AI attribution audit script for Computer Use Lite."""
 from __future__ import annotations
 
@@ -25,13 +28,15 @@ import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "build", "dist"}
+SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "build", "dist", "node_modules"}
 ELIGIBLE_EXTS = {".py", ".html", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".rs", ".ps1", ".psm1", ".sh", ".c", ".h", ".cpp", ".hpp"}
 
 EXCLUDED_EXTENSION_REASONS = {
     ".png": "Binary raster screenshot / visual crop image artifact",
     ".jpg": "Binary image asset",
     ".ico": "Binary icon asset",
+    ".svg": "Vector graphic asset (verbatim owner logo or deterministic TSX-generated chart)",
+    ".css": "Stylesheet metadata for visualization report",
     ".json": "Data, benchmark telemetry, or schema artifact (JSON format prohibits comments)",
     ".md": "Documentation, audit report, or agent prompt prose governed by root LICENSE/NOTICE",
     ".txt": "Raw log capturedump, requirements lock/bound list, or evidence transcript",
@@ -135,6 +140,40 @@ def _audit_html_file(txt: str) -> list[str]:
     return errs
 
 
+def _audit_ts_js_file(txt: str) -> list[str]:
+    errs: list[str] = []
+    lines = txt.splitlines()
+    idx = 0
+    if idx < len(lines) and lines[idx].startswith("#!"):
+        idx += 1
+
+    header_block: list[str] = []
+    while idx < len(lines) and (
+        lines[idx].lstrip().startswith(("//", "/*", "*", "*/")) or not lines[idx].strip()
+    ):
+        header_block.append(lines[idx])
+        idx += 1
+        if len(header_block) > 40:
+            break
+    top_header = "\n".join(header_block)
+
+    for snippet in REQUIRED_HEADER_SNIPPETS:
+        if snippet not in top_header:
+            errs.append(f"Missing required TS/JS header snippet in top block: {snippet!r}")
+    for phrase in FORBIDDEN_HEADER_PHRASES:
+        if phrase.lower() in top_header.lower():
+            errs.append(f"Forbidden phrase in TS/JS header: {phrase!r}")
+
+    top_slice = "\n".join(lines[:35])
+    spdx_count = len(re.findall(r"SPDX-License-Identifier\s*:", top_slice))
+    copy_count = len(re.findall(r"Copyright\s+2026\s+Mohamed\s+Gomaa\b", top_slice))
+    if spdx_count != 1:
+        errs.append(f"Expected exactly 1 TS/JS SPDX identifier, found {spdx_count}")
+    if copy_count != 1:
+        errs.append(f"Expected exactly 1 TS/JS Copyright notice, found {copy_count}")
+    return errs
+
+
 def run_audit(root: pathlib.Path = REPO_ROOT) -> dict:
     eligible_passed = []
     eligible_failed = {}
@@ -153,6 +192,8 @@ def run_audit(root: pathlib.Path = REPO_ROOT) -> dict:
                 errs = _audit_python_file(p, txt)
             elif ext == ".html":
                 errs = _audit_html_file(txt)
+            elif ext in {".ts", ".tsx", ".js", ".mjs", ".cjs"}:
+                errs = _audit_ts_js_file(txt)
             else:
                 errs = [f"Unsupported source extension without explicit parser check: {ext}"]
             if errs:
