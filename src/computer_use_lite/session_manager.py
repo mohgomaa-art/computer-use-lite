@@ -19,6 +19,7 @@ import collections
 from concurrent.futures import Future
 import ctypes
 from ctypes import wintypes
+import hashlib
 import ipaddress
 import os
 from pathlib import Path
@@ -32,7 +33,12 @@ from urllib.parse import urlparse
 from . import snapshot, state
 from .api import Api
 from .browser_cdp import BrowserSession
-from .desktop_uia import DesktopSession, _window_class as _desktop_window_class, list_windows as _list_desktop_windows
+from .desktop_uia import (
+    CursorCoordinator,
+    DesktopSession,
+    _window_class as _desktop_window_class,
+    list_windows as _list_desktop_windows,
+)
 
 MAX_SESSIONS = 16
 MAX_INLINE_BLIND_IMAGES = 4
@@ -173,6 +179,7 @@ class _SessionWorker:
         self.target_summary = target_summary
         self.tab_count = 1 if kind == "browser" else 0
         self.active_tab_index = 0
+        self.last_image_hashes: list[tuple[tuple, str]] | None = None
         self.created_at = time.time()
         self.last_used_at = time.monotonic()
         self._tmp_dir = tempfile.TemporaryDirectory(prefix=f"cul_mcp_{session_id}_")
@@ -324,6 +331,7 @@ class SessionManager:
         self._sessions: dict[str, _SessionWorker] = {}
         self._counter = 0
         self._shutting_down = False
+        self._cursor_coordinator = CursorCoordinator(enabled=True, tolerance=5)
         atexit.register(self.close_all_sync)
 
     def _reap_expired_idle(self) -> int:
@@ -390,6 +398,8 @@ class SessionManager:
         export_crops: bool = True,
         include_blind_images: bool = True,
         include_static_text: bool = False,
+        skip_unchanged_images: bool = False,
+        worker: _SessionWorker | None = None,
     ) -> dict:
         line_map = api.discover_interactables(
             export_crops=export_crops,
@@ -398,6 +408,7 @@ class SessionManager:
             include_static_text=include_static_text,
         )
         images = []
+        image_hashes: list[tuple[tuple, str]] = []
         if include_blind_images and api.regions:
             for region in api.regions[:MAX_INLINE_BLIND_IMAGES]:
                 crop_path = region.get("crop")
@@ -405,15 +416,27 @@ class SessionManager:
                     continue
                 p = Path(crop_path)
                 if p.exists():
+                    raw = p.read_bytes()
+                    box_key = tuple(round(float(v), 1) for v in (region.get("box") or ()))
+                    image_hashes.append((box_key, hashlib.sha256(raw).hexdigest()))
                     images.append({
                         "kind": region.get("kind"),
                         "box": region.get("box"),
                         "reason": region.get("reason"),
-                        "png_bytes": p.read_bytes(),
+                        "png_bytes": raw,
                     })
+        stats = dict(api.last_stats)
+        if skip_unchanged_images and worker is not None:
+            if image_hashes and worker.last_image_hashes == image_hashes:
+                images = []
+                stats["images_unchanged"] = True
+            else:
+                worker.last_image_hashes = image_hashes if image_hashes else None
+        elif image_hashes and worker is not None:
+            worker.last_image_hashes = image_hashes
         return {
             "line_map": line_map,
-            "stats": dict(api.last_stats),
+            "stats": stats,
             "blind_images": images,
         }
 
@@ -523,16 +546,22 @@ class SessionManager:
         self,
         title_contains: str | None = None,
         class_name: str | None = None,
+        process_name: str | None = None,
         limit: int = 40,
     ) -> list[dict]:
         if sys.platform != "win32":
             raise RuntimeError("Desktop UIA window enumeration requires Windows.")
         bounded_limit = max(1, min(int(limit), 200))
-        return _list_desktop_windows(
+        fetch_limit = 200 if process_name else bounded_limit
+        rows = _list_desktop_windows(
             title_contains=title_contains,
             class_name=class_name,
-            limit=bounded_limit,
+            limit=fetch_limit,
         )
+        if process_name:
+            needle = process_name.lower()
+            rows = [r for r in rows if needle in (r.get("process_name") or "").lower()]
+        return rows[:bounded_limit]
 
     async def open_desktop(
         self,
@@ -588,13 +617,15 @@ class SessionManager:
         )
 
         def factory():
-            if show_cursor is None:
-                return DesktopSession(int(target_hwnd))
-            return DesktopSession(int(target_hwnd), show_cursor=show_cursor)
+            kw = {"cursor_coordinator": self._cursor_coordinator, "session_id": sid}
+            if show_cursor is not None:
+                kw["show_cursor"] = show_cursor
+            return DesktopSession(int(target_hwnd), **kw)
 
         worker = await asyncio.to_thread(lambda: _SessionWorker(sid, "desktop", summary, factory))
 
         def post_open(sess: DesktopSession, api: Api) -> dict:
+            fg_info = _foreground_info(int(sess.hwnd))
             payload = {
                 "session_id": sid,
                 "kind": "desktop",
@@ -603,10 +634,11 @@ class SessionManager:
                 "title": win_title,
                 "bounds": list(sess.bounds()),
                 "show_cursor": bool(getattr(sess, "show_cursor", False)),
+                **fg_info,
             }
             if auto_discover:
                 payload["discovery"] = self._with_busy_cursor(
-                    sess, lambda: self._discover_inside_worker(api)
+                    sess, lambda: self._discover_inside_worker(api, worker=worker)
                 )
             return payload
 
@@ -618,6 +650,10 @@ class SessionManager:
         if worker is None:
             raise SessionNotFoundError(f"Unknown session_id {session_id!r}")
         await asyncio.to_thread(worker.close, 5.0)
+        with self._lock:
+            no_sessions = not self._sessions
+        if no_sessions:
+            self._cursor_coordinator.reset()
         return {"ok": True, "closed": session_id}
 
     def list_sessions(self) -> list[dict]:
@@ -635,6 +671,7 @@ class SessionManager:
                 worker.close(timeout=5.0)
             except Exception:
                 pass
+        self._cursor_coordinator.reset()
 
     async def close_all(self) -> None:
         await asyncio.to_thread(self.close_all_sync)
@@ -648,6 +685,7 @@ class SessionManager:
         export_crops: bool = True,
         include_blind_images: bool = True,
         include_static_text: bool = False,
+        skip_unchanged_images: bool = False,
     ) -> dict:
         worker = self._get_worker(session_id)
         bounded_max = max(1, min(int(max_elements), 300))
@@ -662,6 +700,8 @@ class SessionManager:
                     export_crops=export_crops,
                     include_blind_images=include_blind_images,
                     include_static_text=include_static_text,
+                    skip_unchanged_images=skip_unchanged_images,
+                    worker=worker,
                 ),
             )
             self._sync_browser_target(worker, sess)
@@ -781,28 +821,55 @@ class SessionManager:
 
         return await worker.call(op, timeout=45.0)
 
-    async def scroll(self, session_id: str, dy: int = 400, dx: int = 0) -> dict:
+    async def scroll(
+        self,
+        session_id: str,
+        dy: int = 400,
+        dx: int = 0,
+        x: int | None = None,
+        y: int | None = None,
+    ) -> dict:
         worker = self._get_worker(session_id)
 
         def op(sess, api: Api) -> dict:
-            info = sess.scroll(dx=int(dx), dy=int(dy))
+            info = sess.scroll(dx=int(dx), dy=int(dy), x=x, y=y)
             new_rev = api.invalidate_revision("scroll", detail=f"{dx},{dy}")
             return {"ok": True, **info, "revision": new_rev}
 
         return await worker.call(op, timeout=20.0)
 
-    async def press_key(self, session_id: str, key: str) -> dict:
+    async def press_key(
+        self,
+        session_id: str,
+        key: str | None = None,
+        keys: list[str] | None = None,
+        delay_ms: int = 15,
+    ) -> dict:
+        if (key is None) == (keys is None):
+            raise ValueError("Specify either key (str) or keys (non-empty list[str]), not both or neither.")
+        if isinstance(delay_ms, bool):
+            raise ValueError("delay_ms must be an integer")
+        bounded_delay_ms = max(0, min(int(delay_ms), 500))
         worker = self._get_worker(session_id)
 
         def op(sess, api: Api) -> dict:
-            info = sess.press_key(key)
-            new_rev = api.invalidate_revision("press_key", detail=info.get("key"))
+            if keys is not None:
+                info = sess.press_keys(keys, delay_ms=bounded_delay_ms)
+                new_rev = api.invalidate_revision("press_keys", detail=f"n={info.get('count', len(keys))}")
+            else:
+                info = sess.press_key(key)
+                new_rev = api.invalidate_revision("press_key", detail=info.get("key"))
             res = {"ok": True, **info, "revision": new_rev}
             self._attach_tab_delta(res, sess)
             self._sync_browser_target(worker, sess)
             return res
 
-        return await worker.call(op, timeout=20.0)
+        timeout = (
+            20.0
+            if keys is None
+            else min(120.0, max(30.0, 10.0 + len(keys) * (bounded_delay_ms / 1000.0 + 0.05)))
+        )
+        return await worker.call(op, timeout=timeout)
 
     async def click_at(
         self,
@@ -823,3 +890,68 @@ class SessionManager:
             return res
 
         return await worker.call(op, timeout=20.0)
+
+    async def drag_at(
+        self,
+        session_id: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        button: str = "left",
+        duration_ms: int = 250,
+    ) -> dict:
+        worker = self._get_worker(session_id)
+
+        def op(sess, api: Api) -> dict:
+            info = sess.drag_coordinate(
+                int(x1), int(y1), int(x2), int(y2), button=button, duration_ms=int(duration_ms)
+            )
+            new_rev = api.invalidate_revision("drag_at", detail=f"{x1},{y1}->{x2},{y2}")
+            res = {"ok": True, **info, "revision": new_rev}
+            self._attach_tab_delta(res, sess)
+            self._sync_browser_target(worker, sess)
+            return res
+
+        return await worker.call(op, timeout=30.0)
+
+    async def type_text(
+        self,
+        session_id: str,
+        text: str,
+        press_enter: bool = False,
+        input_mode: str = "unicode",
+    ) -> dict:
+        worker = self._get_worker(session_id)
+
+        def op(sess, api: Api) -> dict:
+            info = sess.type_text(text, press_enter=press_enter, input_mode=input_mode)
+            new_rev = api.invalidate_revision("type_text", detail=f"len={len(text)}")
+            res = {"ok": True, **info, "revision": new_rev}
+            self._attach_tab_delta(res, sess)
+            self._sync_browser_target(worker, sess)
+            return res
+
+        return await worker.call(op, timeout=30.0)
+
+
+def _foreground_info(target_hwnd: int) -> dict[str, object]:
+    """Inspect active OS foreground window cleanly without touching focus."""
+    if sys.platform != "win32":
+        return {"foreground_matched": False, "active_foreground_hwnd": 0, "active_foreground_process": ""}
+    from .desktop_uia import _u32
+
+    if _u32 is None:
+        return {"foreground_matched": False, "active_foreground_hwnd": 0, "active_foreground_process": ""}
+    fg = int(_u32.GetForegroundWindow() or 0)
+    proc_name = ""
+    if fg:
+        pid = wintypes.DWORD()
+        _u32.GetWindowThreadProcessId(wintypes.HWND(fg), ctypes.byref(pid))
+        if pid.value:
+            proc_name = snapshot._process_name(pid.value) or ""
+    return {
+        "foreground_matched": bool(fg and fg == int(target_hwnd)),
+        "active_foreground_hwnd": fg,
+        "active_foreground_process": proc_name,
+    }

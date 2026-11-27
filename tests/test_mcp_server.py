@@ -234,6 +234,7 @@ def test_mcp_tool_roster_annotations_and_browser_workflow():
                         "open_browser", "list_desktop_windows", "open_desktop",
                         "close_session", "list_sessions", "discover", "inspect",
                         "act", "hover", "navigate", "scroll", "press_key", "click_at",
+                        "drag_at", "type_text",
                     }
                     assert set(by_name) == expected
                     assert by_name["discover"].annotations.readOnlyHint is True
@@ -610,14 +611,14 @@ def test_mcp_console_script_entrypoint():
         pytest.skip("computer-use-lite-mcp console script not installed on PATH")
 
     async def scenario():
-        params = StdioServerParameters(command=exe, args=[], cwd=str(ROOT))
+        params = StdioServerParameters(command=exe, args=[], cwd=str(ROOT), env=_server_params().env)
         with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as errlog:
             async with stdio_client(params, errlog=errlog) as (read, write):
                 async with ClientSession(read, write) as client:
                     init = await client.initialize()
                     assert init.serverInfo.name == "computer-use-lite"
                     tools = await client.list_tools()
-                    assert len(tools.tools) == 13
+                    assert len(tools.tools) == 15
 
     anyio.run(scenario)
 
@@ -673,7 +674,7 @@ def test_mcp_cul_mcp_headful_toggle_and_explicit_override():
                 async with ClientSession(read, write) as client:
                     await client.initialize()
                     tools = {t.name for t in (await client.list_tools()).tools}
-                    assert len(tools) == 13
+                    assert len(tools) == 15
                     args = {"url": f"{srv.base_url}/probe", **open_args}
                     opened = await client.call_tool("open_browser", args)
                     assert not opened.isError
@@ -712,7 +713,7 @@ def test_mcp_multi_tab_target_blank_lifecycle():
                 async with ClientSession(read, write) as client:
                     await client.initialize()
                     tools = {t.name for t in (await client.list_tools()).tools}
-                    assert len(tools) == 13
+                    assert len(tools) == 15
 
                     opened = await client.call_tool("open_browser", {"url": f"{srv.base_url}/tabs", "headless": True})
                     assert not opened.isError

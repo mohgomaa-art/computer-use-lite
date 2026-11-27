@@ -56,6 +56,6 @@ if errorlevel 1 (
 
 echo.
 echo Setup completed. Restart or refresh MCP servers in Codex, Antigravity, and Claude Code.
-echo Verify that the computer_use_lite server is connected and lists its 13 tools.
+echo Verify that the computer_use_lite server is connected and lists its 16 tools (15 core tools plus cul_reload).
 echo This installer did not launch the server or interact with desktop applications.
 exit /b 0

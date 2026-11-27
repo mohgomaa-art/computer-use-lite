@@ -43,6 +43,7 @@ dependencies = [
 
 [project.scripts]
 computer-use-lite-mcp = "computer_use_lite.mcp_server:main"
+computer-use-lite-mcp-supervised = "computer_use_lite.supervisor:main"
 
 [project.urls]
 Homepage = "https://github.com/mohgomaa-art/computer-use-lite"

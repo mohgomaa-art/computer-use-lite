@@ -22,12 +22,14 @@ import json
 import os
 import signal
 import sys
-from typing import Literal
+from typing import Any, Literal
 
 import anyio
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.utilities.func_metadata import ArgModelBase, FuncMetadata
 from mcp.server.stdio import stdio_server
 from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
+from pydantic import ConfigDict, ValidationError, create_model
 
 from .resolver import StaleElementError
 from .session_manager import SessionLimitError, SessionManager, SessionNotFoundError
@@ -80,10 +82,19 @@ def _discovery_result(payload: dict, extra_meta: dict | None = None) -> CallTool
             meta_parts.append(f"HEADLESS:{str(bool(extra_meta['headless'])).lower()}")
         if "show_cursor" in extra_meta and extra_meta["show_cursor"] is not None:
             meta_parts.append(f"CURSOR:{'on' if extra_meta['show_cursor'] else 'off'}")
+        if extra_meta.get("foreground_matched") is not None:
+            fg_ok = bool(extra_meta["foreground_matched"])
+            meta_parts.append(f"FG_MATCH:{str(fg_ok).lower()}")
+            if not fg_ok and extra_meta.get("active_foreground_process"):
+                meta_parts.append(
+                    f"ACTIVE_FG:{sanitize_ui_text(extra_meta['active_foreground_process'], max_len=40)}"
+                )
     if "latency_ms" in stats:
         meta_parts.append(f"LATENCY_MS:{stats['latency_ms']}")
     if "tokens" in stats:
         meta_parts.append(f"TOKENS_EST:{stats['tokens']}")
+    if stats.get("images_unchanged"):
+        meta_parts.append("IMAGES_UNCHANGED:true")
     header = " | ".join(meta_parts)
     line_map = disc.get("line_map", "")
     content: list[TextContent | ImageContent] = [
@@ -152,6 +163,17 @@ def _error_result(exc: Exception) -> CallToolResult:
             "recoverable": True,
             "next_step": "Physical Esc interrupted agent takeover control; control returned to user.",
         }
+    elif isinstance(exc, RuntimeError) and "HUMAN TAKEOVER" in str(exc):
+        payload = {
+            "ok": False,
+            "error_type": "HumanTakeover",
+            "error": str(exc),
+            "recoverable": True,
+            "next_step": (
+                "Physical user cursor movement detected. Stop cursor actions and confirm user handoff, "
+                "or close/re-open the session if the cursor moved intentionally between tasks."
+            ),
+        }
     elif isinstance(exc, RuntimeError) and "Foreground safety abort" in str(exc):
         payload = {
             "ok": False,
@@ -161,18 +183,25 @@ def _error_result(exc: Exception) -> CallToolResult:
             "next_step": "Foreground shifted to another window (e.g. a flyout or dialog). Call list_desktop_windows() to inspect active HWNDs.",
         }
     elif type(exc).__name__ == "COMError":
+        msg = str(exc)
+        hint = (
+            "UIA tree traversal timed out (-2146233083); retry discover() or narrow scope with max_elements/filter_query."
+            if "-2146233083" in msg
+            else "Desktop UIA provider became unavailable or dismissed; call list_desktop_windows() to verify the target window."
+        )
         payload = {
             "ok": False,
             "error_type": "COMError",
-            "error": str(exc),
+            "error": msg,
             "recoverable": True,
-            "next_step": "Desktop UIA provider became unavailable or dismissed; call list_desktop_windows() to verify the target window.",
+            "next_step": hint,
         }
-    elif isinstance(exc, (ValueError, TimeoutError)):
+    elif isinstance(exc, (ValueError, TimeoutError, asyncio.TimeoutError)):
+        msg = str(exc) or f"{type(exc).__name__} waiting for operation completion"
         payload = {
             "ok": False,
             "error_type": type(exc).__name__,
-            "error": str(exc),
+            "error": msg,
             "recoverable": True,
         }
     else:
@@ -183,6 +212,69 @@ def _error_result(exc: Exception) -> CallToolResult:
             "recoverable": False,
         }
     return CallToolResult(content=[TextContent(type="text", text=_json_dumps(payload))], isError=True)
+
+
+class _StrictArgModelBase(ArgModelBase):
+    """Strict argument model forbidding unknown MCP tool keyword arguments."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+
+class _StrictFuncMetadata(FuncMetadata):
+    """FuncMetadata wrapper returning structured CUL ValueError JSON on Pydantic errors."""
+
+    async def call_fn_with_arg_validation(
+        self,
+        fn: Any,
+        fn_is_async: bool,
+        arguments_to_validate: dict[str, Any],
+        arguments_to_pass_directly: dict[str, Any] | None,
+    ) -> Any:
+        try:
+            return await super().call_fn_with_arg_validation(
+                fn=fn,
+                fn_is_async=fn_is_async,
+                arguments_to_validate=arguments_to_validate,
+                arguments_to_pass_directly=arguments_to_pass_directly,
+            )
+        except ValidationError as exc:
+            valid_keys = ", ".join(self.arg_model.model_fields.keys())
+            extra_keys = [
+                ".".join(str(p) for p in err.get("loc", ()))
+                for err in exc.errors()
+                if err.get("type") == "extra_forbidden"
+            ]
+            other_msgs = [
+                f"{'.'.join(str(p) for p in err.get('loc', ())) or 'arguments'}: {err.get('msg')}"
+                for err in exc.errors()
+                if err.get("type") != "extra_forbidden"
+            ]
+            parts: list[str] = []
+            if extra_keys:
+                parts.append(f"Unknown parameter(s): {', '.join(extra_keys)}. Valid parameters: {valid_keys}.")
+            if other_msgs:
+                suffix = "" if extra_keys else f" Valid parameters: {valid_keys}."
+                parts.append(f"{'; '.join(other_msgs)}.{suffix}")
+            return _error_result(ValueError(" ".join(parts) or str(exc)))
+
+
+def _enforce_strict_tool_schemas(server: FastMCP) -> None:
+    """Rebuild every tool's arg_model with extra='forbid' and update schemas + validation."""
+    for tool in server._tool_manager.list_tools():
+        old_meta = tool.fn_metadata
+        old_model = old_meta.arg_model
+        field_defs = {
+            fname: (finfo.annotation if finfo.annotation is not None else Any, finfo)
+            for fname, finfo in old_model.model_fields.items()
+        }
+        strict_model = create_model(old_model.__name__, __base__=_StrictArgModelBase, **field_defs)
+        tool.fn_metadata = _StrictFuncMetadata(
+            arg_model=strict_model,
+            output_schema=old_meta.output_schema,
+            output_model=old_meta.output_model,
+            wrap_output=old_meta.wrap_output,
+        )
+        tool.parameters = strict_model.model_json_schema(by_alias=True)
 
 
 def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, SessionManager]:
@@ -252,6 +344,7 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
     async def list_desktop_windows(
         title_contains: str | None = None,
         class_name: str | None = None,
+        process_name: str | None = None,
         limit: int = 40,
     ) -> CallToolResult:
         try:
@@ -259,6 +352,7 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
                 mgr.list_desktop_windows,
                 title_contains=title_contains,
                 class_name=class_name,
+                process_name=process_name,
                 limit=limit,
             )
             return _ok_text({"windows": windows, "count": len(windows)})
@@ -359,6 +453,7 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
         export_crops: bool = True,
         include_blind_images: bool = True,
         include_static_text: bool = False,
+        skip_unchanged_images: bool = False,
     ) -> CallToolResult:
         try:
             res = await mgr.discover(
@@ -368,6 +463,7 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
                 export_crops=export_crops,
                 include_blind_images=include_blind_images,
                 include_static_text=include_static_text,
+                skip_unchanged_images=skip_unchanged_images,
             )
             return _discovery_result(res, extra_meta={"session_id": session_id})
         except Exception as exc:  # noqa: BLE001
@@ -486,24 +582,36 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
 
     @server.tool(
         name="scroll",
-        description="Scroll the active browser viewport or desktop window (dy>0 scrolls down) and bump revision.",
+        description=(
+            "Scroll the active browser viewport or desktop window (dy>0 scrolls down) and bump revision. "
+            "Supply both x and y to scroll a specific panel, or omit both to scroll at window center."
+        ),
         annotations=ToolAnnotations(
-            title="Scroll Viewport or Window",
+            title="Scroll Viewport or Panel",
             readOnlyHint=False,
             destructiveHint=False,
             idempotentHint=False,
             openWorldHint=True,
         ),
     )
-    async def scroll(session_id: str, dy: int = 400, dx: int = 0) -> CallToolResult:
+    async def scroll(
+        session_id: str,
+        dy: int = 400,
+        dx: int = 0,
+        x: int | None = None,
+        y: int | None = None,
+    ) -> CallToolResult:
         try:
-            return _ok_text(await mgr.scroll(session_id=session_id, dy=dy, dx=dx))
+            return _ok_text(await mgr.scroll(session_id=session_id, dy=dy, dx=dx, x=x, y=y))
         except Exception as exc:  # noqa: BLE001
             return _error_result(exc)
 
     @server.tool(
         name="press_key",
-        description="Send a key or shortcut (e.g. 'Enter', 'Tab', 'Escape', 'Ctrl+a') to the active session.",
+        description=(
+            "Send one key/shortcut (key='Enter', 'Shift+A', 'Numpad0') or an atomic ordered sequence "
+            "(keys=['G', 'x', '2', 'Enter'], delay_ms=15) to the active session."
+        ),
         annotations=ToolAnnotations(
             title="Press Key or Shortcut",
             readOnlyHint=False,
@@ -512,9 +620,14 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
             openWorldHint=True,
         ),
     )
-    async def press_key(session_id: str, key: str) -> CallToolResult:
+    async def press_key(
+        session_id: str,
+        key: str | None = None,
+        keys: list[str] | None = None,
+        delay_ms: int = 15,
+    ) -> CallToolResult:
         try:
-            return _ok_text(await mgr.press_key(session_id=session_id, key=key))
+            return _ok_text(await mgr.press_key(session_id=session_id, key=key, keys=keys, delay_ms=delay_ms))
         except Exception as exc:  # noqa: BLE001
             return _error_result(exc)
 
@@ -544,6 +657,78 @@ def build_server(manager: SessionManager | None = None) -> tuple[FastMCP, Sessio
         except Exception as exc:  # noqa: BLE001
             return _error_result(exc)
 
+    @server.tool(
+        name="drag_at",
+        description=(
+            "Drag continuously from (x1, y1) to (x2, y2) strictly inside the attached viewport/window bounds "
+            "using left, middle, or right mouse button. Releases the mouse button cleanly on completion or error."
+        ),
+        annotations=ToolAnnotations(
+            title="Drag Bounded Coordinates",
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        ),
+    )
+    async def drag_at(
+        session_id: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        button: Literal["left", "right", "middle"] = "left",
+        duration_ms: int = 250,
+    ) -> CallToolResult:
+        try:
+            return _ok_text(
+                await mgr.drag_at(
+                    session_id=session_id,
+                    x1=x1,
+                    y1=y1,
+                    x2=x2,
+                    y2=y2,
+                    button=button,
+                    duration_ms=duration_ms,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _error_result(exc)
+
+    @server.tool(
+        name="type_text",
+        description=(
+            "Type text into the currently focused element of the active foreground session "
+            "(up to 1000 characters, supporting newlines and optional press_enter; input_mode='unicode' default "
+            "or 'vk_scan' for desktop/modal widgets) without needing a UIA element_id."
+        ),
+        annotations=ToolAnnotations(
+            title="Type Text",
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        ),
+    )
+    async def type_text(
+        session_id: str,
+        text: str,
+        press_enter: bool = False,
+        input_mode: Literal["unicode", "vk_scan"] = "unicode",
+    ) -> CallToolResult:
+        try:
+            return _ok_text(
+                await mgr.type_text(
+                    session_id=session_id,
+                    text=text,
+                    press_enter=press_enter,
+                    input_mode=input_mode,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _error_result(exc)
+
+    _enforce_strict_tool_schemas(server)
     return server, mgr
 
 

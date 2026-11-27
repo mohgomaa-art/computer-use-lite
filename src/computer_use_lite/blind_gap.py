@@ -126,12 +126,25 @@ def _is_window_occluded_or_bg(hwnd, bbox, require_foreground=True):
     return False
 
 
+def _is_os_frame_control(el):
+    """Return True for Windows non-client titlebar buttons that do not reflect interior UIA."""
+    aid = (el.get("automation_id") or "").strip()
+    role = (el.get("role") or "").strip().lower()
+    name = (el.get("name") or "").strip()
+    if aid in {"Minimize-Restore", "Close"} and role == "button":
+        return True
+    if role == "menuitem" and name == "System" and not aid:
+        return True
+    return False
+
+
 def detect(session, elements, viewport):
     """Return blind regions as [{kind, box, reason, area_fraction}]."""
     regions = []
     vw, vh = viewport[2], viewport[3]
     v_area = max(vw * vh, 1)
     interactive = [e for e in elements if e.get("role") in INTERACTIVE]
+    interior_interactive = [e for e in interactive if not _is_os_frame_control(e)]
 
     if hasattr(session, "canvas_rects"):
         for box in session.canvas_rects():
@@ -156,14 +169,14 @@ def detect(session, elements, viewport):
                                   % (frac * 100, nearby),
                     })
 
-    if not hasattr(session, "canvas_rects") and len(interactive) < MIN_INTERACTIVE \
+    if not hasattr(session, "canvas_rects") and len(interior_interactive) < MIN_INTERACTIVE \
             and v_area >= MIN_WINDOW_AREA:
         regions.append({
             "kind": "low_uia",
             "box": list(viewport),
             "area_fraction": 1.0,
-            "reason": "window exposes only %d interactive UIA controls in %d x %d px"
-                      % (len(interactive), vw, vh),
+            "reason": "window exposes only %d interior interactive UIA controls in %d x %d px"
+                      % (len(interior_interactive), vw, vh),
         })
     return regions
 

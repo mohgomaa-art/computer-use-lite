@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import MutableMapping
 from datetime import datetime
 import json
 import os
@@ -25,10 +26,17 @@ import shutil
 import sys
 import tempfile
 import tomlkit
-from tomlkit.items import Table
+from tomlkit.items import InlineTable
 
 
 SERVER_ID = "computer_use_lite"
+DEFAULT_SERVER_MODULE = "computer_use_lite.supervisor"
+DIRECT_SERVER_MODULE = "computer_use_lite.mcp_server"
+
+
+def server_args(*, supervised: bool = True) -> list[str]:
+    mod = DEFAULT_SERVER_MODULE if supervised else DIRECT_SERVER_MODULE
+    return ["-u", "-m", mod]
 
 
 def _codex_path() -> Path:
@@ -56,7 +64,7 @@ def _read_text(path: Path) -> str | None:
         raise ValueError(f"Configuration is not UTF-8 text: {path}") from exc
 
 
-def _toml_server(repo: Path, python_exe: Path) -> str:
+def _toml_server(repo: Path, python_exe: Path, *, supervised: bool = True) -> str:
     path = _codex_path()
     existing = _read_text(path)
     try:
@@ -68,12 +76,18 @@ def _toml_server(repo: Path, python_exe: Path) -> str:
     if servers is None:
         servers = tomlkit.table()
         document["mcp_servers"] = servers
-    if not isinstance(servers, Table):
+    if not isinstance(servers, MutableMapping):
         raise ValueError(f"Codex config has a non-table mcp_servers value: {path}")
+    if isinstance(servers, InlineTable):
+        promoted = tomlkit.table()
+        for existing_key, existing_val in servers.items():
+            promoted[existing_key] = existing_val
+        document["mcp_servers"] = promoted
+        servers = promoted
 
     entry = tomlkit.table()
     entry["command"] = str(python_exe)
-    entry["args"] = ["-u", "-m", "computer_use_lite.mcp_server"]
+    entry["args"] = server_args(supervised=supervised)
     entry["cwd"] = str(repo)
     entry["enabled"] = True
     entry["required"] = True
@@ -94,6 +108,7 @@ def _json_server(
     *,
     client_name: str,
     claude: bool = False,
+    supervised: bool = True,
 ) -> str:
     existing = _read_text(path)
     if existing is None:
@@ -106,14 +121,14 @@ def _json_server(
                 f"Cannot parse {client_name} JSON config {path}: {exc}"
             ) from exc
     if not isinstance(document, dict):
-        raise ValueError(f"Antigravity config root must be an object: {path}")
+        raise ValueError(f"{client_name} config root must be an object: {path}")
 
     servers = document.setdefault(root_key, {})
     if not isinstance(servers, dict):
         raise ValueError(f"{root_key} must be an object in {path}")
     entry = {
         "command": str(python_exe),
-        "args": ["-u", "-m", "computer_use_lite.mcp_server"],
+        "args": server_args(supervised=supervised),
         "env": {
             "PYTHONPATH": str(repo / "src"),
             "PYTHONUNBUFFERED": "1",
@@ -195,23 +210,24 @@ def apply_updates(updates: list[tuple[Path, str]]) -> list[str]:
     return messages
 
 
-def configure(repo: Path, python_exe: Path) -> list[str]:
+def configure(repo: Path, python_exe: Path, *, supervised: bool = True) -> list[str]:
     repo = repo.resolve()
-    python_exe = python_exe.resolve()
+    # Preserve venv symlink launchers rather than dereferencing to the base system Python binary.
+    python_exe = Path(os.path.abspath(python_exe))
     updates = [
-        (_codex_path(), _toml_server(repo, python_exe)),
+        (_codex_path(), _toml_server(repo, python_exe, supervised=supervised)),
         (
             _antigravity_path(),
             _json_server(
                 _antigravity_path(), "mcpServers", repo, python_exe,
-                client_name="Antigravity",
+                client_name="Antigravity", supervised=supervised,
             ),
         ),
         (
             _claude_path(),
             _json_server(
                 _claude_path(), "mcpServers", repo, python_exe,
-                client_name="Claude Code", claude=True,
+                client_name="Claude Code", claude=True, supervised=supervised,
             ),
         ),
     ]
@@ -221,6 +237,11 @@ def configure(repo: Path, python_exe: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", required=True, type=Path)
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="Register computer_use_lite.mcp_server directly without the reloadable supervisor.",
+    )
     parser.add_argument("--codex-config", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--antigravity-config", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--claude-config", type=Path, help=argparse.SUPPRESS)
@@ -237,7 +258,7 @@ def main() -> int:
         _claude_path = lambda: args.claude_config
 
     try:
-        for result in configure(args.repo, Path(sys.executable)):
+        for result in configure(args.repo, Path(sys.executable), supervised=not args.direct):
             print(result)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

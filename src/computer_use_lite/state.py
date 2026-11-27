@@ -258,3 +258,21 @@ def sanitize_ui_text(value: object, max_len: int = 240) -> str:
     cleaned = _MARKER_RE.sub(" ", cleaned)
     cleaned = " ".join(cleaned.replace("|", "/").split())
     return cleaned[:max_len] if max_len and max_len > 0 else cleaned
+
+
+def validate_type_text_args(
+    text: object,
+    press_enter: bool = False,
+    max_length: int = 1000,
+    input_mode: str = "unicode",
+) -> str:
+    """Validate type_text inputs uniformly across desktop/browser and return LF-normalized text."""
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    if not text and not press_enter:
+        raise ValueError("text must be a non-empty string")
+    if len(text) > int(max_length):
+        raise ValueError(f"text exceeds max_length ({max_length})")
+    if input_mode not in ("unicode", "vk_scan"):
+        raise ValueError(f"Unsupported input_mode {input_mode!r}; choose 'unicode' or 'vk_scan'")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
