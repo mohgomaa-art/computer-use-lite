@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><style>
+.i{fill:#101418}.b{fill:#FFFFFF}
+@media (prefers-color-scheme: dark){.i{fill:#F2F4F6}.b{fill:#000000}}
+</style>
+<rect x="8" y="7" width="34" height="27" rx="4" fill="none" stroke="#0E9F6E" stroke-width="4"/>
+<rect x="18" y="18" width="38" height="31" rx="5" class="i"/>
+<path d="M18 26 H56" stroke="#0E9F6E" stroke-width="2.5"/>
+<circle cx="24" cy="22" r="2.2" fill="#0E9F6E"/>
+<path d="M30 30 L30 44 L34.5 40 L37.5 45.5 L41 44 L38 38.5 L44 38.5 Z" class="b"/></svg>
