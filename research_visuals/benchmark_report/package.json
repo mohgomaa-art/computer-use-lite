@@ -1,0 +1,28 @@
+{
+  "name": "@computer-use-lite/benchmark-visuals",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "description": "Isolated TypeScript/React/SVG visualization suite generating verifiable figures from canonical benchmark JSON.",
+  "license": "Apache-2.0",
+  "author": "Mohamed Gomaa",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "export": "tsx scripts/export_figures.tsx"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.1"
+  }
+}
