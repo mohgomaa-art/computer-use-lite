@@ -2233,17 +2233,16 @@ class BrowserSession:
             return {"dx": dx, "dy": dy, "scroll_x": pos[0], "scroll_y": pos[1]}
 
     def press_key(self, key):
+        from .state import validate_key_spec
+
         with takeover_action_scope(getattr(self, "_takeover_guard", None)):
-            if not isinstance(key, str) or not key.strip():
-                raise ValueError("Key must be a non-empty string")
+            validate_key_spec(key)
             aliases = {
                 "ctrl": "Control", "esc": "Escape", "return": "Enter",
                 "up": "ArrowUp", "down": "ArrowDown", "left": "ArrowLeft", "right": "ArrowRight",
                 "del": "Delete",
             }
             parts = [p.strip() for p in key.split("+") if p.strip()]
-            if any(p.lower() in {"win", "lwin", "rwin", "meta", "super", "command", "cmd"} for p in parts):
-                raise ValueError(f"Blocked OS modifier key in {key!r}")
             normalized = "+".join(aliases.get(p.lower(), p) for p in parts)
             self.page.keyboard.press(normalized)
             return {"key": normalized}

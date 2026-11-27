@@ -40,6 +40,7 @@ from .desktop_cursor_overlay import (
     resolve_desktop_takeover_glow_enabled,
 )
 from .resolver import StaleElementError
+from .state import _OS_KEY_TOKENS as _BLOCKED_KEY_TOKENS, validate_desktop_target, validate_key_spec
 from .takeover_guard import TakeoverGuard, takeover_action_scope
 
 _u32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -380,7 +381,6 @@ def wheel_scroll(x, y, dx=0, dy=0, hwnd=None, kill_switch=None):
 
 
 VK_SHIFT, VK_CONTROL, VK_MENU, VK_A, VK_DELETE = 0x10, 0x11, 0x12, 0x41, 0x2E
-_BLOCKED_KEY_TOKENS = {"win", "lwin", "rwin", "meta", "super", "command", "cmd"}
 _MODIFIER_VKS = {"ctrl": VK_CONTROL, "control": VK_CONTROL, "alt": VK_MENU, "shift": VK_SHIFT}
 _NAMED_VKS = {
     "enter": 0x0D, "return": 0x0D, "tab": 0x09, "escape": 0x1B, "esc": 0x1B,
@@ -394,28 +394,27 @@ _NAMED_VKS = {
 
 def parse_key_combo(key_spec):
     """Parse a validated key/modifier string into (vk, tuple[mod_vks]), blocking OS/Win keys."""
-    if not isinstance(key_spec, str) or not key_spec.strip():
-        raise ValueError("Key must be a non-empty string")
-    parts = [p.strip() for p in key_spec.split("+") if p.strip()]
-    if not parts:
-        raise ValueError(f"Invalid key specification: {key_spec!r}")
+    raw_mods, main = validate_key_spec(key_spec)
     mods = []
-    for part in parts[:-1]:
+    for part in raw_mods:
         low = part.lower()
-        if low in _BLOCKED_KEY_TOKENS:
-            raise ValueError(f"Blocked OS modifier key: {part!r}")
         vk_mod = _MODIFIER_VKS.get(low)
         if vk_mod is None:
             raise ValueError(f"Unsupported modifier key: {part!r}")
         if vk_mod not in mods:
             mods.append(vk_mod)
-    main = parts[-1]
     low_main = main.lower()
-    if low_main in _BLOCKED_KEY_TOKENS:
-        raise ValueError(f"Blocked OS key: {main!r}")
     if low_main in _NAMED_VKS:
         return _NAMED_VKS[low_main], tuple(mods)
     if len(main) == 1:
+        if "a" <= main <= "z":
+            return ord(main.upper()), tuple(mods)
+        if "A" <= main <= "Z":
+            if VK_SHIFT not in mods:
+                mods.append(VK_SHIFT)
+            return ord(main), tuple(mods)
+        if "0" <= main <= "9":
+            return ord(main), tuple(mods)
         vk_scan = _u32.VkKeyScanW(ord(main))
         vk = vk_scan & 0xFF
         shift_flag = (vk_scan >> 8) & 0x07
@@ -510,6 +509,9 @@ class DesktopSession:
     name = "desktop"
 
     def __init__(self, hwnd, show_cursor=None, cursor_glide_ms=None, takeover_glow=None):
+        if _u32.IsWindow(wintypes.HWND(int(hwnd))):
+            meta = snapshot.window(int(hwnd), bump=False) or {}
+            validate_desktop_target(meta.get("process") or "", _window_class(int(hwnd)), meta.get("title") or "")
         self.hwnd = hwnd
         self._q = []
         self._cv = threading.Condition()

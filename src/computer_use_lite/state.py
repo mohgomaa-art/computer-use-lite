@@ -164,3 +164,84 @@ def verify(before, after, action=None):
         return {"changed": False, "delta": d, "verification_scope": "focus_only_noop"}
     scope = "focus_delta" if set(d.keys()) == {"focus"} else "delta"
     return {"changed": True, "delta": d, "verification_scope": scope}
+
+
+_OS_KEY_TOKENS = frozenset({"win", "lwin", "rwin", "meta", "super", "command", "cmd"})
+_MOD_KEY_ALIASES = {
+    "ctrl": "ctrl", "control": "ctrl",
+    "alt": "alt", "menu": "alt",
+    "shift": "shift",
+}
+_MAIN_KEY_ALIASES = {
+    "esc": "escape", "escape": "escape",
+    "del": "delete", "delete": "delete",
+    "return": "enter", "enter": "enter",
+}
+_BLOCKED_OS_SHORTCUTS = (
+    (frozenset({"alt"}), "f4"),
+    (frozenset({"alt"}), "escape"),
+    (frozenset({"ctrl"}), "escape"),
+    (frozenset({"ctrl", "shift"}), "escape"),
+    (frozenset({"ctrl", "alt"}), "delete"),
+)
+
+_SENSITIVE_DESKTOP_PROCESSES = frozenset({
+    "powershell.exe", "pwsh.exe", "cmd.exe", "windowsterminal.exe", "conhost.exe",
+    "1password.exe", "bitwarden.exe", "keepass.exe", "keepassxc.exe",
+    "mmc.exe", "regedit.exe", "credentialuibroker.exe", "taskmgr.exe", "consent.exe",
+})
+_SENSITIVE_DESKTOP_CLASSES = frozenset({
+    "credential dialog xaml host",
+    "consolewindowclass",
+    "cascadia_hosting_window_class",
+    "regedit_regedit",
+    "mmcmainframe",
+})
+
+
+def validate_key_spec(key_spec: str) -> tuple[list[str], str]:
+    """Validate and parse a key specification, blocking OS-level escape/destructive combos by default."""
+    if not isinstance(key_spec, str) or not key_spec.strip():
+        raise ValueError("Key must be a non-empty string")
+    parts = [p.strip() for p in key_spec.split("+") if p.strip()]
+    if not parts:
+        raise ValueError(f"Invalid key specification: {key_spec!r}")
+    allow_system = os.environ.get("CUL_ALLOW_SYSTEM_SHORTCUTS", "").strip() == "1"
+    raw_mods, raw_main = parts[:-1], parts[-1]
+    if not allow_system:
+        for tok in parts:
+            if tok.lower() in _OS_KEY_TOKENS:
+                raise ValueError(
+                    f"Blocked OS system key/modifier {tok!r} in {key_spec!r} "
+                    "(set CUL_ALLOW_SYSTEM_SHORTCUTS=1 to override)."
+                )
+        norm_mods = frozenset(_MOD_KEY_ALIASES.get(m.lower(), m.lower()) for m in raw_mods)
+        norm_main = _MAIN_KEY_ALIASES.get(raw_main.lower(), raw_main.lower())
+        if ("alt" in norm_mods and norm_main == "tab") or (norm_mods, norm_main) in _BLOCKED_OS_SHORTCUTS:
+            raise ValueError(
+                f"Blocked dangerous OS shortcut {key_spec!r} "
+                "(set CUL_ALLOW_SYSTEM_SHORTCUTS=1 to override)."
+            )
+    return raw_mods, raw_main
+
+
+def validate_desktop_target(process_name: str, class_name: str = "", title: str = "") -> None:
+    """Enforce default desktop attach blocklist for shells, credential UIs, and password managers."""
+    if os.environ.get("CUL_DESKTOP_ALLOW_SENSITIVE", "").strip() == "1":
+        return
+    proc_low = (process_name or "").strip().lower()
+    cls_low = (class_name or "").strip().lower()
+    allow_raw = os.environ.get("CUL_DESKTOP_ALLOW_PROCESSES", "")
+    allowed_procs = {p.strip().lower() for p in allow_raw.split(",") if p.strip()}
+    if proc_low and (proc_low in allowed_procs or f"{proc_low}.exe" in allowed_procs or proc_low.removesuffix(".exe") in allowed_procs):
+        return
+    if proc_low in _SENSITIVE_DESKTOP_PROCESSES or (proc_low and f"{proc_low}.exe" in _SENSITIVE_DESKTOP_PROCESSES):
+        raise PermissionError(
+            f"Refusing to attach to sensitive desktop process {process_name!r} "
+            "(set CUL_DESKTOP_ALLOW_SENSITIVE=1 or CUL_DESKTOP_ALLOW_PROCESSES to allow)."
+        )
+    if cls_low in _SENSITIVE_DESKTOP_CLASSES:
+        raise PermissionError(
+            f"Refusing to attach to sensitive desktop window class {class_name!r} ({title!r}; "
+            "set CUL_DESKTOP_ALLOW_SENSITIVE=1 or CUL_DESKTOP_ALLOW_PROCESSES to allow)."
+        )

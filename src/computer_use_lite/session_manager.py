@@ -29,10 +29,10 @@ import threading
 import time
 from urllib.parse import urlparse
 
-from . import snapshot
+from . import snapshot, state
 from .api import Api
 from .browser_cdp import BrowserSession
-from .desktop_uia import DesktopSession, list_windows as _list_desktop_windows
+from .desktop_uia import DesktopSession, _window_class as _desktop_window_class, list_windows as _list_desktop_windows
 
 MAX_SESSIONS = 16
 MAX_INLINE_BLIND_IMAGES = 4
@@ -530,12 +530,14 @@ class SessionManager:
                 target_info = {
                     "hwnd": int(target_hwnd),
                     "process_name": meta.get("process") or "unknown",
+                    "class": _desktop_window_class(int(target_hwnd)),
                     "title": meta.get("title") or "",
                 }
 
-        sid = self._reserve_session_id()
         proc_name = target_info.get("process_name") or "unknown"
         win_title = target_info.get("title") or ""
+        state.validate_desktop_target(proc_name, target_info.get("class") or "", win_title)
+        sid = self._reserve_session_id()
         summary = (
             f"hwnd:{target_hwnd} ({proc_name}: {win_title[:60]})"
             if win_title else f"hwnd:{target_hwnd} ({proc_name})"
