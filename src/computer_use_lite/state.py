@@ -141,13 +141,26 @@ class TaskState:
 
 def diff(before, after):
     """Field-level diff of two local signatures."""
-    keys = ("title", "text", "focus", "n", "target_value", "url", "tabs")
+    keys = ("title", "text", "focus", "n", "target_value", "target_frame", "url", "tabs")
     delta = {k: {"before": str(before.get(k))[:120], "after": str(after.get(k))[:120]}
              for k in keys if before.get(k) != after.get(k)}
     return delta
 
 
-def verify(before, after):
-    """A local, non-visual confirmation that the UI actually changed."""
+def verify(before, after, action=None):
+    """Local non-visual confirmation that an action produced a substantive UI change."""
     d = diff(before, after)
-    return {"changed": bool(d), "delta": d}
+    if not d:
+        return {"changed": False, "delta": d, "verification_scope": "unchanged"}
+    ro_before = bool(before.get("target_readonly"))
+    ro_after = bool(after.get("target_readonly"))
+    if action in ("type", "clear", "set_value") and (ro_before or ro_after) and "target_value" not in d:
+        substantive = set(d.keys()) - {"focus"}
+        if not substantive:
+            return {"changed": False, "delta": d, "verification_scope": "readonly_target_noop"}
+    if action is not None and action != "focus" and set(d.keys()) == {"focus"}:
+        if ro_before or ro_after:
+            return {"changed": False, "delta": d, "verification_scope": "readonly_target_noop"}
+        return {"changed": False, "delta": d, "verification_scope": "focus_only_noop"}
+    scope = "focus_delta" if set(d.keys()) == {"focus"} else "delta"
+    return {"changed": True, "delta": d, "verification_scope": scope}

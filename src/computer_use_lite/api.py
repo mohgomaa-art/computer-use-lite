@@ -145,11 +145,16 @@ class Api:
                 tx, ty = mechanism["x"], mechanism["y"]
             performed = True
             after = _call_sig(self.session, match)
-            result = state.verify(before, after)
+            result = state.verify(before, after, action=action)
             mech_scope = mechanism.get("verification_scope") if isinstance(mechanism, dict) else None
             verified = bool(result["changed"])
             if mech_scope == "cross_origin_unprovable":
                 verified = False
+                ver_scope = "cross_origin_unprovable"
+            elif not verified:
+                ver_scope = result.get("verification_scope") or "unchanged"
+            else:
+                ver_scope = mech_scope or result.get("verification_scope") or "delta"
             _notify_cursor_outcome(self.session, ok=True, verified=verified, x=tx, y=ty)
             new_rev = snapshot.bump_revision()
             self.resolver.revision = new_rev
@@ -164,7 +169,7 @@ class Api:
             return {
                 "ok": True, "element": element_id, "action": action,
                 "mechanism": mechanism, "verified": verified,
-                "verification_scope": mech_scope or ("delta" if verified else "unchanged"),
+                "verification_scope": ver_scope,
                 "state_delta": result["delta"], "revision": new_rev,
             }
         except Exception as exc:

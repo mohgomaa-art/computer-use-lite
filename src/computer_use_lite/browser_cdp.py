@@ -470,7 +470,7 @@ class _PlaywrightCdpAdapter:
         return self._get_session(session_id).send(method, params or {})
 
     def send_many(self, calls):
-        return [self.send(m, p, sid) for m, p, sid in calls]
+        return [self.send(m, p, sid) if sid else self.send(m, p) for m, p, sid in calls]
 
     def enable_auto_attach(self):
         return None
@@ -2269,9 +2269,87 @@ class BrowserSession:
         except Exception:
             return ""
 
+    def _target_signature(self, target):
+        """Inspect target element value, control state, readonly flag, and subframe text via CDP."""
+        ref = (target or {}).get("ref") or {}
+        bid = ref.get("backend_node_id")
+        if not bid:
+            return {"target_value": "", "target_frame": "", "target_readonly": False}
+        sid = ref.get("cdp_session_id")
+        is_subframe = bool(ref.get("frame_id") or sid)
+        obj_id = None
+        try:
+            resolved = self._cdp_send("DOM.resolveNode", {"backendNodeId": int(bid)}, session_id=sid)
+            obj_id = (resolved.get("object") or {}).get("objectId")
+            if not obj_id:
+                return {"target_value": "__detached__", "target_frame": "", "target_readonly": False}
+            fn = f"""function() {{
+              {_IS_SENSITIVE_ELEM_JS}
+              const val = this.value !== undefined ? String(this.value) : (this.textContent || '').slice(0, 80);
+              const ro = !!(this.readOnly || (this.getAttribute && this.getAttribute('aria-readonly') === 'true'));
+              const chk = this.checked !== undefined ? String(!!this.checked)
+                : (this.getAttribute ? this.getAttribute('aria-checked') : null);
+              const exp = this.getAttribute ? this.getAttribute('aria-expanded') : null;
+              const prs = this.getAttribute ? this.getAttribute('aria-pressed') : null;
+              const sel = this.selected !== undefined ? String(!!this.selected)
+                : (this.getAttribute ? this.getAttribute('aria-selected') : null);
+              const open = this.open !== undefined ? String(!!this.open) : null;
+              const inSubdoc = Boolean(
+                {str(is_subframe).lower()}
+                || (this.ownerDocument && (this.ownerDocument !== document || window !== window.top))
+              );
+              const bodyText = inSubdoc && this.ownerDocument && this.ownerDocument.body
+                ? (this.ownerDocument.body.innerText || '').slice(0, 400) : '';
+              return {{
+                ro,
+                secret: _isSensitiveElem(this),
+                val,
+                chk: chk === null ? '' : String(chk),
+                exp: exp === null ? '' : String(exp),
+                prs: prs === null ? '' : String(prs),
+                sel: sel === null ? '' : String(sel),
+                open: open === null ? '' : String(open),
+                doc_text: bodyText,
+              }};
+            }}"""
+            call = self._cdp_send(
+                "Runtime.callFunctionOn",
+                {"objectId": obj_id, "functionDeclaration": fn, "returnByValue": True},
+                session_id=sid,
+            )
+            info = (call.get("result") or {}).get("value") or {}
+        except Exception:
+            return {"target_value": "__detached__", "target_frame": "", "target_readonly": False}
+        finally:
+            if obj_id:
+                try:
+                    self._cdp_send("Runtime.releaseObject", {"objectId": obj_id}, session_id=sid)
+                except Exception:
+                    pass
+        val = info.get("val") or ""
+        if info.get("secret"):
+            vh = hmac.new(self._sig_hmac_key, val.encode("utf-8"), hashlib.sha256).hexdigest()[:12] if val else ""
+            val_fp = f"[REDACTED]:len={len(val)}:ephem={vh}"
+        else:
+            vh = hashlib.sha256(val.encode("utf-8")).hexdigest()[:12] if val else ""
+            val_fp = f"len={len(val)}:h={vh}"
+        ro = bool(info.get("ro"))
+        tgt_fp = (
+            f"ro={int(ro)}:chk={info.get('chk', '')}:exp={info.get('exp', '')}:"
+            f"prs={info.get('prs', '')}:sel={info.get('sel', '')}:open={info.get('open', '')}:{val_fp}"
+        )
+        return {
+            "target_value": tgt_fp,
+            "target_frame": info.get("doc_text") or "",
+            "target_readonly": ro,
+        }
+
     def signature(self, target=None):
         """Cheap privacy-safe state fingerprint for post-action diffing (hashes active value)."""
         url = self._safe_url()
+        tgt = self._target_signature(target) if target is not None else {
+            "target_value": "", "target_frame": "", "target_readonly": False,
+        }
         try:
             raw = self.page.evaluate(f"""() => {{
               {_IS_SENSITIVE_ELEM_JS}
@@ -2295,7 +2373,11 @@ class BrowserSession:
         except Exception as exc:
             msg = str(exc).lower()
             if "execution context" in msg or "navigat" in msg:
-                return {"url": self._safe_url() or url, "title": "", "focus": "", "text": "", "n": 0}
+                return {
+                    "url": self._safe_url() or url, "title": "", "focus": "", "text": "", "n": 0,
+                    "target_value": tgt["target_value"], "target_frame": tgt["target_frame"],
+                    "target_readonly": tgt["target_readonly"],
+                }
             raise
         ae_val = raw.get("ae_val") or ""
         if raw.get("ae_secret"):
@@ -2311,6 +2393,9 @@ class BrowserSession:
             "focus": focus_fp,
             "text": raw.get("text", ""),
             "n": raw.get("n", 0),
+            "target_value": tgt["target_value"],
+            "target_frame": tgt["target_frame"],
+            "target_readonly": tgt["target_readonly"],
             "tabs": tab_count,
         }
 
