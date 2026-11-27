@@ -21,6 +21,7 @@ direct CDP WebSocket (with Playwright managing browser lifecycle and automatic f
 import asyncio
 import collections
 import hashlib
+import hmac
 import json
 import os
 import socket
@@ -46,6 +47,19 @@ from .takeover_guard import TakeoverGuard, resolve_takeover_glow_enabled, takeov
 
 ROLES = {"button", "link", "textbox", "searchbox", "checkbox", "menuitem", "tab",
          "combobox", "switch", "radio", "listitem", "treeitem"}
+
+_IS_SENSITIVE_ELEM_JS = r"""const _isSensitiveElem = (el) => {
+  if (!el) return false;
+  if (String(el.type || '').toLowerCase() === 'password') return true;
+  const ac = String(el.getAttribute ? (el.getAttribute('autocomplete') || el.autocomplete || '') : (el.autocomplete || '')).trim().toLowerCase();
+  const SENSITIVE_AC = new Set(['current-password','new-password','one-time-code','cc-number','cc-csc','cc-exp','cc-exp-month','cc-exp-year','cc-name']);
+  if (ac.split(/\s+/).some(tok => tok && SENSITIVE_AC.has(tok))) return true;
+  const raw = [el.name || '', el.id || '', el.getAttribute ? (el.getAttribute('aria-label') || '') : '', ac].join(' ');
+  const spaced = raw.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  const SENSITIVE_TOK = new Set(['pass','password','passwd','passphrase','pwd','secret','token','cvv','cvc','pin','card','cardnum','ccnum','ccnumber','cardnumber','ssn','iban','otp','pan','securitycode','apikey','auth','passport']);
+  if (spaced.split(/[^a-z0-9]+/).some(tok => tok && SENSITIVE_TOK.has(tok))) return true;
+  return /\b(cc[_-]?num(?:ber)?|card[_-]?num(?:ber)?|security[_-]?code|api[_-]?key|one[_-]?time[_-]?code)\b/.test(spaced);
+};"""
 
 _HOVER_TRIGGER_JS = r"""(() => {
   const triggers = new Set();
@@ -610,6 +624,7 @@ class BrowserSession:
         self._known_page_ids = set()
         self._pending_new_pages = []
         self._cursor_doc_script_ids = {}
+        self._sig_hmac_key = os.urandom(32)
         self.show_cursor = resolve_overlay_enabled(bool(headless) and not bool(connect), show_cursor)
         self.takeover_glow = resolve_takeover_glow_enabled(takeover_glow)
         self._takeover_guard = None
@@ -1935,12 +1950,11 @@ class BrowserSession:
         obj_id = self._resolve_node_id(el)
         if not obj_id:
             return None
-        val = self._call_on_node(obj_id, """function() {
-          if ((this.type || '').toLowerCase() === 'password') return '[REDACTED]';
-          const lbl = ((this.name || '') + ' ' + (this.id || '') + ' ' + (this.autocomplete || '')).toLowerCase();
-          if (/(pass|secret|token|cvv|pin|pwd)/.test(lbl)) return '[REDACTED]';
+        val = self._call_on_node(obj_id, f"""function() {{
+          {_IS_SENSITIVE_ELEM_JS}
+          if (_isSensitiveElem(this)) return '[REDACTED]';
           return (this.value !== undefined ? String(this.value) : (this.textContent || '')).slice(0, 400);
-        }""", session_id=sid)
+        }}""", session_id=sid)
         return val
 
     # -- actions ---------------------------------------------------------------
@@ -2258,36 +2272,37 @@ class BrowserSession:
         """Cheap privacy-safe state fingerprint for post-action diffing (hashes active value)."""
         url = self._safe_url()
         try:
-            raw = self.page.evaluate("""() => {
+            raw = self.page.evaluate(f"""() => {{
+              {_IS_SENSITIVE_ELEM_JS}
               const els = document.querySelectorAll('input,button,a,select,textarea,[role]');
               const ae = document.activeElement;
               let aeTag = '', aeVal = '', aeSecret = false;
-              if (ae) {
+              if (ae) {{
                 aeTag = ae.tagName || '';
-                const t = (ae.type || '').toLowerCase();
-                const meta = ((ae.name || '') + ' ' + (ae.id || '') + ' ' + (ae.autocomplete || '')).toLowerCase();
-                aeSecret = t === 'password' || /(pass|secret|token|cvv|pin|pwd)/.test(meta);
+                aeSecret = _isSensitiveElem(ae);
                 aeVal = ae.value !== undefined ? String(ae.value) : (ae.textContent || '').slice(0, 80);
-              }
-              return {
+              }}
+              return {{
                 title: document.title,
                 ae_tag: aeTag,
                 ae_val: aeVal,
                 ae_secret: aeSecret,
                 text: (document.body.innerText || '').slice(0, 400),
                 n: els.length,
-              };
-            }""")
+              }};
+            }}""")
         except Exception as exc:
             msg = str(exc).lower()
             if "execution context" in msg or "navigat" in msg:
                 return {"url": self._safe_url() or url, "title": "", "focus": "", "text": "", "n": 0}
             raise
         ae_val = raw.get("ae_val") or ""
-        val_hash = hashlib.sha256(ae_val.encode("utf-8")).hexdigest()[:12] if ae_val else ""
-        focus_fp = f"{raw.get('ae_tag', '')}:len={len(ae_val)}:h={val_hash}"
         if raw.get("ae_secret"):
-            focus_fp = f"{raw.get('ae_tag', '')}:[REDACTED]:len={len(ae_val)}:h={val_hash}"
+            ephem = hmac.new(self._sig_hmac_key, ae_val.encode("utf-8"), hashlib.sha256).hexdigest()[:12] if ae_val else ""
+            focus_fp = f"{raw.get('ae_tag', '')}:[REDACTED]:len={len(ae_val)}:ephem={ephem}"
+        else:
+            val_hash = hashlib.sha256(ae_val.encode("utf-8")).hexdigest()[:12] if ae_val else ""
+            focus_fp = f"{raw.get('ae_tag', '')}:len={len(ae_val)}:h={val_hash}"
         tab_count = len(self._reconcile_pages())
         return {
             "url": self._safe_url() or url,

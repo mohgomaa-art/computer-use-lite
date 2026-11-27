@@ -12,16 +12,47 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+# AI Modification Note: Added word-boundary is_sensitive_name check and ephemeral keyed
+# HMAC hashing for secret TaskState entries (CUL-PRIV-001/002).
 """Persistent task state plus the local post-action state-diff verifier."""
 import hashlib
+import hmac
 import json
 import os
+import re
 import tempfile
 import threading
 import time
 from pathlib import Path
 
 from . import snapshot
+
+_EPHEMERAL_HMAC_KEY = os.urandom(32)
+
+_SENSITIVE_TOKENS = frozenset({
+    "pass", "password", "passwd", "passphrase", "pwd", "secret", "token",
+    "cvv", "cvc", "pin", "card", "cardnum", "ccnum", "ccnumber", "cardnumber",
+    "ssn", "iban", "otp", "pan", "securitycode", "apikey", "auth", "passport",
+})
+
+_SENSITIVE_AUTOCOMPLETE = frozenset({
+    "current-password", "new-password", "one-time-code",
+    "cc-number", "cc-csc", "cc-exp", "cc-exp-month", "cc-exp-year", "cc-name",
+})
+
+
+def is_sensitive_name(text: str | None) -> bool:
+    """Return True when a field label/name/id contains a standalone sensitive token."""
+    if not text:
+        return False
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", str(text)).lower()
+    raw_words = [w for w in re.split(r"[\s,;]+", spaced) if w]
+    if any(w in _SENSITIVE_AUTOCOMPLETE for w in raw_words):
+        return True
+    tokens = [t for t in re.split(r"[^a-z0-9]+", spaced) if t]
+    if any(t in _SENSITIVE_TOKENS for t in tokens):
+        return True
+    return bool(re.search(r"\b(cc[_-]?num(?:ber)?|card[_-]?num(?:ber)?|security[_-]?code|api[_-]?key|one[_-]?time[_-]?code)\b", spaced))
 
 def _default_state_path():
     env_path = os.environ.get("COMPUTER_USE_LITE_STATE_PATH")
@@ -38,12 +69,21 @@ DEFAULT_PATH = _default_state_path()
 _LOCK = threading.Lock()
 
 
-def redact_value(value):
-    """Return length and SHA-256 prefix without retaining plaintext typed values."""
+def redact_value(value, *, is_secret: bool = False):
+    """Return length and redacted digest without retaining plaintext or crackable secret hashes."""
     s = str(value)
+    if is_secret:
+        digest = hmac.new(_EPHEMERAL_HMAC_KEY, s.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
+        return {
+            "value_length": len(s),
+            "value_sha256": f"hmac:{digest}",
+            "value_hash_mode": "ephemeral-hmac-sha256",
+            "value_redacted": True,
+        }
     return {
         "value_length": len(s),
         "value_sha256": hashlib.sha256(s.encode("utf-8")).hexdigest()[:16],
+        "value_hash_mode": "sha256-prefix",
         "value_redacted": True,
     }
 
@@ -85,8 +125,9 @@ class TaskState:
     def record_action(self, entry):
         sanitized = dict(entry)
         raw_val = sanitized.pop("value", None)
+        is_secret = bool(sanitized.pop("is_secret", False))
         if raw_val is not None:
-            sanitized.update(redact_value(raw_val))
+            sanitized.update(redact_value(raw_val, is_secret=is_secret))
         sanitized["at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         with _LOCK:
             self.data.setdefault("actions", []).append(sanitized)

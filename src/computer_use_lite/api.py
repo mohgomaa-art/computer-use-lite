@@ -108,7 +108,10 @@ class Api:
         rec = self.resolver.get(element_id)
         info = {k: v for k, v in rec.items() if k not in ("ref", "_element")}
         if hasattr(self.session, "read_value") and rec.get("role") in ("textbox", "searchbox"):
-            info["value"] = "[REDACTED]" if rec.get("is_password") else self.session.read_value(rec)
+            if rec.get("is_password") or state.is_sensitive_name(rec.get("name")):
+                info["value"] = "[REDACTED]"
+            else:
+                info["value"] = self.session.read_value(rec)
         return info
 
     # -- 3. execute -------------------------------------------------------------
@@ -154,6 +157,7 @@ class Api:
             rec["box"] = match["box"]
             self.task_state.record_action({
                 "element": element_id, "action": action, "value": value,
+                "is_secret": bool(rec.get("is_password") or state.is_sensitive_name(rec.get("name"))),
                 "ok": True, "revision": new_rev,
                 "verified": verified, "mechanism": mechanism,
             })
@@ -170,6 +174,7 @@ class Api:
                 self.resolver.revision = new_rev
             self.task_state.record_action({
                 "element": element_id, "action": action, "value": value,
+                "is_secret": bool(rec.get("is_password") or state.is_sensitive_name(rec.get("name"))),
                 "ok": False, "error": f"{type(exc).__name__}: {exc}",
                 "revision": self.resolver.revision,
             })
