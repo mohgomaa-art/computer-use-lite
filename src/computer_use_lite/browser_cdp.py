@@ -131,13 +131,6 @@ _NODE_PROBE_JS = """function(doScroll) {
   }
   if (r.width <= 1 || r.height <= 1) return {gone: true};
   const inIframe = win !== win.top;
-  let ax = r.x, ay = r.y;
-  let curWin = win;
-  let crossOrigin = false;
-  const cx = Math.min(win.innerWidth - 1, Math.max(0, r.left + r.width / 2));
-  const cy = Math.min(win.innerHeight - 1, Math.max(0, r.top + r.height / 2));
-  const hit = doc.elementFromPoint(cx, cy);
-  let ok = false;
   const _hitMatchesTarget = (targetEl, hitEl) => {
     if (!hitEl || !targetEl) return false;
     if (hitEl === targetEl || (targetEl.contains && targetEl.contains(hitEl)) || (hitEl.tagName === 'LABEL' && hitEl.control === targetEl)) {
@@ -152,32 +145,50 @@ _NODE_PROBE_JS = """function(doScroll) {
     }
     return false;
   };
-  ok = _hitMatchesTarget(elem, hit);
-  let px = cx, py = cy;
+  let ax = r.x, ay = r.y;
+  let crossOrigin = false;
+  let offsetX = 0, offsetY = 0;
+  let ancWin = win;
+  const ancFrames = [];
   try {
-    while (curWin && curWin.parent && curWin.parent !== curWin) {
-      if (!curWin.frameElement) { crossOrigin = true; break; }
-      const fEl = curWin.frameElement;
+    while (ancWin && ancWin.parent && ancWin.parent !== ancWin) {
+      if (!ancWin.frameElement) { crossOrigin = true; break; }
+      const fEl = ancWin.frameElement;
       const fr = fEl.getBoundingClientRect();
       ax += fr.x;
       ay += fr.y;
-      if (ok) {
-        const pDoc = curWin.parent.document;
-        if (!pDoc) { crossOrigin = true; break; }
-        const pCs = (curWin.parent.getComputedStyle && curWin.parent.getComputedStyle(fEl)) || null;
-        const pl = pCs ? (parseFloat(pCs.paddingLeft) || 0) + (parseFloat(pCs.borderLeftWidth) || 0) : 0;
-        const pt = pCs ? (parseFloat(pCs.paddingTop) || 0) + (parseFloat(pCs.borderTopWidth) || 0) : 0;
-        px += fr.left + pl;
-        py += fr.top + pt;
-        const pHit = pDoc.elementFromPoint(px, py);
-        if (!_hitMatchesTarget(fEl, pHit)) {
-          ok = false;
-        }
-      }
-      curWin = curWin.parent;
+      const pDoc = ancWin.parent.document;
+      if (!pDoc) { crossOrigin = true; break; }
+      const pCs = (ancWin.parent.getComputedStyle && ancWin.parent.getComputedStyle(fEl)) || null;
+      const pl = pCs ? (parseFloat(pCs.paddingLeft) || 0) + (parseFloat(pCs.borderLeftWidth) || 0) : 0;
+      const pt = pCs ? (parseFloat(pCs.paddingTop) || 0) + (parseFloat(pCs.borderTopWidth) || 0) : 0;
+      offsetX += fr.left + pl;
+      offsetY += fr.top + pt;
+      ancFrames.push({fEl, pDoc, ox: offsetX, oy: offsetY});
+      ancWin = ancWin.parent;
     }
   } catch (_) { crossOrigin = true; }
-  const vw = curWin.innerWidth, vh = curWin.innerHeight;
+  const _probeLocal = (lx, ly) => {
+    const clx = Math.min(win.innerWidth - 1, Math.max(0, lx));
+    const cly = Math.min(win.innerHeight - 1, Math.max(0, ly));
+    if (clx < r.left || clx > r.right || cly < r.top || cly > r.bottom) return null;
+    if (!_hitMatchesTarget(elem, doc.elementFromPoint(clx, cly))) return null;
+    for (const anc of ancFrames) {
+      const ph = anc.pDoc.elementFromPoint(clx + anc.ox, cly + anc.oy);
+      if (!_hitMatchesTarget(anc.fEl, ph)) return null;
+    }
+    return [clx + offsetX, cly + offsetY];
+  };
+  let chosenTop = _probeLocal(r.left + r.width / 2, r.top + r.height / 2);
+  if (!chosenTop && r.width >= 6 && r.height >= 6) {
+    const fracs = [[0.5, 0.78], [0.5, 0.22], [0.22, 0.5], [0.78, 0.5], [0.5, 0.88]];
+    for (const [fx, fy] of fracs) {
+      chosenTop = _probeLocal(r.left + r.width * fx, r.top + r.height * fy);
+      if (chosenTop) break;
+    }
+  }
+  const ok = Boolean(chosenTop);
+  const vw = ancWin.innerWidth, vh = ancWin.innerHeight;
   if (!doScroll && !crossOrigin && (ax + r.width <= 0 || ax >= vw || ay + r.height <= 0 || ay >= vh)) {
     return {offscreen: true};
   }
@@ -190,6 +201,7 @@ _NODE_PROBE_JS = """function(doScroll) {
     gone: false, disabled: false, offscreen: false, occluded: !ok, cross_origin: crossOrigin,
     in_iframe: inIframe,
     opens_new_tab: opensNewTab,
+    click_point: chosenTop ? [Math.round(chosenTop[0] * 10) / 10, Math.round(chosenTop[1] * 10) / 10] : null,
     box: [Math.round(ax * 10) / 10, Math.round(ay * 10) / 10,
           Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]
   };
@@ -1229,56 +1241,66 @@ class BrowserSession:
                         return True
             paint_orders = ctx["paint_orders"]
             el_po = paint_orders[li] if li < len(paint_orders) else li
-            cx, cy = b[0] + b[2] / 2, b[1] + b[3] / 2
             parents = ctx["parents"]
             ctx["queries"] += 1
             sorted_items = ctx["sorted"]
             if sorted_items is None and ctx["queries"] >= 4:
                 sorted_items = _build_sorted_lay_items(ctx)
                 ctx["sorted"] = sorted_items
-            if sorted_items is not None:
-                for other_po, other_ni, ox0, oy0, ox1, oy1 in sorted_items:
-                    if other_po <= el_po:
-                        break
-                    if other_ni != ni and ox0 <= cx <= ox1 and oy0 <= cy <= oy1:
-                        if not _is_ancestor(parents, ni, other_ni) and not _is_ancestor(parents, other_ni, ni):
-                            return True
+
+            def _point_occluded(px, py):
+                if sorted_items is not None:
+                    for other_po, other_ni, ox0, oy0, ox1, oy1 in sorted_items:
+                        if other_po <= el_po:
+                            break
+                        if other_ni != ni and ox0 <= px <= ox1 and oy0 <= py <= oy1:
+                            if not _is_ancestor(parents, ni, other_ni) and not _is_ancestor(parents, other_ni, ni):
+                                return True
+                    return False
+
+                ox, oy = ctx["ox"], ctx["oy"]
+                lay_nodes = ctx["lay_nodes"]
+                lay_bounds = ctx["lay_bounds"]
+                node_names = ctx["node_names"]
+                n_styles = len(lay_styles)
+                n_names = len(node_names)
+                n_po = len(paint_orders)
+                for i, oni in enumerate(lay_nodes):
+                    po = paint_orders[i] if i < n_po else i
+                    if po <= el_po or oni == ni:
+                        continue
+                    q = lay_bounds[i]
+                    ob = [q[0] + ox, q[1] + oy, q[2], q[3]] if len(q) == 4 else _quad_to_box(q, ox, oy)
+                    if ob is None or ob[2] <= 0 or ob[3] <= 0:
+                        continue
+                    if not (ob[0] <= px <= ob[0] + ob[2] and ob[1] <= py <= ob[1] + ob[3]):
+                        continue
+                    if oni < n_names:
+                        tn = node_names[oni]
+                        if (tn in text_tag_ids) if isinstance(tn, int) else (_text(tbl, tn) == "#text"):
+                            continue
+                    if i < n_styles:
+                        seg = lay_styles[i]
+                        if len(seg) > 1:
+                            s1 = seg[1]
+                            if (s1 in hidden_ids) if isinstance(s1, int) else (_text(tbl, s1) == "hidden"):
+                                continue
+                        if len(seg) > 2:
+                            s2 = seg[2]
+                            if (s2 in none_ids) if isinstance(s2, int) else (_text(tbl, s2) == "none"):
+                                continue
+                    if not _is_ancestor(parents, ni, oni) and not _is_ancestor(parents, oni, ni):
+                        return True
                 return False
 
-            ox, oy = ctx["ox"], ctx["oy"]
-            lay_nodes = ctx["lay_nodes"]
-            lay_bounds = ctx["lay_bounds"]
-            node_names = ctx["node_names"]
-            n_styles = len(lay_styles)
-            n_names = len(node_names)
-            n_po = len(paint_orders)
-            for i, oni in enumerate(lay_nodes):
-                po = paint_orders[i] if i < n_po else i
-                if po <= el_po or oni == ni:
-                    continue
-                q = lay_bounds[i]
-                ob = [q[0] + ox, q[1] + oy, q[2], q[3]] if len(q) == 4 else _quad_to_box(q, ox, oy)
-                if ob is None or ob[2] <= 0 or ob[3] <= 0:
-                    continue
-                if not (ob[0] <= cx <= ob[0] + ob[2] and ob[1] <= cy <= ob[1] + ob[3]):
-                    continue
-                if oni < n_names:
-                    tn = node_names[oni]
-                    if (tn in text_tag_ids) if isinstance(tn, int) else (_text(tbl, tn) == "#text"):
-                        continue
-                if i < n_styles:
-                    seg = lay_styles[i]
-                    if len(seg) > 1:
-                        s1 = seg[1]
-                        if (s1 in hidden_ids) if isinstance(s1, int) else (_text(tbl, s1) == "hidden"):
-                            continue
-                    if len(seg) > 2:
-                        s2 = seg[2]
-                        if (s2 in none_ids) if isinstance(s2, int) else (_text(tbl, s2) == "none"):
-                            continue
-                if not _is_ancestor(parents, ni, oni) and not _is_ancestor(parents, oni, ni):
-                    return True
-            return False
+            cx, cy = b[0] + b[2] / 2, b[1] + b[3] / 2
+            if not _point_occluded(cx, cy):
+                return False
+            if b[2] >= 6 and b[3] >= 6:
+                for fx, fy in ((0.5, 0.78), (0.5, 0.22), (0.22, 0.5), (0.78, 0.5), (0.5, 0.88)):
+                    if not _point_occluded(b[0] + b[2] * fx, b[1] + b[3] * fy):
+                        return False
+            return True
 
         def is_occluded_bid(bid):
             loc = bid_loc.get(bid)
@@ -2149,11 +2171,14 @@ class BrowserSession:
                             bx = [round(b_local[0] + fx, 1), round(b_local[1] + fy, 1), b_local[2], b_local[3]]
                         except Exception:
                             pass
-                    x, y = self._center({"box": bx})
+                    if state.get("click_point"):
+                        x, y = float(state["click_point"][0]), float(state["click_point"][1])
+                    else:
+                        x, y = self._center({"box": bx})
                     if state.get("occluded"):
                         raise StaleElementError(f"element occluded at ({x:.1f}, {y:.1f})")
                     if state.get("cross_origin") or sid:
-                        verification_scope = self._verify_top_frame_hit(ref, bx)
+                        verification_scope = self._verify_top_frame_hit(ref, [x - 1, y - 1, 2, 2] if state.get("click_point") else bx)
                     elif state.get("in_iframe"):
                         verification_scope = "same_origin_ancestor_verified"
 
@@ -2212,6 +2237,73 @@ class BrowserSession:
             self._move_cursor(x, y, cid, halo=el.get("box"))
             self.page.mouse.move(x, y)
             return {"x": x, "y": y}
+
+    def read_page(self, max_chars=2000):
+        """Return compact bounded visible text from the active browser page."""
+        from .state import sanitize_ui_text
+
+        bounded = max(80, min(int(max_chars), 8000))
+        raw = self.page.evaluate(
+            "() => (document.body && document.body.innerText ? document.body.innerText : '').slice(0, 12000)"
+        )
+        clean = sanitize_ui_text(raw or "", max_len=bounded)
+        return {
+            "text": clean,
+            "chars": len(clean),
+            "utf8_bytes": len(clean.encode("utf-8")),
+            "tokens_est": round(len(clean) / 4, 1),
+            "tokens_note": "ASCII len(text)/4 estimate; non-Latin scripts (Arabic/CJK) may require 2-4x more tokens.",
+        }
+
+    def drag(self, el, to_x=None, to_y=None, to_el=None, steps=12):
+        """Smoothly drag a browser element toward another element or explicit viewport coordinate."""
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            if el.get("enabled") is False:
+                raise RuntimeError(f"element {el.get('id') or el.get('name')} is disabled")
+            bx = el.get("box")
+            sx, sy = self._center(el)
+            verification_scope = "same_frame_verified"
+            ref = el.get("ref") or {}
+            sid = ref.get("cdp_session_id")
+            obj_id = self._resolve_node_id(el)
+            if obj_id:
+                st = self._call_on_node(obj_id, _NODE_PROBE_JS, True, session_id=sid)
+                if st:
+                    if st.get("disabled"):
+                        raise RuntimeError("element is disabled")
+                    if st.get("occluded"):
+                        raise StaleElementError(f"element occluded at ({sx:.1f}, {sy:.1f})")
+                    if st.get("click_point"):
+                        sx, sy = float(st["click_point"][0]), float(st["click_point"][1])
+                    bx = st.get("box") or bx
+            if to_el is not None:
+                dx, dy = self._center(to_el)
+            elif to_x is not None and to_y is not None:
+                dx, dy = float(to_x), float(to_y)
+            else:
+                raise ValueError("Specify target_element_id or both to_x and to_y for drag.")
+            vx, vy, vw, vh = self.bounds()
+            dx = max(vx, min(vx + vw - 1, dx))
+            dy = max(vy, min(vy + vh - 1, dy))
+            cid = cursor_for_action("click", role=el.get("role"))
+            self._move_cursor(sx, sy, cid, halo=bx)
+            self.page.mouse.move(sx, sy)
+            self.page.mouse.down()
+            n = max(4, min(int(steps), 40))
+            for i in range(1, n + 1):
+                ix = sx + (dx - sx) * (i / n)
+                iy = sy + (dy - sy) * (i / n)
+                self.page.mouse.move(ix, iy)
+            self._move_cursor(dx, dy, cid)
+            self.page.mouse.up()
+            return {
+                "x": round(sx, 1),
+                "y": round(sy, 1),
+                "to_x": round(dx, 1),
+                "to_y": round(dy, 1),
+                "steps": n,
+                "verification_scope": verification_scope,
+            }
 
     def _find_descendant_chrome_hwnd(self):
         """Locate visible Chromium top-level HWND spawned under this Playwright driver."""

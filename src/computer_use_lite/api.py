@@ -42,7 +42,8 @@ class Api:
 
     # -- 1. discovery -----------------------------------------------------------
     def discover_interactables(self, target="auto", export_crops=True,
-                               max_elements=DEFAULT_LINE_MAP_CAP, filter_query=None):
+                               max_elements=DEFAULT_LINE_MAP_CAP, filter_query=None,
+                               include_static_text=False):
         t0 = time.perf_counter()
         elements = [e for e in self.session.discover() if e.get("role") in INTERACTIVE]
         revision = snapshot.bump_revision()
@@ -53,19 +54,40 @@ class Api:
             if export_crops and self.crops_dir:
                 region["crop"] = blind_gap.export(
                     self.session, region, f"{self.crops_dir}/blind_{i}.png")
-        text = self.line_map(max_elements=max_elements, filter_query=filter_query)
+        text = self.line_map(
+            max_elements=max_elements,
+            filter_query=filter_query,
+            include_static_text=include_static_text,
+        )
         self.last_stats = {
             "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
             "elements": len(records),
             "blind_regions": len(self.regions),
             "chars": len(text),
+            "utf8_bytes": len(text.encode("utf-8")),
             "tokens": round(len(text) / 4, 1),
+            "tokens_note": "ASCII len(text)/4 estimate; non-Latin scripts (Arabic/CJK) may require 2-4x more tokenizer tokens.",
             "revision": revision,
             "viewport": viewport,
         }
         return text
 
-    def line_map(self, max_elements=DEFAULT_LINE_MAP_CAP, filter_query=None):
+    def read_page(self, max_chars=2000):
+        """Return compact bounded untrusted static text from the active browser or desktop view."""
+        bounded = max(80, min(int(max_chars), 8000))
+        if hasattr(self.session, "read_page"):
+            return self.session.read_page(max_chars=bounded)
+        sig = self.session.signature()
+        txt = state.sanitize_ui_text(sig.get("text") or "", max_len=bounded)
+        return {
+            "text": txt,
+            "chars": len(txt),
+            "utf8_bytes": len(txt.encode("utf-8")),
+            "tokens_est": round(len(txt) / 4, 1),
+            "tokens_note": "ASCII len(text)/4 estimate; non-Latin scripts may require more tokens.",
+        }
+
+    def line_map(self, max_elements=DEFAULT_LINE_MAP_CAP, filter_query=None, include_static_text=False):
         records = self.resolver.records
         if filter_query:
             q = filter_query.lower()
@@ -105,6 +127,10 @@ class Api:
             lines.append(f"blind{i}|{region['kind']}||"
                          f"{','.join(str(int(v)) for v in region['box'])}|crop"
                          + (f" -> {region['crop']}" if region.get("crop") else ""))
+        if include_static_text:
+            excerpt = (self.read_page(max_chars=1200).get("text") or "").strip()
+            if excerpt:
+                lines.append(f"PAGE_TEXT:[UNTRUSTED_UI_TEXT] {excerpt} [/UNTRUSTED_UI_TEXT]")
         return "\n".join(lines)
 
     # -- 2. inspect -------------------------------------------------------------
@@ -149,7 +175,24 @@ class Api:
             tx = round(float(mbox[0]) + float(mbox[2]) / 2.0, 1)
             ty = round(float(mbox[1]) + float(mbox[3]) / 2.0, 1)
             before = _call_sig(self.session, match)
-            if action == "type" and hasattr(self.session, "page"):
+            if action == "drag":
+                drag_spec = value if isinstance(value, dict) else {}
+                tgt_id = drag_spec.get("target_element_id")
+                to_match = None
+                if tgt_id:
+                    to_rec = self.resolver.get(tgt_id)
+                    to_match = (
+                        self.session.verify_fresh(to_rec, tolerance=2)
+                        if hasattr(self.session, "verify_fresh") else to_rec
+                    )
+                mechanism = self.session.drag(
+                    match,
+                    to_x=drag_spec.get("to_x"),
+                    to_y=drag_spec.get("to_y"),
+                    to_el=to_match,
+                    steps=int(drag_spec.get("steps") or 12),
+                )
+            elif action == "type" and hasattr(self.session, "page"):
                 mechanism = self.session.perform(match, action, value, clear=clear)
             else:
                 mechanism = self.session.perform(match, action, value)
@@ -196,6 +239,20 @@ class Api:
                 "revision": self.resolver.revision,
             })
             raise
+
+    def drag(self, element_id, target_element_id=None, to_x=None, to_y=None, revision=None, steps=12):
+        """Continuously drag an interactive element toward target_element_id or (to_x, to_y)."""
+        return self.execute_action(
+            element_id,
+            "drag",
+            value={
+                "target_element_id": target_element_id,
+                "to_x": to_x,
+                "to_y": to_y,
+                "steps": steps,
+            },
+            revision=revision,
+        )
 
     def hover_element(self, element_id, wait_ms=350):
         """Hover an interactive element safely after verifying freshness, reconciling deltas."""

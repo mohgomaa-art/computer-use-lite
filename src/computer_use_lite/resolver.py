@@ -52,6 +52,16 @@ def _keepable(el, viewport):
     return visible(el["box"], viewport)
 
 
+def _role_rank(el):
+    """Prefer explicit semantic roles over generic clickable containers during IoU deduplication."""
+    role = el.get("role")
+    if role in INTERACTIVE and role != "clickable":
+        return 2
+    if role == "clickable":
+        return 1
+    return 0
+
+
 class Resolver:
     def __init__(self):
         self.records = []
@@ -72,8 +82,7 @@ class Resolver:
             if clash is None:
                 deduped.append(dict(el))
                 continue
-            score = lambda r: (bool(r.get("name")), r.get("role") in INTERACTIVE,
-                               r["box"][2] * r["box"][3])
+            score = lambda r: (bool(r.get("name")), _role_rank(r), r["box"][2] * r["box"][3])
             if score(el) > score(clash):
                 deduped[deduped.index(clash)] = dict(el)
 

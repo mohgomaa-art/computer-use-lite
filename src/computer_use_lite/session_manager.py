@@ -174,6 +174,7 @@ class _SessionWorker:
         self.tab_count = 1 if kind == "browser" else 0
         self.active_tab_index = 0
         self.created_at = time.time()
+        self.last_used_at = time.monotonic()
         self._tmp_dir = tempfile.TemporaryDirectory(prefix=f"cul_mcp_{session_id}_")
         root = Path(self._tmp_dir.name)
         self._state_path = root / "task_state.json"
@@ -258,7 +259,11 @@ class _SessionWorker:
         except Exception:
             pass
 
+    def touch(self) -> None:
+        self.last_used_at = time.monotonic()
+
     def submit_future(self, fn) -> Future:
+        self.touch()
         fut: Future = Future()
         with self._cv:
             if self._closed or self._stop_flag:
@@ -280,6 +285,7 @@ class _SessionWorker:
             "revision": api.resolver.revision if api is not None else 0,
             "elements": len(api.resolver.records) if api is not None else 0,
             "blind_regions": len(api.regions) if api is not None else 0,
+            "idle_s": round(max(0.0, time.monotonic() - self.last_used_at), 1),
         }
         if self.kind == "browser":
             meta["tab_count"] = self.tab_count
@@ -305,15 +311,51 @@ class _SessionWorker:
 class SessionManager:
     """Thread-safe registry owning isolated browser and desktop automation sessions."""
 
-    def __init__(self, max_sessions: int = MAX_SESSIONS):
+    def __init__(self, max_sessions: int = MAX_SESSIONS, idle_ttl_s: float | None = None):
         self._max_sessions = max_sessions
+        if idle_ttl_s is None:
+            raw_ttl = os.environ.get("CUL_SESSION_IDLE_TTL_S", "1800").strip()
+            try:
+                idle_ttl_s = max(0.0, float(raw_ttl))
+            except ValueError:
+                idle_ttl_s = 1800.0
+        self._idle_ttl_s = float(idle_ttl_s)
         self._lock = threading.Lock()
         self._sessions: dict[str, _SessionWorker] = {}
         self._counter = 0
         self._shutting_down = False
         atexit.register(self.close_all_sync)
 
+    def _reap_expired_idle(self) -> int:
+        """Evict and close expired idle sessions before hitting session limits."""
+        if self._idle_ttl_s <= 0:
+            return 0
+        now = time.monotonic()
+        expired = []
+        with self._lock:
+            victims = sorted(
+                ((sid, w) for sid, w in self._sessions.items() if (now - w.last_used_at) >= self._idle_ttl_s),
+                key=lambda item: item[1].last_used_at,
+            )
+            for sid, w in victims:
+                popped = self._sessions.pop(sid, None)
+                if popped is not None:
+                    expired.append(popped)
+        for worker in expired:
+            try:
+                worker.close(timeout=5.0)
+            except Exception:
+                pass
+        return len(expired)
+
     def _reserve_session_id(self) -> str:
+        need_reap = False
+        with self._lock:
+            if self._shutting_down:
+                raise RuntimeError("Server is shutting down; new sessions rejected")
+            need_reap = len(self._sessions) >= self._max_sessions and self._idle_ttl_s > 0
+        if need_reap:
+            self._reap_expired_idle()
         with self._lock:
             if self._shutting_down:
                 raise RuntimeError("Server is shutting down; new sessions rejected")
@@ -347,11 +389,13 @@ class SessionManager:
         filter_query: str | None = None,
         export_crops: bool = True,
         include_blind_images: bool = True,
+        include_static_text: bool = False,
     ) -> dict:
         line_map = api.discover_interactables(
             export_crops=export_crops,
             max_elements=max_elements,
             filter_query=filter_query,
+            include_static_text=include_static_text,
         )
         images = []
         if include_blind_images and api.regions:
@@ -603,6 +647,7 @@ class SessionManager:
         filter_query: str | None = None,
         export_crops: bool = True,
         include_blind_images: bool = True,
+        include_static_text: bool = False,
     ) -> dict:
         worker = self._get_worker(session_id)
         bounded_max = max(1, min(int(max_elements), 300))
@@ -616,6 +661,7 @@ class SessionManager:
                     filter_query=filter_query,
                     export_crops=export_crops,
                     include_blind_images=include_blind_images,
+                    include_static_text=include_static_text,
                 ),
             )
             self._sync_browser_target(worker, sess)
@@ -640,16 +686,26 @@ class SessionManager:
         value: str | None = None,
         revision: int | None = None,
         clear: bool = True,
+        target_element_id: str | None = None,
+        to_x: float | None = None,
+        to_y: float | None = None,
     ) -> dict:
-        if action not in ("click", "type", "focus"):
-            raise ValueError(f"Unsupported action {action!r}; choose click, type, or focus.")
+        if action not in ("click", "type", "focus", "drag"):
+            raise ValueError(f"Unsupported action {action!r}; choose click, type, focus, or drag.")
         worker = self._get_worker(session_id)
 
         def op(sess, api: Api) -> dict:
+            eff_value: object = value
+            if action == "drag":
+                eff_value = {
+                    "target_element_id": target_element_id,
+                    "to_x": to_x,
+                    "to_y": to_y,
+                }
             res = api.execute_action(
                 element_id,
                 action,
-                value=value,
+                value=eff_value,
                 revision=revision,
                 clear=clear,
             )

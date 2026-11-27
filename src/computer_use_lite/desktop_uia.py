@@ -1030,6 +1030,63 @@ class DesktopSession:
 
             return {"mechanism": self._call(run)}
 
+    def read_page(self, max_chars=2000):
+        """Collect bounded static/label text from cached UIA nodes without invoking extra scans."""
+        from .state import sanitize_ui_text
+
+        bounded = max(80, min(int(max_chars), 8000))
+        chunks = []
+        seen = set()
+        for node in self._last.values():
+            if node.get("ctype") not in ("Text", "Document", "Edit", "ListItem", "TreeItem"):
+                continue
+            txt = sanitize_ui_text(node.get("name") or "", max_len=200)
+            if not txt or txt in seen:
+                continue
+            seen.add(txt)
+            chunks.append(txt)
+            if sum(len(c) + 1 for c in chunks) >= bounded:
+                break
+        joined = sanitize_ui_text(" | ".join(chunks), max_len=bounded)
+        return {
+            "text": joined,
+            "chars": len(joined),
+            "utf8_bytes": len(joined.encode("utf-8")),
+            "tokens_est": round(len(joined) / 4, 1),
+            "tokens_note": "ASCII len(text)/4 estimate; non-Latin scripts may require more tokens.",
+        }
+
+    def drag(self, el, to_x=None, to_y=None, to_el=None, steps=12):
+        """Smoothly drag a desktop element to (to_x, to_y) or to_el center via SendInput."""
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            if sys.platform != "win32" or _u32 is None:
+                raise RuntimeError("Windows desktop drag requires win32.")
+            sx = int(el["box"][0] + el["box"][2] / 2)
+            sy = int(el["box"][1] + el["box"][3] / 2)
+            if to_el is not None:
+                dx = int(to_el["box"][0] + to_el["box"][2] / 2)
+                dy = int(to_el["box"][1] + to_el["box"][3] / 2)
+            elif to_x is not None and to_y is not None:
+                dx, dy = int(round(float(to_x))), int(round(float(to_y)))
+            else:
+                raise ValueError("Specify target_element_id or both to_x and to_y for drag.")
+            move_mouse(sx, sy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
+            nx0, ny0 = _abs_coords(sx, sy)
+            base = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK
+            _send_mouse(nx0, ny0, MOUSEEVENTF_LEFTDOWN | base)
+            n = max(4, min(int(steps), 40))
+            for i in range(1, n + 1):
+                ix = int(round(sx + (dx - sx) * (i / n)))
+                iy = int(round(sy + (dy - sy) * (i / n)))
+                nxi, nyi = _abs_coords(ix, iy)
+                _send_mouse(nxi, nyi, MOUSEEVENTF_MOVE | base)
+                time.sleep(0.01)
+            nx1, ny1 = _abs_coords(dx, dy)
+            _send_mouse(nx1, ny1, MOUSEEVENTF_LEFTUP | base)
+            if getattr(self, "_kill", None) is not None:
+                self._kill.moved((dx, dy))
+            return {"x": sx, "y": sy, "to_x": dx, "to_y": dy, "steps": n}
+
     def hover(self, el):
         with takeover_action_scope(getattr(self, "_takeover_guard", None)):
             x, y, w, h = el["box"]
