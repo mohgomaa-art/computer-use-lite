@@ -24,6 +24,7 @@ ACTIONS = {
     "checkbox": "click", "radio": "click", "switch": "click", "clickable": "click",
     "listitem": "click", "treeitem": "click",
     "textbox": "click,type", "searchbox": "click,type", "combobox": "click,type",
+    "slider": "click,type", "spinbutton": "click,type",
 }
 DEFAULT_LINE_MAP_CAP = 60
 
@@ -110,10 +111,18 @@ class Api:
     def inspect_element(self, element_id):
         rec = self.resolver.get(element_id)
         info = {k: v for k, v in rec.items() if k not in ("ref", "_element")}
+        is_secret = bool(rec.get("is_password") or state.is_sensitive_name(rec.get("name")))
+        if hasattr(self.session, "inspect_metadata"):
+            extra = self.session.inspect_metadata(rec) or {}
+            if is_secret and "value" in extra:
+                extra["value"] = "[REDACTED]"
+            if is_secret and "valuenow" in extra:
+                extra["valuenow"] = "[REDACTED]"
+            info.update(extra)
         if hasattr(self.session, "read_value") and rec.get("role") in ("textbox", "searchbox"):
-            if rec.get("is_password") or state.is_sensitive_name(rec.get("name")):
+            if is_secret:
                 info["value"] = "[REDACTED]"
-            else:
+            elif "value" not in info:
                 info["value"] = self.session.read_value(rec)
         return info
 

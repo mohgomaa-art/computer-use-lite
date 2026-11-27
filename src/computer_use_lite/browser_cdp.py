@@ -46,7 +46,7 @@ from .resolver import StaleElementError, visible as _box_visible
 from .takeover_guard import TakeoverGuard, resolve_takeover_glow_enabled, takeover_action_scope
 
 ROLES = {"button", "link", "textbox", "searchbox", "checkbox", "menuitem", "tab",
-         "combobox", "switch", "radio", "listitem", "treeitem"}
+         "combobox", "switch", "radio", "listitem", "treeitem", "slider", "spinbutton"}
 
 _IS_SENSITIVE_ELEM_JS = r"""const _isSensitiveElem = (el) => {
   if (!el) return false;
@@ -1958,6 +1958,61 @@ class BrowserSession:
         }}""", session_id=sid)
         return val
 
+    def inspect_metadata(self, el):
+        """Extract rich interactive state (checked, selected, readonly, range bounds, select options)."""
+        sid = (el.get("ref") or {}).get("cdp_session_id")
+        obj_id = self._resolve_node_id(el)
+        if not obj_id:
+            return {}
+        try:
+            meta = self._call_on_node(obj_id, f"""function() {{
+              {_IS_SENSITIVE_ELEM_JS}
+              const _ab = (attr) => {{
+                const v = this.getAttribute ? this.getAttribute(attr) : null;
+                if (v === 'true') return true;
+                if (v === 'false') return false;
+                return null;
+              }};
+              const isSecret = {str(bool(el.get("is_password"))).lower()} || _isSensitiveElem(this);
+              const out = {{
+                input_type: this.type ? String(this.type).toLowerCase() : null,
+                checked: this.checked !== undefined ? Boolean(this.checked) : _ab('aria-checked'),
+                selected: this.selected !== undefined ? Boolean(this.selected) : _ab('aria-selected'),
+                readonly: Boolean(this.readOnly || (this.getAttribute && this.getAttribute('aria-readonly') === 'true')),
+                disabled: Boolean(this.disabled || (this.getAttribute && this.getAttribute('aria-disabled') === 'true')),
+                expanded: _ab('aria-expanded'),
+                pressed: _ab('aria-pressed'),
+              }};
+              const roleLow = String((this.getAttribute && this.getAttribute('role')) || '').toLowerCase();
+              if (out.input_type === 'range' || out.input_type === 'number' || roleLow === 'slider' || roleLow === 'spinbutton'
+                  || (this.hasAttribute && (this.hasAttribute('aria-valuenow') || this.hasAttribute('aria-valuemin')))) {{
+                out.valuemin = this.getAttribute?.('aria-valuemin') ?? (this.min !== '' ? this.min : null);
+                out.valuemax = this.getAttribute?.('aria-valuemax') ?? (this.max !== '' ? this.max : null);
+                const vn = this.getAttribute?.('aria-valuenow') ?? (this.value !== undefined ? String(this.value) : null);
+                out.valuenow = isSecret ? '[REDACTED]' : vn;
+              }}
+              if (this.tagName === 'SELECT' && this.options) {{
+                out.options = Array.from(this.options).slice(0, 40).map((o, idx) => ({{
+                  index: idx,
+                  value: String(o.value ?? ''),
+                  label: String(o.label ?? o.text ?? ''),
+                  selected: Boolean(o.selected),
+                }}));
+              }}
+              if (this.value !== undefined || roleLow === 'textbox' || roleLow === 'searchbox') {{
+                out.value = isSecret ? '[REDACTED]' : String(this.value !== undefined ? this.value : (this.textContent || '')).slice(0, 400);
+              }}
+              return out;
+            }}""", session_id=sid)
+            return {k: v for k, v in (meta or {}).items() if v is not None}
+        except Exception:
+            return {}
+        finally:
+            try:
+                self._cdp_send("Runtime.releaseObject", {"objectId": obj_id}, session_id=sid)
+            except Exception:
+                pass
+
     # -- actions ---------------------------------------------------------------
     def _install_cursor_overlay(self, ctx, *, evaluate_now: bool = False):
         js = build_overlay_init_script()
@@ -2117,11 +2172,37 @@ class BrowserSession:
                         except Exception:
                             break
             if action == "type":
-                if clear:
-                    self.page.keyboard.press("Control+a")
-                    self.page.keyboard.press("Backspace")
-                if value is not None and str(value) != "":
-                    self.page.keyboard.type(str(value))
+                date_handled = False
+                if obj_id:
+                    try:
+                        # Structured date/time inputs split keystrokes across locale spinboxes; assign value via prototype setter.
+                        date_res = self._call_on_node(
+                            obj_id,
+                            """function(rawVal) {
+                              const t = String(this.type || '').toLowerCase();
+                              if (this.tagName !== 'INPUT' || !['date','time','datetime-local','month','week'].includes(t)) {
+                                return {handled: false};
+                              }
+                              if (this.readOnly || this.disabled) return {handled: true, readonly: true};
+                              const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                              if (setter) setter.call(this, String(rawVal));
+                              else this.value = String(rawVal);
+                              this.dispatchEvent(new Event('input', {bubbles: true}));
+                              this.dispatchEvent(new Event('change', {bubbles: true}));
+                              return {handled: true, value: String(this.value || '')};
+                            }""",
+                            "" if value is None else str(value),
+                            session_id=sid,
+                        )
+                        date_handled = bool((date_res or {}).get("handled"))
+                    except Exception:
+                        date_handled = False
+                if not date_handled:
+                    if clear:
+                        self.page.keyboard.press("Control+a")
+                        self.page.keyboard.press("Backspace")
+                    if value is not None and str(value) != "":
+                        self.page.keyboard.type(str(value))
             return {"x": round(x, 1), "y": round(y, 1), "verification_scope": verification_scope}
 
     def hover(self, el):

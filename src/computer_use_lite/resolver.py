@@ -16,6 +16,7 @@
 INTERACTIVE = {
     "button", "menuitem", "tab", "link", "textbox", "searchbox", "combobox",
     "checkbox", "radio", "switch", "clickable", "listitem", "treeitem",
+    "slider", "spinbutton",
 }
 IOU_DEDUPE = 0.75
 
