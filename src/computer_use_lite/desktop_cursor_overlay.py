@@ -70,6 +70,12 @@ _BUSY_SHAPE_DELAY_S = 0.35
 _ERROR_RESET_S = 0.90
 _CLICK_PULSE_GAP_S = 0.12
 _PRESS_DURATION_S = 0.06
+_GLIDE_MIN_MS = 120.0
+_GLIDE_MAX_MS = 450.0
+_GLIDE_REF_PX = 900.0
+_GLIDE_LONG_PX = 320.0
+_GLIDE_SPRING_TAU = 5.5
+_MAX_DT_S = 0.05
 CUL_GREEN = "#0E9F6E"
 CUL_GREEN_RGB = (14, 159, 110)
 
@@ -529,6 +535,8 @@ class DesktopCursorOverlay:
             "target_x": ix,
             "target_y": iy,
             "glide_start": 0.0,
+            "glide_last_tick": 0.0,
+            "glide_elapsed_ms": 0.0,
             "glide_ms": 0.0,
             "press_until": 0.0,
             "busy": False,
@@ -818,10 +826,19 @@ class DesktopCursorOverlay:
                     animating = True
             cx, cy = st["x"], st["y"]
             if st["glide_ms"] > 0.0 and st["glide_start"] > 0.0:
-                t = min(1.0, max(0.0, (now - st["glide_start"]) * 1000.0 / st["glide_ms"]))
-                ease = 1.0 - (1.0 - t) ** 3
+                dt_s = min(_MAX_DT_S, max(0.0, now - st["glide_last_tick"])) if st.get("glide_last_tick", 0.0) > 0.0 else 0.016667
+                elapsed_ms = st.get("glide_elapsed_ms", 0.0) + dt_s * 1000.0
+                self._state["glide_last_tick"] = now
+                self._state["glide_elapsed_ms"] = elapsed_ms
+                t = min(1.0, max(0.0, elapsed_ms / st["glide_ms"]))
                 dist = math.hypot(st["target_x"] - st["start_x"], st["target_y"] - st["start_y"])
-                arc = math.sin(t * math.pi) * min(14.0, dist * 0.06)
+                if dist >= _GLIDE_LONG_PX:
+                    ease = t * t * t * (10.0 + t * (-15.0 + 6.0 * t))
+                    arc = math.sin(t * math.pi) * min(10.0, dist * 0.03)
+                else:
+                    norm = 1.0 - (1.0 + _GLIDE_SPRING_TAU) * math.exp(-_GLIDE_SPRING_TAU)
+                    ease = min(1.0, max(0.0, (1.0 - (1.0 + _GLIDE_SPRING_TAU * t) * math.exp(-_GLIDE_SPRING_TAU * t)) / norm))
+                    arc = 0.0
                 cx = st["start_x"] + (st["target_x"] - st["start_x"]) * ease
                 cy = st["start_y"] + (st["target_y"] - st["start_y"]) * ease - arc
                 self._state["x"] = cx
@@ -831,6 +848,8 @@ class DesktopCursorOverlay:
                     self._state["x"] = cx
                     self._state["y"] = cy
                     self._state["glide_ms"] = 0.0
+                    self._state["glide_elapsed_ms"] = 0.0
+                    self._state["glide_last_tick"] = 0.0
                 else:
                     animating = True
 
@@ -957,7 +976,9 @@ class DesktopCursorOverlay:
         with self._lock:
             sx, sy = self._state["x"], self._state["y"]
             dist = math.hypot(tx - sx, ty - sy)
-            actual_ms = float(glide_ms) if (glide_ms > 0 and dist >= 1.5 and self._state["visible"]) else 0.0
+            scaled_ms = _GLIDE_MIN_MS + (_GLIDE_MAX_MS - _GLIDE_MIN_MS) * min(1.0, dist / _GLIDE_REF_PX)
+            eff_ms = scaled_ms if glide_ms >= 80 else float(glide_ms)
+            actual_ms = float(eff_ms) if (glide_ms > 0 and dist >= 1.5 and self._state["visible"]) else 0.0
             self._state["error_until"] = 0.0
             self._state["cursor_id"] = cursor_id
             if cursor_id not in ("progress", "not-allowed"):
@@ -967,6 +988,8 @@ class DesktopCursorOverlay:
             self._state["target_x"] = tx
             self._state["target_y"] = ty
             self._state["glide_start"] = now
+            self._state["glide_last_tick"] = now
+            self._state["glide_elapsed_ms"] = 0.0
             self._state["glide_ms"] = actual_ms
             if actual_ms == 0.0:
                 self._state["x"] = tx

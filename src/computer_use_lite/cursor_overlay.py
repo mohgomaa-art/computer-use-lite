@@ -63,8 +63,12 @@ OVERLAY_CONFIG = {
     "pressMs": 60,
     "pressScale": 0.90,
     "morphMs": 120,
+    "reducedMorphMs": 80,
     "glideMinMs": 120,
     "glideMaxMs": 450,
+    "glideRefPx": 900,
+    "glideLongThresholdPx": 320,
+    "glideSpringTau": 5.5,
     "maxDtMs": 50,
     "hiddenTabTimeoutPadMs": 250,
     "hiddenTabTimeoutMaxMs": 700,
@@ -462,8 +466,9 @@ def build_overlay_init_script() -> str:
   let hostSvg = null, shapeLayer = null, dropShadow = null, halo = null, ripples = null, wake = null, wakeCtx = null;
   let activeId = 'default', preBusyId = 'default', lastActionId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
   let prevX = 640, prevY = 360, rafId = 0, busy = false, lastTickTs = 0;
+  let vpW = 1280, vpH = 720, resizeBound = false;
   let busyTimer = 0, errorTimer = 0, pressTimer = 0, pressAnim = null, cursorSheet = null;
-  let glideSeq = 0, activeGlideCancel = null;
+  let glideSeq = 0, activeGlide = null;
   const pulseTimers = [];
   let lastHaloKey = '', lastHaloSize = '', lastHaloTone = '';
   let lastOutcome = null, lastOutcomeReason = '', clickCount = 0, outcomeCount = 0;
@@ -603,6 +608,19 @@ def build_overlay_init_script() -> str:
     wake = document.createElement('canvas');
     Object.assign(wake.style, {{position:'fixed', inset:'0px', width:'100%', height:'100%', pointerEvents:'none'}});
     wakeCtx = wake.getContext('2d');
+    const syncWakeSize = () => {{
+      vpW = window.innerWidth || 1280;
+      vpH = window.innerHeight || 720;
+      if (wake && (wake.width !== vpW || wake.height !== vpH)) {{
+        wake.width = vpW;
+        wake.height = vpH;
+      }}
+    }};
+    syncWakeSize();
+    if (!resizeBound) {{
+      resizeBound = true;
+      window.addEventListener('resize', syncWakeSize, {{passive: true}});
+    }}
 
     halo = document.createElement('div');
     Object.assign(halo.style, {{
@@ -621,7 +639,7 @@ def build_overlay_init_script() -> str:
     Object.assign(rig.style, {{perspective:'260px', transformOrigin:'0px 0px', willChange:'transform'}});
 
     press = document.createElement('div');
-    Object.assign(press.style, {{transformOrigin:'0px 0px', transition:'transform 95ms cubic-bezier(0.22,1,0.36,1)', willChange:'transform'}});
+    Object.assign(press.style, {{transformOrigin:'0px 0px', willChange:'transform'}});
 
     morph = document.createElement('div');
     Object.assign(morph.style, {{transformOrigin:'0px 0px', willChange:'transform, opacity'}});
@@ -666,11 +684,18 @@ def build_overlay_init_script() -> str:
       activeId = id;
       while (shapeLayer.firstChild) shapeLayer.removeChild(shapeLayer.firstChild);
       for (const s of spec.shapes) shapeLayer.appendChild(buildNode(s));
-      if (animateMorph && !reduced && morph.animate) {{
-        morph.animate(
-          [{{transform:'scale(0.84)', opacity:0.72}}, {{transform:'scale(1.06)', opacity:1}}, {{transform:'scale(1)', opacity:1}}],
-          {{duration:160, easing:'cubic-bezier(0.22,1,0.36,1)'}}
-        );
+      if (animateMorph && morph.animate) {{
+        if (reduced) {{
+          morph.animate(
+            [{{opacity:0.4}}, {{opacity:1}}],
+            {{duration:CFG.reducedMorphMs, easing:'linear'}}
+          );
+        }} else {{
+          morph.animate(
+            [{{transform:'scale(0.90)', opacity:0.25}}, {{transform:'scale(1)', opacity:1}}],
+            {{duration:CFG.morphMs, easing:'cubic-bezier(0.22,1,0.36,1)'}}
+          );
+        }}
       }}
     }}
   }}
@@ -686,47 +711,78 @@ def build_overlay_init_script() -> str:
     if (!rafId) rafId = window.requestAnimationFrame(tick);
   }}
 
+  function computeGlideEase(u, isLong) {{
+    if (u >= 1) return 1;
+    if (u <= 0) return 0;
+    if (isLong) {{
+      return u * u * u * (10 + u * (-15 + 6 * u));
+    }}
+    const k = CFG.glideSpringTau;
+    const norm = 1 - (1 + k) * Math.exp(-k);
+    return Math.min(1, Math.max(0, (1 - (1 + k * u) * Math.exp(-k * u)) / norm));
+  }}
+
   function tick(ts) {{
     rafId = 0;
     const now = typeof ts === 'number' ? ts : (window.performance ? performance.now() : Date.now());
-    const dt = lastTickTs ? Math.min(2.5, Math.max(0.25, (now - lastTickTs) / 16.6667)) : 1;
+    const rawDtMs = lastTickTs ? (now - lastTickTs) : 16.6667;
+    const dtMs = Math.min(CFG.maxDtMs, Math.max(0.5, rawDtMs));
+    const dt = dtMs / 16.6667;
     lastTickTs = now;
-    const dx = curX - prevX, dy = curY - prevY;
-    prevX = curX; prevY = curY;
-    const speed = Math.hypot(dx, dy);
-    const clampTilt = (v) => Math.max(-CFG.maxTiltDeg, Math.min(CFG.maxTiltDeg, v));
-    const ty = clampTilt(dx * 0.45);
-    const tx = clampTilt(-dy * 0.45);
-    const damp = Math.pow(0.68, dt);
-    const spring = Math.min(1, 0.22 * dt);
-    tvx = (tvx + (tx - tiltX) * spring) * damp;
-    tvy = (tvy + (ty - tiltY) * spring) * damp;
-    tiltX = clampTilt(tiltX + tvx * dt);
-    tiltY = clampTilt(tiltY + tvy * dt);
-    if (rig) rig.style.transform = `rotateX(${{tiltX.toFixed(2)}}deg) rotateY(${{tiltY.toFixed(2)}}deg)`;
 
-    if (speed > 4 && wakeCtx) {{
-      if (wake.width !== window.innerWidth || wake.height !== window.innerHeight) {{
-        wake.width = window.innerWidth; wake.height = window.innerHeight;
-      }}
-      particles.push({{x:curX, y:curY, r:Math.min(3.2, 1.4 + speed * 0.04), a:Math.min(0.42, 0.14 + speed * 0.006)}});
-      if (particles.length > 18) particles.shift();
-    }}
-    if (wakeCtx && (particles.length > 0 || speed > 4)) {{
-      const alphaDecay = Math.pow(0.84, dt);
-      const radiusDecay = Math.pow(0.96, dt);
-      wakeCtx.clearRect(0, 0, wake.width, wake.height);
-      for (let i = particles.length - 1; i >= 0; i--) {{
-        const p = particles[i];
-        p.a *= alphaDecay; p.r *= radiusDecay;
-        if (p.a < 0.015) {{ particles.splice(i, 1); continue; }}
-        wakeCtx.beginPath();
-        wakeCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        wakeCtx.fillStyle = `rgba(56, 189, 248, ${{p.a.toFixed(3)}})`;
-        wakeCtx.fill();
+    if (activeGlide) {{
+      const g = activeGlide;
+      if (document.hidden) {{
+        g.finish(true);
+      }} else {{
+        g.elapsedMs += dtMs;
+        const u = Math.min(1, g.elapsedMs / g.durationMs);
+        const e = computeGlideEase(u, g.isLong);
+        const arc = g.isLong ? Math.sin(u * Math.PI) * Math.min(10, g.dist * 0.03) : 0;
+        place(g.sx + (g.ex - g.sx) * e, g.sy + (g.ey - g.sy) * e - arc, false);
+        if (u >= 1) g.finish(true);
       }}
     }}
-    if (particles.length > 0 || Math.abs(tiltX) > 0.05 || Math.abs(tiltY) > 0.05 || Math.abs(tvx) > 0.05 || Math.abs(tvy) > 0.05) {{
+
+    if (!reduced) {{
+      const dx = curX - prevX, dy = curY - prevY;
+      prevX = curX; prevY = curY;
+      const speed = Math.hypot(dx, dy);
+      const clampTilt = (v) => Math.max(-CFG.maxTiltDeg, Math.min(CFG.maxTiltDeg, v));
+      const ty = clampTilt(dx * 0.45);
+      const tx = clampTilt(-dy * 0.45);
+      const damp = Math.pow(0.68, dt);
+      const spring = Math.min(1, 0.22 * dt);
+      tvx = (tvx + (tx - tiltX) * spring) * damp;
+      tvy = (tvy + (ty - tiltY) * spring) * damp;
+      tiltX = clampTilt(tiltX + tvx * dt);
+      tiltY = clampTilt(tiltY + tvy * dt);
+      if (rig) rig.style.transform = `rotateX(${{tiltX.toFixed(2)}}deg) rotateY(${{tiltY.toFixed(2)}}deg)`;
+
+      if (speed > 4 && wakeCtx) {{
+        particles.push({{x:curX, y:curY, r:Math.min(3.2, 1.4 + speed * 0.04), a:Math.min(0.42, 0.14 + speed * 0.006)}});
+        if (particles.length > 18) particles.shift();
+      }}
+      if (wakeCtx && (particles.length > 0 || speed > 4)) {{
+        const alphaDecay = Math.pow(0.84, dt);
+        const radiusDecay = Math.pow(0.96, dt);
+        wakeCtx.clearRect(0, 0, vpW, vpH);
+        for (let i = particles.length - 1; i >= 0; i--) {{
+          const p = particles[i];
+          p.a *= alphaDecay; p.r *= radiusDecay;
+          if (p.a < 0.015) {{ particles.splice(i, 1); continue; }}
+          wakeCtx.beginPath();
+          wakeCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          wakeCtx.fillStyle = `rgba(56, 189, 248, ${{p.a.toFixed(3)}})`;
+          wakeCtx.fill();
+        }}
+      }}
+    }} else if (rig && rig.style.transform !== 'none') {{
+      tiltX = 0; tiltY = 0; tvx = 0; tvy = 0;
+      rig.style.transform = 'none';
+    }}
+
+    if (activeGlide || (!reduced && (particles.length > 0 || Math.abs(tiltX) > 0.05 || Math.abs(tiltY) > 0.05 || Math.abs(tvx) > 0.05 || Math.abs(tvy) > 0.05))) {{
       scheduleTick();
     }} else {{
       lastTickTs = 0;
@@ -738,24 +794,24 @@ def build_overlay_init_script() -> str:
   }}
 
   function spawnRipple(x, y, tone = 'input') {{
-    if (!ripples || reduced) return;
+    if (!ripples) return;
     const [edge, glow] = RING_TONES[tone] || RING_TONES.input;
     const el = document.createElement('div');
     Object.assign(el.style, {{
       position:'fixed', left:`${{x}}px`, top:`${{y}}px`, width:'28px', height:'28px',
       borderRadius:'9999px', border:`1.5px solid ${{edge}}`,
-      background:`radial-gradient(circle, ${{glow}} 0%, rgba(56,189,248,0) 70%)`,
-      pointerEvents:'none',
+      background: reduced ? 'transparent' : `radial-gradient(circle, ${{glow}} 0%, rgba(56,189,248,0) 70%)`,
+      pointerEvents:'none', willChange:'transform, opacity',
     }});
     ripples.appendChild(el);
     if (el.animate) {{
-      const anim = el.animate(
-        [{{transform:'translate(-50%,-50%) scale(0.2)', opacity:0.85}}, {{transform:'translate(-50%,-50%) scale(2.1)', opacity:0}}],
-        {{duration:420, easing:'cubic-bezier(0.16,1,0.3,1)'}}
-      );
+      const frames = reduced
+        ? [{{transform:'translate3d(-50%,-50%,0) scale(1)', opacity:0.42}}, {{transform:'translate3d(-50%,-50%,0) scale(1)', opacity:0}}]
+        : [{{transform:'translate3d(-50%,-50%,0) scale(0.2)', opacity:0.85}}, {{transform:'translate3d(-50%,-50%,0) scale(2.1)', opacity:0}}];
+      const anim = el.animate(frames, {{duration: reduced ? 110 : 420, easing:'cubic-bezier(0.16,1,0.3,1)'}});
       anim.onfinish = () => el.remove();
     }} else {{
-      setTimeout(() => el.remove(), 430);
+      setTimeout(() => el.remove(), reduced ? 120 : 430);
     }}
   }}
 
@@ -789,10 +845,10 @@ def build_overlay_init_script() -> str:
 
   function cancelActiveGlide() {{
     glideSeq += 1;
-    if (activeGlideCancel) {{
-      const fn = activeGlideCancel;
-      activeGlideCancel = null;
-      try {{ fn(); }} catch (_e) {{}}
+    if (activeGlide) {{
+      const g = activeGlide;
+      activeGlide = null;
+      try {{ g.finish(false); }} catch (_e) {{}}
     }}
   }}
 
@@ -803,15 +859,17 @@ def build_overlay_init_script() -> str:
       cancelActiveGlide();
       applyShape(cursorId || activeId, true);
       setHalo(opts.halo || null, 'input');
-      const glideMs = reduced ? 0 : Math.max(0, Number(opts.glideMs || 0));
+      const rawGlide = reduced ? 0 : Math.max(0, Number(opts.glideMs || 0));
       const sx = curX, sy = curY, ex = Number(x), ey = Number(y);
-      if (document.hidden || glideMs <= 0 || Math.hypot(ex - sx, ey - sy) < 0.5) {{
+      const dist = Math.hypot(ex - sx, ey - sy);
+      if (document.hidden || rawGlide <= 0 || dist < 0.5) {{
         place(ex, ey, true);
         return true;
       }}
+      const scaledMs = CFG.glideMinMs + (CFG.glideMaxMs - CFG.glideMinMs) * Math.min(1, dist / CFG.glideRefPx);
+      const durationMs = rawGlide >= 80 ? scaledMs : rawGlide;
       const mySeq = ++glideSeq;
-      const t0 = performance.now();
-      const timeoutMs = Math.min(CFG.hiddenTabTimeoutMaxMs, glideMs + CFG.hiddenTabTimeoutPadMs);
+      const timeoutMs = Math.min(CFG.hiddenTabTimeoutMaxMs, durationMs + CFG.hiddenTabTimeoutPadMs);
       return new Promise((resolve) => {{
         let done = false;
         let fallbackTimer = 0;
@@ -822,30 +880,17 @@ def build_overlay_init_script() -> str:
             clearTimeout(fallbackTimer);
             fallbackTimer = 0;
           }}
-          if (activeGlideCancel === cancelFn) activeGlideCancel = null;
+          if (activeGlide && activeGlide.seq === mySeq) activeGlide = null;
           if (snapToEnd) place(ex, ey, true);
           resolve(Boolean(snapToEnd));
         }};
-        const cancelFn = () => finish(false);
-        activeGlideCancel = cancelFn;
         fallbackTimer = setTimeout(() => finish(true), timeoutMs);
-        function step(now) {{
-          if (done || mySeq !== glideSeq) {{
-            finish(false);
-            return;
-          }}
-          if (document.hidden) {{
-            finish(true);
-            return;
-          }}
-          const t = Math.min(1, (now - t0) / glideMs);
-          const ease = 1 - Math.pow(1 - t, 3);
-          const arc = Math.sin(t * Math.PI) * Math.min(14, Math.hypot(ex - sx, ey - sy) * 0.06);
-          place(sx + (ex - sx) * ease, sy + (ey - sy) * ease - arc, true);
-          if (t < 1) window.requestAnimationFrame(step);
-          else finish(true);
-        }}
-        window.requestAnimationFrame(step);
+        activeGlide = {{
+          sx, sy, ex, ey, dist, durationMs, elapsedMs: 0,
+          isLong: dist >= CFG.glideLongThresholdPx,
+          seq: mySeq, finish,
+        }};
+        scheduleTick();
       }});
     }},
     click(x, y, cursorId, opts = {{}}) {{
