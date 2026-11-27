@@ -1,6 +1,6 @@
 # Benchmark Publication Methodology
 
-This document defines the provenance rules, statistical definitions, proxy assumptions, and disclosed confounds behind [benchmark_data.json](benchmark_data.json) and the `docs/assets/benchmarks/` figure suite (`0.1.0a1`).
+This document defines the provenance rules, statistical definitions, proxy assumptions, and disclosed confounds behind [benchmark_data.json](benchmark_data.json) and the `docs/assets/benchmarks/` figure suite (`0.1.0a2`).
 
 ## 1. Canonical Single-Source Pipeline
 

@@ -18,6 +18,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { benchmarkData } from "../src/data";
 import { FIGURE_SPECS } from "../src/figures";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -56,7 +57,7 @@ const manifestEntries = FIGURE_SPECS.map((spec) => {
 
 const manifest = {
   schema_version: "1.0.0",
-  release_version: "0.1.0a1",
+  release_version: benchmarkData.release_version,
   generated_by: "research_visuals/benchmark_report/scripts/export_figures.tsx",
   figures: manifestEntries,
 };

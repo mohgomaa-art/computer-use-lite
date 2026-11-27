@@ -1,4 +1,4 @@
-# Disclosed Benchmark, Platform & Security Limitations (`0.1.0a1`)
+# Disclosed Benchmark, Platform & Security Limitations (`0.1.0a2`)
 
 This release documents both benchmark constraints and verified audit findings transparently without overclaiming runtime fixes. All items verified against baseline `0d19a9e` remain **open** unless explicitly marked otherwise.
 
@@ -12,7 +12,7 @@ This release documents both benchmark constraints and verified audit findings tr
 
 ## 2. Verified Security & Reliability Findings (`0d19a9e`)
 
-| ID | Finding | Severity | Audit Evidence | Fix Status at `0.1.0a1` |
+| ID | Finding | Severity | Audit Evidence | Fix Status at `0.1.0a2` |
 |---|---|---|---|---|
 | **F-01** | Cross-frame wrong-target click (`position:fixed` overlay over `iframe`) returns `ok:true, verified:true` | Critical | `CONFIRMED` (`B5`) | `NOT FIXED` (`browser_cdp.py:97,129-134`) |
 | **F-02** | Password/secret regex misses `card`/`ccnum`/`ssn`/`cc-number` & hides `address_shipping`/`opinion`/`spinner` | High | `CONFIRMED` (`B6`) | `NOT FIXED` (`browser_cdp.py:1863,2150`) |

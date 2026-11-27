@@ -52,7 +52,7 @@ export const Fig03TokenEstimates: React.FC = () => {
           sublabel: `commit ${b.cul_arm_commit}`,
           value: armB.median_tokens,
           formattedValue: armB.median_tokens.toLocaleString("en-US"),
-          detailLine: `+${b.deltas.median_tokens_pct_diff.toFixed(0)}% vs Arm A  |  p95: ${Math.round(armB.p95_tokens).toLocaleString("en-US")}`,
+          detailLine: `+${b.deltas.median_tokens_pct_diff.toFixed(0)}% vs Playwright  |  p95: ${Math.round(armB.p95_tokens).toLocaleString("en-US")}`,
           accent: "cul",
         },
       ]}

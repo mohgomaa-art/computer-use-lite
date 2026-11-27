@@ -5,6 +5,17 @@ Release classification: **Public Research Preview — Experimental — Not Produ
 
 ---
 
+## [0.1.0a2] — 2026-11-27 (Benchmark Research Edition + Windows MCP Setup)
+
+> **Scope Notice:** Updates the `v0.1.0a1` research-publication state cleanly while keeping previously pushed tags `v0.1.0a0` (`0d19a9e`) and `v0.1.0a1` (`566f08d`) immutable. **Core runtime engine behavior matches `0d19a9e`** (only `src/computer_use_lite/__init__.py` `__version__` fallback updated to `"0.1.0a2"`). Audited runtime security/reliability issues (`F-01`–`F-08` in [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)) remain **open and NOT FIXED**.
+
+### Added & Fixed
+- **FIG-01 Visual Clarity Fix (`Fig01BrowserSuccess.tsx`, `SvgPrimitives.tsx`, `FigureFrame.tsx`):** Separated the `95% Wilson CI` whisker cleanly below each bar (eliminating collision between the `100%` rounded emerald corner and right CI cap), updated the `95% Wilson CI` legend icon from a square box to a crisp `|—●—|` whisker glyph, replaced `"Arm A"` shorthand with `"Playwright MCP"` / `"Playwright"` across `FIG-01`/`FIG-03`/`FIG-04`, wired SVG/cover version labels dynamically to `benchmark_data.json#release_version`, and re-exported all 9 SVGs + 2x PNGs (`v0.1.0a2`).
+- **Windows MCP Guided Installer & Docs:** Added [`docs/WINDOWS_MCP_SETUP.md`](docs/WINDOWS_MCP_SETUP.md) (indexed in [`docs/INDEX.md`](docs/INDEX.md) and [`README.md`](README.md)), [`scripts/setup_mcp_windows.bat`](scripts/setup_mcp_windows.bat), [`scripts/merge_mcp_configs.ps1`](scripts/merge_mcp_configs.ps1), [`scripts/configure_mcp.py`](scripts/configure_mcp.py), and [`tests/test_mcp_setup_config.py`](tests/test_mcp_setup_config.py) to install `.venv` with `.[setup]` (`tomlkit>=0.12` documented in [`pyproject.toml`](pyproject.toml) and [`NOTICE`](NOTICE)) and atomically merge/back up `computer_use_lite` MCP config entries for Codex, Antigravity, and Claude Code.
+- **License Header Audit Coverage (`scripts/verify_copyright_headers.py`):** Refactored `#`-comment header checks into a shared helper covering `.ps1`/`.psm1`/`.sh` alongside `.py`, excluded `.bat` installer wrappers cleanly under `LICENSE`/`NOTICE`, and added `tomlkit` verification in `NOTICE`.
+
+---
+
 ## [0.1.0a1] — 2026-11-27 (Benchmark Research Edition)
 
 > **Scope Notice:** `0.1.0a1` is a research-publication, visualization, branding, and documentation release branching cleanly from historical baseline `v0.1.0a0` (`0d19a9e`). **Core runtime engine behavior is unchanged** (aside from read-only `__version__` metadata in `src/computer_use_lite/__init__.py`). Previously audited runtime security/reliability issues (`F-01`–`F-08` in [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)) remain **open and NOT FIXED** in this release.

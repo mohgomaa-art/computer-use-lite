@@ -9,13 +9,13 @@
 </p>
 
 <p align="center">
-  <strong>Version:</strong> <code>0.1.0a1</code> (Benchmark Research Edition; Historical Baseline: <a href="https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0"><code>v0.1.0a0</code> @ <code>0d19a9e</code></a>) ·
+  <strong>Version:</strong> <code>0.1.0a2</code> (Benchmark Research Edition; Historical Baseline: <a href="https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0"><code>v0.1.0a0</code> @ <code>0d19a9e</code></a>) ·
   <strong>License:</strong> <a href="LICENSE">Apache-2.0</a> ·
   <strong>Author:</strong> Mohamed Gomaa (<a href="https://github.com/mohgomaa-art/"><code>@mohgomaa-art</code></a>)
 </p>
 
 > [!WARNING]
-> **Experimental Research Preview — Not Production Ready (`v0.1.0a1`):** This release adds canonical benchmark data, reproducible TypeScript/SVG visual figures, official branding, and security documentation over runtime baseline `0d19a9e`. **Core runtime engine bugs remain NOT FIXED in this release** — including cross-frame overlay click-through (`Critical`), sensitive-field redaction gaps (`High`), cursor-overlay false `opaque_canvas` detection (`High`), DNS fail-open / TOCTOU (`Medium`), and unauthenticated loopback CDP (`CUL_MCP_DIRECT_WS` enabled by default). **Do not deploy against untrusted hosts or arbitrary public browsing.** See [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md) and [SECURITY.md](SECURITY.md).
+> **Experimental Research Preview — Not Production Ready (`v0.1.0a2`):** This release adds canonical benchmark data, reproducible TypeScript/SVG visual figures, official branding, Windows MCP setup tooling, and security documentation over runtime baseline `0d19a9e`. **Core runtime engine bugs remain NOT FIXED in this release** — including cross-frame overlay click-through (`Critical`), sensitive-field redaction gaps (`High`), cursor-overlay false `opaque_canvas` detection (`High`), DNS fail-open / TOCTOU (`Medium`), and unauthenticated loopback CDP (`CUL_MCP_DIRECT_WS` enabled by default). **Do not deploy against untrusted hosts or arbitrary public browsing.** See [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md) and [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -122,13 +122,23 @@ Supervised desktop benchmarking remains **incomplete**: `CUL T1` passed `2/2` ru
 
 *FIG-09 Source TSX: [`Fig09SecurityFindings.tsx`](research_visuals/benchmark_report/src/figures/Fig09SecurityFindings.tsx) · Full Security Dossier & Evidence Captures: [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)*
 
-All runtime issues (`F-01`–`F-08`) verified on `0d19a9e` remain **unfixed** in `0.1.0a1`; the stale `src/engine/` copy claim was **`REFUTED`** (`16`-line `importlib` aliases).
+All runtime issues (`F-01`–`F-08`) verified on `0d19a9e` remain **unfixed** in `0.1.0a2`; the stale `src/engine/` copy claim was **`REFUTED`** (`16`-line `importlib` aliases).
 
 ---
 
 ## 8. Installation & Quick Start
 
 **Requirements:** Windows 10/11 (`desktop_uia.py`, `snapshot.py`, and `desktop_cursor_overlay.py` bind Windows Win32/COM libraries on import) and Python `>=3.10`.
+
+### Option A — Guided Windows MCP Setup (`Codex`, `Antigravity`, `Claude Code`)
+
+For one-step setup using an isolated repository-local `.venv`, installing `.[setup]` (`tomlkit`), and safely merging the `computer_use_lite` stdio entry into **Codex**, **Antigravity**, and **Claude Code** configs with automatic timestamped backups, see **[docs/WINDOWS_MCP_SETUP.md](docs/WINDOWS_MCP_SETUP.md)** or run from the repository root:
+
+```bat
+scripts\setup_mcp_windows.bat
+```
+
+### Option B — Editable Developer & Benchmark Install
 
 ```powershell
 git clone https://github.com/mohgomaa-art/computer-use-lite.git
@@ -138,7 +148,7 @@ python -m pip install -e ".[dev,benchmarks]"
 python -m playwright install chromium
 ```
 
-> Note: Installing extras `.[dev]` alone omits `psutil` needed by benchmark tests; use `".[dev,benchmarks]"` as shown.
+> Note: Installing extras `.[dev]` alone omits `psutil` needed by benchmark tests; use `".[dev,benchmarks]"` for full benchmark/test execution or `".[setup]"` when running [`scripts/configure_mcp.py`](scripts/configure_mcp.py).
 
 ### Python API (Browser) & MCP Server (`stdio`)
 
@@ -184,5 +194,5 @@ npm run export
 - **Documentation Hub:** [docs/INDEX.md](docs/INDEX.md)
 - **Research Publication Docs:** [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md) · [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md) · [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)
 - **Historical & Audit Archive:** [research_archive/INDEX.md](research_archive/INDEX.md) · [research_archive/benchmark_publication/benchmark_data.json](research_archive/benchmark_publication/benchmark_data.json)
-- **Version History:** See [CHANGELOG.md](CHANGELOG.md) (`v0.1.0a1` Benchmark Research Edition and immutable historical release [`v0.1.0a0`](https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0) at `0d19a9e`).
-- **Citation:** See [CITATION.cff](CITATION.cff) (`version: "0.1.0a1"`), [AUTHORS.md](AUTHORS.md), [LICENSE](LICENSE), and [NOTICE](NOTICE).
+- **Version History:** See [CHANGELOG.md](CHANGELOG.md) (`v0.1.0a2` Benchmark Research Edition, intermediate `v0.1.0a1`, and immutable historical release [`v0.1.0a0`](https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0) at `0d19a9e`).
+- **Citation:** See [CITATION.cff](CITATION.cff) (`version: "0.1.0a2"`), [AUTHORS.md](AUTHORS.md), [LICENSE](LICENSE), and [NOTICE](NOTICE).

@@ -52,7 +52,7 @@ export const Fig04InteractionSteps: React.FC = () => {
           sublabel: `${armB.total_steps} total CUL calls`,
           value: armB.median_steps,
           formattedValue: `${armB.median_steps.toFixed(1)} steps`,
-          detailLine: `p95: ${armB.p95_steps.toFixed(1)} steps (+${b.deltas.median_steps_abs_diff.toFixed(1)} vs Arm A)`,
+          detailLine: `p95: ${armB.p95_steps.toFixed(1)} steps (+${b.deltas.median_steps_abs_diff.toFixed(1)} vs Playwright)`,
           accent: "cul",
         },
       ]}

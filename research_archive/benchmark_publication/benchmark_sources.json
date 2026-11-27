@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "publication_version": "0.1.0a1",
+  "publication_version": "0.1.0a2",
   "historical_baseline": {
     "tag": "v0.1.0a0",
     "commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",

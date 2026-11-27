@@ -23,6 +23,7 @@
 // solid window with a title bar and a cursor.
 
 import * as React from "react";
+import { benchmarkData } from "../data";
 
 // ---- canvas -------------------------------------------------------------
 const W = 1280;
@@ -251,7 +252,7 @@ export default function CulCover() {
           fontSize: 14, color: MUTED,
         }}
       >
-        github.com/mohgomaa-art/computer-use-lite · v0.1.0a1
+        {`github.com/mohgomaa-art/computer-use-lite · v${benchmarkData.release_version}`}
       </div>
     </div>
   );

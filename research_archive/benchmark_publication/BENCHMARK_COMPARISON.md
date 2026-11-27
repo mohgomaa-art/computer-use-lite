@@ -1,4 +1,4 @@
-# Benchmark Comparison Summary (`v0.1.0a1`)
+# Benchmark Comparison Summary (`v0.1.0a2`)
 
 > [!IMPORTANT]
 > Canonical publication view linked to [benchmark_data.json](benchmark_data.json). For full methodology and prompt-contamination details, see [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) and [LIMITATIONS.md](LIMITATIONS.md).

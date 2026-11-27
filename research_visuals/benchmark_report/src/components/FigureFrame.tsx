@@ -13,12 +13,14 @@
 // rewrite provenance or copyright notices when reproducing or adapting code.
 // (This notice states provenance obligations, not a technical access barrier.)
 import * as React from "react";
+import { benchmarkData } from "../data";
 import { FONTS, PALETTE, wrapText } from "../styles";
 
 export interface LegendItem {
   label: string;
   color: string;
   outline?: string;
+  kind?: "swatch" | "whisker";
 }
 
 export interface FigureFrameProps {
@@ -131,7 +133,7 @@ export const FigureFrame: React.FC<FigureFrameProps> = ({
         computer-use-lite
       </text>
       <text x={width - 150} y={53} fill={PALETTE.textMuted} fontFamily={FONTS.mono} fontSize={10.5}>
-        v0.1.0a1
+        {`v${benchmarkData.release_version}`}
       </text>
 
       {/* Proportionally spaced legend */}
@@ -139,20 +141,31 @@ export const FigureFrame: React.FC<FigureFrameProps> = ({
         <g transform="translate(42, 100)" fontSize={11.8} fontFamily={FONTS.sans}>
           {legend.map((item) => {
             const xOff = legendCursor;
-            legendCursor += Math.max(128, item.label.length * 6.3 + 32);
+            const isWhisker = item.kind === "whisker";
+            const glyphWidth = isWhisker ? 22 : 16;
+            legendCursor += Math.max(128, item.label.length * 6.3 + glyphWidth + 18);
             return (
               <g key={item.label} transform={`translate(${xOff}, 0)`}>
-                <rect
-                  x={0}
-                  y={-9}
-                  width={10}
-                  height={10}
-                  rx={2}
-                  fill={item.color}
-                  stroke={item.outline ?? "none"}
-                  strokeWidth={1}
-                />
-                <text x={16} y={0} fill={PALETTE.textSecondary}>
+                {isWhisker ? (
+                  <g>
+                    <line x1={0} y1={-4} x2={16} y2={-4} stroke={item.color} strokeWidth={1.6} />
+                    <line x1={0} y1={-8} x2={0} y2={0} stroke={item.color} strokeWidth={1.6} />
+                    <line x1={16} y1={-8} x2={16} y2={0} stroke={item.color} strokeWidth={1.6} />
+                    <circle cx={8} cy={-4} r={2.3} fill={item.color} />
+                  </g>
+                ) : (
+                  <rect
+                    x={0}
+                    y={-9}
+                    width={10}
+                    height={10}
+                    rx={2}
+                    fill={item.color}
+                    stroke={item.outline ?? "none"}
+                    strokeWidth={1}
+                  />
+                )}
+                <text x={glyphWidth} y={0} fill={PALETTE.textSecondary}>
                   {item.label}
                 </text>
               </g>

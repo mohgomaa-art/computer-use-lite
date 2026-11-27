@@ -14,6 +14,7 @@
 // (This notice states provenance obligations, not a technical access barrier.)
 import * as React from "react";
 import CulCover from "./components/CulCover";
+import { benchmarkData } from "./data";
 import { FIGURE_SPECS } from "./figures";
 import { FONTS, PALETTE } from "./styles";
 
@@ -55,7 +56,7 @@ export const App: React.FC = () => {
             <img src="../../../docs/assets/brand/logo.svg" alt="Computer Use Lite official logo" width={46} height={46} />
             <div style={{ minWidth: 0 }}>
               <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: PALETTE.text }}>
-                Computer Use Lite — Benchmark Publication (v0.1.0a1)
+                {`Computer Use Lite — Benchmark Publication (v${benchmarkData.release_version})`}
               </h1>
               <p style={{ margin: "4px 0 0", color: PALETTE.textSecondary, fontSize: 13.5, overflowWrap: "anywhere" }}>
                 Canonical SVG figures rendered directly from research_archive/benchmark_publication/benchmark_data.json
@@ -73,7 +74,7 @@ export const App: React.FC = () => {
               borderRadius: 4,
             }}
           >
-            Experimental Preview · v0.1.0a1
+            {`Experimental Preview · v${benchmarkData.release_version}`}
           </span>
         </header>
 

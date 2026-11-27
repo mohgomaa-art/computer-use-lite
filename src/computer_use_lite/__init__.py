@@ -32,7 +32,7 @@ from .resolver import Resolver, StaleElementError
 try:
     __version__ = _pkg_version("computer-use-lite")
 except PackageNotFoundError:  # pragma: no cover - source checkout before editable install
-    __version__ = "0.1.0a1"
+    __version__ = "0.1.0a2"
 
 __all__ = ["Api", "BrowserSession", "DesktopSession", "Resolver", "StaleElementError",
            "__version__", "detect", "export"]

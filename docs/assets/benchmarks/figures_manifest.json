@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "release_version": "0.1.0a1",
+  "release_version": "0.1.0a2",
   "generated_by": "research_visuals/benchmark_report/scripts/export_figures.tsx",
   "figures": [
     {
@@ -12,7 +12,7 @@
       "svg_path": "docs/assets/benchmarks/fig-01-browser-success.svg",
       "png_path": "docs/assets/benchmarks/fig-01-browser-success.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "addf4dddaf22b3ff45e7234f22eee427502732e6bc8157739ee428d4c16b5897"
+      "svg_sha256": "9cc375163588a24af832aa472b8e15f8ba72e5c8037c8d88b3b6b28ea1844b94"
     },
     {
       "id": "FIG-02",
@@ -23,7 +23,7 @@
       "svg_path": "docs/assets/benchmarks/fig-02-wall-time.svg",
       "png_path": "docs/assets/benchmarks/fig-02-wall-time.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "eaa9770dcaf154cfd36546152198bfb67145a16ca3e6541906b346da7fb93ae6"
+      "svg_sha256": "59ef2fad46c9b8307ed5ac28881a83da7fb93da88eb8372b3108fdc4f46d722e"
     },
     {
       "id": "FIG-03",
@@ -34,7 +34,7 @@
       "svg_path": "docs/assets/benchmarks/fig-03-token-estimates.svg",
       "png_path": "docs/assets/benchmarks/fig-03-token-estimates.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "d6e1b1ad4440187f75c78dc99900bdd8879a07774614cd61f84018c3c702170a"
+      "svg_sha256": "29f0c1f6e72959bf05197438f7331a1e76faa475c52abae9ce1023969f7abb45"
     },
     {
       "id": "FIG-04",
@@ -45,7 +45,7 @@
       "svg_path": "docs/assets/benchmarks/fig-04-interaction-steps.svg",
       "png_path": "docs/assets/benchmarks/fig-04-interaction-steps.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "bdb5ce275a2f76f33f9dfc40e95089e45e94b5c5b3a589ff00b401d57e9b73c9"
+      "svg_sha256": "99f0d0b68c8dfb055cb0e776d5cf41785b6d265ea1dc502bc6b73ecefb5f0f7a"
     },
     {
       "id": "FIG-05",
@@ -56,7 +56,7 @@
       "svg_path": "docs/assets/benchmarks/fig-05-observation-size.svg",
       "png_path": "docs/assets/benchmarks/fig-05-observation-size.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#observation_size_comparison",
-      "svg_sha256": "a4736ba746a7eea57341960668c4e9fc8b97baca79b65d1a01da6be21ce495b3"
+      "svg_sha256": "89f1387668d34c384192244481f5b27ae6f0de7b42caad12caedfcb7ec066db7"
     },
     {
       "id": "FIG-06",
@@ -67,7 +67,7 @@
       "svg_path": "docs/assets/benchmarks/fig-06-windows-tests.svg",
       "png_path": "docs/assets/benchmarks/fig-06-windows-tests.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#windows_test_suite",
-      "svg_sha256": "251a1a0c01218cb32be81471554fb66d9698940ed41fb47aa6b2cbb73a0fb0da"
+      "svg_sha256": "9148cd8efa6599b47f1e27090ca20dfc0586ad10d5233d0b80f5a63442648a21"
     },
     {
       "id": "FIG-07",
@@ -78,7 +78,7 @@
       "svg_path": "docs/assets/benchmarks/fig-07-desktop-pilot-status.svg",
       "png_path": "docs/assets/benchmarks/fig-07-desktop-pilot-status.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#desktop_pilot_status",
-      "svg_sha256": "b39ff1293a2e6f08ef4fce6db8a550c9b089ebf6359b7812aa1216a97faf21ce"
+      "svg_sha256": "1cbe3326cd6bb0a954befab2eb7c2b9ec02fbc2480003e96191f15be7c498b0b"
     },
     {
       "id": "FIG-08",
@@ -89,7 +89,7 @@
       "svg_path": "docs/assets/benchmarks/fig-08-architecture.svg",
       "png_path": "docs/assets/benchmarks/fig-08-architecture.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#architecture_pipeline",
-      "svg_sha256": "c84d05147a6eca4ab1bb64faa7f3af8d2a6a9c772dc5f9f19ef377d6060c98da"
+      "svg_sha256": "ce16c758dbe9d46fa8f18d5fcdadfa9ca773897bdf05742ff74d96de7a2cc2db"
     },
     {
       "id": "FIG-09",
@@ -100,7 +100,7 @@
       "svg_path": "docs/assets/benchmarks/fig-09-security-findings.svg",
       "png_path": "docs/assets/benchmarks/fig-09-security-findings.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#security_and_reliability_findings",
-      "svg_sha256": "d242411a47b43d63b4002ac214d94ddda7590883ce0ab2701f8dbd8b9a501cd2"
+      "svg_sha256": "c484fed679b5238eb8393b6bde6685ce9e43c6a85a9ac8f3fdbbd81e4ac9c87f"
     }
   ]
 }

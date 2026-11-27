@@ -1,7 +1,7 @@
-# Security Findings & Open Limitations (`v0.1.0a1`)
+# Security Findings & Open Limitations (`v0.1.0a2`)
 
 > [!WARNING]
-> **Unpatched Runtime Baseline (`0d19a9e`):** Release `v0.1.0a1` is a research documentation, visualization, and branding upgrade. It does **not** patch the verified engine defects documented below. Do not deploy against untrusted websites, multi-tenant servers, or sensitive desktops.
+> **Unpatched Runtime Baseline (`0d19a9e`):** Release `v0.1.0a2` is a research documentation, visualization, branding, and MCP setup release. It does **not** patch the verified engine defects documented below. Do not deploy against untrusted websites, multi-tenant servers, or sensitive desktops.
 
 ---
 

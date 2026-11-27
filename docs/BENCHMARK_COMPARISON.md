@@ -1,4 +1,4 @@
-# Computer Use Lite — Benchmark Comparison (`v0.1.0a1`)
+# Computer Use Lite — Benchmark Comparison (`v0.1.0a2`)
 
 > [!IMPORTANT]
 > **Comparison Boundary:** The paired browser study compared **two semantic browser MCP tools** (`@playwright/mcp@0.0.86` accessibility snapshots vs **CUL Browser MCP** at commit `fdc92d9` under `CUL_MCP_BROWSER_ONLY=1`). It is **NOT** a Native OpenAI Computer Use (`@oai/sky`) vs CUL comparison, and it is **NOT** an evaluation of Windows Desktop UIA. Every figure below is generated from [../research_archive/benchmark_publication/benchmark_data.json](../research_archive/benchmark_publication/benchmark_data.json).

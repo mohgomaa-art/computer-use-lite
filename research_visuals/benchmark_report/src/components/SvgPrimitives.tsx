@@ -133,73 +133,89 @@ export const HorizontalComparisonChart: React.FC<HorizontalComparisonProps> = ({
       />
 
       {/* Horizontal comparison bars */}
-      {rows.map((row, idx) => {
-        const y = chartTop + 16 + idx * ROW_STEP;
-        const barW = Math.max(4, scaleX(row.value));
-        const isCul = row.accent === "cul";
-        const barFill = isCul ? PALETTE.cul : PALETTE.baseline;
-        const valFill = isCul ? PALETTE.culDark : PALETTE.text;
+      {(() => {
+        const hasCi = rows.some((item) => Boolean(item.ciRange));
+        const barH = hasCi ? 24 : BAR_HEIGHT;
+        const topOffset = hasCi ? 13 : 16;
+        return rows.map((row, idx) => {
+          const y = chartTop + topOffset + idx * ROW_STEP;
+          const barW = Math.max(4, scaleX(row.value));
+          const isCul = row.accent === "cul";
+          const barFill = isCul ? PALETTE.cul : PALETTE.baseline;
+          const valFill = isCul ? PALETTE.culDark : PALETTE.text;
+          const labelY = y + (hasCi ? 14 : 15);
+          const subY = y + (hasCi ? 32 : 33);
+          const ciY = y + barH + 11;
 
-        return (
-          <g key={row.label}>
-            <text x={42} y={y + 15} fill={PALETTE.text} fontSize={14} fontWeight={700}>
-              {row.label}
-            </text>
-            <text x={42} y={y + 33} fill={PALETTE.textMuted} fontSize={11.5} fontFamily={FONTS.mono}>
-              {row.sublabel}
-            </text>
+          return (
+            <g key={row.label}>
+              <text x={42} y={labelY} fill={PALETTE.text} fontSize={14} fontWeight={700}>
+                {row.label}
+              </text>
+              <text x={42} y={subY} fill={PALETTE.textMuted} fontSize={11.5} fontFamily={FONTS.mono}>
+                {row.sublabel}
+              </text>
 
-            {/* Light track & clean flat bar */}
-            <rect x={CHART_LEFT} y={y} width={CHART_WIDTH} height={BAR_HEIGHT} rx={3} fill={PALETTE.surfaceSubtle} />
-            <rect x={CHART_LEFT} y={y} width={barW} height={BAR_HEIGHT} rx={3} fill={barFill} />
+              {/* Light track & clean flat bar */}
+              <rect x={CHART_LEFT} y={y} width={CHART_WIDTH} height={barH} rx={2.5} fill={PALETTE.surfaceSubtle} />
+              <rect x={CHART_LEFT} y={y} width={barW} height={barH} rx={2.5} fill={barFill} />
 
-            {/* Optional 95% Wilson CI whisker */}
-            {row.ciRange && (
-              <g>
-                <line
-                  x1={CHART_LEFT + scaleX(row.ciRange[0])}
-                  y1={y + BAR_HEIGHT / 2}
-                  x2={CHART_LEFT + scaleX(row.ciRange[1])}
-                  y2={y + BAR_HEIGHT / 2}
-                  stroke={PALETTE.text}
-                  strokeWidth={1.8}
-                />
-                <line
-                  x1={CHART_LEFT + scaleX(row.ciRange[0])}
-                  y1={y + 9}
-                  x2={CHART_LEFT + scaleX(row.ciRange[0])}
-                  y2={y + BAR_HEIGHT - 9}
-                  stroke={PALETTE.text}
-                  strokeWidth={1.8}
-                />
-                <line
-                  x1={CHART_LEFT + scaleX(row.ciRange[1])}
-                  y1={y + 9}
-                  x2={CHART_LEFT + scaleX(row.ciRange[1])}
-                  y2={y + BAR_HEIGHT - 9}
-                  stroke={PALETTE.text}
-                  strokeWidth={1.8}
-                />
-              </g>
-            )}
+              {/* Dedicated 95% Wilson CI track below the bar (avoids bar-corner overlap) */}
+              {row.ciRange && (
+                <g>
+                  <line
+                    x1={CHART_LEFT + scaleX(row.ciRange[0])}
+                    y1={ciY}
+                    x2={CHART_LEFT + scaleX(row.ciRange[1])}
+                    y2={ciY}
+                    stroke={PALETTE.text}
+                    strokeWidth={1.6}
+                  />
+                  <line
+                    x1={CHART_LEFT + scaleX(row.ciRange[0])}
+                    y1={ciY - 4}
+                    x2={CHART_LEFT + scaleX(row.ciRange[0])}
+                    y2={ciY + 4}
+                    stroke={PALETTE.text}
+                    strokeWidth={1.6}
+                  />
+                  <line
+                    x1={CHART_LEFT + scaleX(row.ciRange[1])}
+                    y1={ciY - 4}
+                    x2={CHART_LEFT + scaleX(row.ciRange[1])}
+                    y2={ciY + 4}
+                    stroke={PALETTE.text}
+                    strokeWidth={1.6}
+                  />
+                  <circle
+                    cx={CHART_LEFT + scaleX(row.value)}
+                    cy={ciY}
+                    r={2.8}
+                    fill={barFill}
+                    stroke={PALETTE.text}
+                    strokeWidth={1.2}
+                  />
+                </g>
+              )}
 
-            {/* Direct value labels */}
-            <text
-              x={CHART_LEFT + CHART_WIDTH + 16}
-              y={y + 15}
-              fill={valFill}
-              fontFamily={FONTS.mono}
-              fontSize={14.5}
-              fontWeight={700}
-            >
-              {row.formattedValue}
-            </text>
-            <text x={CHART_LEFT + CHART_WIDTH + 16} y={y + 33} fill={PALETTE.textSecondary} fontSize={11.2}>
-              {row.detailLine}
-            </text>
-          </g>
-        );
-      })}
+              {/* Direct value labels */}
+              <text
+                x={CHART_LEFT + CHART_WIDTH + 16}
+                y={labelY}
+                fill={valFill}
+                fontFamily={FONTS.mono}
+                fontSize={14.5}
+                fontWeight={700}
+              >
+                {row.formattedValue}
+              </text>
+              <text x={CHART_LEFT + CHART_WIDTH + 16} y={subY} fill={PALETTE.textSecondary} fontSize={11.2}>
+                {row.detailLine}
+              </text>
+            </g>
+          );
+        });
+      })()}
 
       {/* Understated left-accent callout strip */}
       {calloutBadge && (() => {

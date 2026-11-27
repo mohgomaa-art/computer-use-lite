@@ -36,7 +36,7 @@ export const Fig01BrowserSuccess: React.FC = () => {
       directionCue="Higher completion rate is better  |  Error bars: 95% Wilson CI"
       calloutBadge={{
         tone: "warn",
-        text: "b11 Contamination Disclosure: Both arms saw 'filter_query' in b11 goal text; Arm A called browser_run_code_unsafe once (b12 #1).",
+        text: "b11 Contamination Disclosure: Both arms saw 'filter_query' in b11 goal text; Playwright MCP called browser_run_code_unsafe once (b12 run 1).",
       }}
       rows={[
         {
@@ -61,7 +61,7 @@ export const Fig01BrowserSuccess: React.FC = () => {
       legend={[
         { label: "Playwright MCP (snapshots)", color: PALETTE.baseline },
         { label: "CUL Browser MCP (CDP + blind_gap)", color: PALETTE.cul },
-        { label: "95% Wilson CI", color: PALETTE.text },
+        { label: "95% Wilson CI", color: PALETTE.text, kind: "whisker" },
       ]}
       methodologyNote={`Seed ${b.random_seed}; model request ${b.requested_model} (Codex ${b.codex_cli_version}). Semantic-vs-semantic comparison, NOT Native CUA.`}
       sourceRef="benchmark_data.json -> browser_benchmark.arms | runs/20261126_195128"

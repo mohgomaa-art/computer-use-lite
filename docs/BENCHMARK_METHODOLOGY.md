@@ -1,6 +1,6 @@
-# Computer Use Lite — Benchmark Methodology (`v0.1.0a1`)
+# Computer Use Lite — Benchmark Methodology (`v0.1.0a2`)
 
-This methodology specification governs the `0.1.0a1` Benchmark Research Publication, canonical data files in [`research_archive/benchmark_publication/`](../research_archive/benchmark_publication/benchmark_data.json), and original TSX/SVG chart suite in [`research_visuals/benchmark_report/`](../research_visuals/benchmark_report/).
+This methodology specification governs the `0.1.0a2` Benchmark Research Publication, canonical data files in [`research_archive/benchmark_publication/`](../research_archive/benchmark_publication/benchmark_data.json), and original TSX/SVG chart suite in [`research_visuals/benchmark_report/`](../research_visuals/benchmark_report/).
 
 ---
 

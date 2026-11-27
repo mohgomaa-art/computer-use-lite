@@ -34,17 +34,18 @@ function evidenceStyle(status: string) {
 
 export const Fig09SecurityFindings: React.FC = () => {
   const findings = benchmarkData.security_and_reliability_findings;
+  const ver = benchmarkData.release_version;
 
   return (
     <FigureFrame
       figureNumber="FIG-09"
       title="Security & Reliability Findings (@ 0d19a9e)"
-      subtitle="Verified audit status board — unpatched defects remain open in v0.1.0a1 documentation release"
+      subtitle={`Verified audit status board — unpatched defects remain open in v${ver} documentation release`}
       units="findings & verification labels"
       sampleSize={`${findings.length} audited items`}
-      methodologyNote="Verified via Windows 11 probes (B5-B14) and Linux audit (L/V). Release 0.1.0a1 documents findings without modifying runtime code."
+      methodologyNote={`Verified via Windows 11 probes (B5-B14) and Linux audit (L/V). Release ${ver} documents findings without modifying runtime code.`}
       sourceRef="benchmark_data.json -> security_and_reliability_findings | docs/SECURITY_AND_LIMITATIONS.md"
-      caveatText="NOT FIXED labels reflect actual runtime code at 0d19a9e / 0.1.0a1; DNS-rebinding TOCTOU and local CDP hijack remain NOT RUN."
+      caveatText={`NOT FIXED labels reflect actual runtime code at 0d19a9e / ${ver}; DNS-rebinding TOCTOU and local CDP hijack remain NOT RUN.`}
       legend={[
         { label: "CONFIRMED", color: PALETTE.cul },
         { label: "PARTIAL / NOT RUN", color: PALETTE.warnAccent },
