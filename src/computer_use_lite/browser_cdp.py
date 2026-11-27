@@ -27,6 +27,7 @@ import os
 import socket
 import sys
 import threading
+import time
 import urllib.parse
 
 try:
@@ -2413,10 +2414,18 @@ class BrowserSession:
             self._blocked_url_error = None
         return {"url": self.page.url, "title": self.page.title(), "navigated": resp is not None}
 
-    def scroll(self, dx=0, dy=0):
+    def scroll(self, dx=0, dy=0, x=None, y=None):
+        if (x is None) != (y is None):
+            raise ValueError("Supply both x and y together, or omit both to scroll at viewport center.")
         with takeover_action_scope(getattr(self, "_takeover_guard", None)):
             vx, vy, vw, vh = self.bounds()
-            cx, cy = vx + vw / 2, vy + vh / 2
+            if x is None:
+                cx, cy = vx + vw / 2, vy + vh / 2
+            else:
+                fx, fy = float(x), float(y)
+                if not (vx <= fx < vx + vw and vy <= fy < vy + vh):
+                    raise ValueError(f"Scroll coordinate ({fx}, {fy}) is outside viewport {[vx, vy, vw, vh]}")
+                cx, cy = fx, fy
             self._move_cursor(cx, cy, cursor_for_action("scroll", dx=dx, dy=dy))
             self.page.mouse.move(cx, cy)
             self.page.mouse.wheel(dx, dy)
@@ -2424,22 +2433,102 @@ class BrowserSession:
                 "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => "
                 "r([Math.round(window.scrollX), Math.round(window.scrollY)]))))"
             )
-            return {"dx": dx, "dy": dy, "scroll_x": pos[0], "scroll_y": pos[1]}
+            return {
+                "dx": dx, "dy": dy, "x": round(cx, 1), "y": round(cy, 1),
+                "scroll_x": pos[0], "scroll_y": pos[1], "verification_scope": "dom_scroll",
+            }
 
-    def press_key(self, key):
+    def drag_coordinate(self, x1, y1, x2, y2, button="left", steps=16, duration_ms=250):
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            if button not in ("left", "right", "middle"):
+                raise ValueError(f"Unsupported mouse button: {button!r}")
+            vx, vy, vw, vh = self.bounds()
+            sx, sy = float(x1), float(y1)
+            dx, dy = float(x2), float(y2)
+            for label, px, py in (("Drag start", sx, sy), ("Drag end", dx, dy)):
+                if not (vx <= px < vx + vw and vy <= py < vy + vh):
+                    raise ValueError(f"{label} ({px}, {py}) is outside viewport {[vx, vy, vw, vh]}")
+            cid = cursor_for_action("click_at", is_blind_coord=True)
+            self._move_cursor(sx, sy, cid)
+            self.page.mouse.move(sx, sy)
+            n = max(4, min(int(steps), 40))
+            pressed = False
+            try:
+                self.page.mouse.down(button=button)
+                pressed = True
+                for i in range(1, n + 1):
+                    ix = sx + (dx - sx) * (i / n)
+                    iy = sy + (dy - sy) * (i / n)
+                    self.page.mouse.move(ix, iy)
+                self._move_cursor(dx, dy, cid)
+            finally:
+                if pressed:
+                    try:
+                        self.page.mouse.up(button=button)
+                    except Exception:
+                        pass
+            return {
+                "x1": round(sx, 1), "y1": round(sy, 1),
+                "x2": round(dx, 1), "y2": round(dy, 1),
+                "button": button, "steps": n, "duration_ms": int(duration_ms),
+                "verification_scope": "unverified_cdp_input",
+            }
+
+    def type_text(self, text, press_enter=False, max_length=1000, input_mode="unicode"):
+        from .state import validate_type_text_args
+
+        normalized = validate_type_text_args(
+            text, press_enter=press_enter, max_length=max_length, input_mode=input_mode
+        )
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            lines = normalized.split("\n")
+            for idx, seg in enumerate(lines):
+                if seg:
+                    self.page.keyboard.insert_text(seg)
+                if idx < len(lines) - 1:
+                    self.page.keyboard.press("Enter")
+            if press_enter:
+                self.page.keyboard.press("Enter")
+            return {
+                "typed_chars": len(text),
+                "press_enter": bool(press_enter),
+                "input_mode": input_mode,
+                "verified": False,
+                "verification_scope": "unverified_cdp_input",
+            }
+
+    @staticmethod
+    def _normalize_browser_key(key):
         from .state import validate_key_spec
 
+        validate_key_spec(key)
+        aliases = {
+            "ctrl": "Control", "esc": "Escape", "return": "Enter",
+            "up": "ArrowUp", "down": "ArrowDown", "left": "ArrowLeft", "right": "ArrowRight",
+            "del": "Delete",
+        }
+        parts = [p.strip() for p in key.split("+") if p.strip()]
+        return "+".join(aliases.get(p.lower(), p) for p in parts)
+
+    def press_key(self, key):
         with takeover_action_scope(getattr(self, "_takeover_guard", None)):
-            validate_key_spec(key)
-            aliases = {
-                "ctrl": "Control", "esc": "Escape", "return": "Enter",
-                "up": "ArrowUp", "down": "ArrowDown", "left": "ArrowLeft", "right": "ArrowRight",
-                "del": "Delete",
-            }
-            parts = [p.strip() for p in key.split("+") if p.strip()]
-            normalized = "+".join(aliases.get(p.lower(), p) for p in parts)
+            normalized = self._normalize_browser_key(key)
             self.page.keyboard.press(normalized)
-            return {"key": normalized}
+            return {"key": normalized, "verification_scope": "unverified_cdp_input"}
+
+    def press_keys(self, keys, delay_ms=15):
+        if not isinstance(keys, list) or not keys:
+            raise ValueError("keys must be a non-empty list of key strings")
+        if len(keys) > 200:
+            raise ValueError("keys batch exceeds 200 items")
+        bounded_delay = max(0, min(int(delay_ms), 500)) / 1000.0
+        normalized = [self._normalize_browser_key(k) for k in keys]
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            for idx, norm in enumerate(normalized):
+                self.page.keyboard.press(norm)
+                if bounded_delay > 0 and idx < len(normalized) - 1:
+                    time.sleep(bounded_delay)
+            return {"keys": normalized, "count": len(normalized), "verification_scope": "unverified_cdp_input"}
 
     def click_coordinate(self, x, y, button="left", clicks=1):
         with takeover_action_scope(getattr(self, "_takeover_guard", None)):
@@ -2454,7 +2543,7 @@ class BrowserSession:
             self._move_cursor(x, y, cid)
             self._dispatch_cursor("click", round(float(x), 1), round(float(y), 1), cid, {"button": button, "clicks": clicks})
             self.page.mouse.click(x, y, button=button, click_count=clicks)
-            return {"x": x, "y": y, "button": button, "clicks": clicks}
+            return {"x": x, "y": y, "button": button, "clicks": clicks, "verification_scope": "unverified_cdp_input"}
 
     def _safe_url(self):
         try:

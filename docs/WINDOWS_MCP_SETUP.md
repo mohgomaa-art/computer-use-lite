@@ -31,11 +31,13 @@ The setup can be run again. It updates the same server entry without adding dupl
 
 ## What the installer configures
 
-The server uses the repository's `.venv\Scripts\python.exe` and launches as:
+The server uses the repository's `.venv\Scripts\python.exe` and launches by default via the thin stdlib reload supervisor:
 
 ```text
--u -m computer_use_lite.mcp_server
+-u -m computer_use_lite.supervisor
 ```
+
+The supervisor owns the MCP `stdio` pipe to the client, runs `python -u -m computer_use_lite.mcp_server` as a restartable child process (in a Win32 Job Object on Windows), and adds a `cul_reload` tool so an agent can reload edited server code mid-session without restarting Codex, Antigravity, or Claude Code. Pass `--direct` to `scripts/configure_mcp.py` if you specifically want `-u -m computer_use_lite.mcp_server` without the supervisor.
 
 It sets `cwd` to this repository, `PYTHONPATH` to its `src` directory, and `PYTHONUNBUFFERED=1`.
 
@@ -57,7 +59,7 @@ Codex `config.toml`:
 ```toml
 [mcp_servers.computer_use_lite]
 command = '<REPO>\.venv\Scripts\python.exe'
-args = ["-u", "-m", "computer_use_lite.mcp_server"]
+args = ["-u", "-m", "computer_use_lite.supervisor"]
 cwd = '<REPO>'
 enabled = true
 required = true
@@ -71,7 +73,7 @@ Antigravity `mcp_config.json` entry under the existing top-level `mcpServers` ob
 {
   "computer_use_lite": {
     "command": "<REPO>\\\\.venv\\\\Scripts\\\\python.exe",
-    "args": ["-u", "-m", "computer_use_lite.mcp_server"],
+    "args": ["-u", "-m", "computer_use_lite.supervisor"],
     "cwd": "<REPO>",
     "env": {
       "PYTHONPATH": "<REPO>\\\\src",
@@ -91,7 +93,7 @@ Claude Code stores user-scope MCP servers in the root `mcpServers` object in `.c
     "computer_use_lite": {
       "type": "stdio",
       "command": "<REPO>\\\\.venv\\\\Scripts\\\\python.exe",
-      "args": ["-u", "-m", "computer_use_lite.mcp_server"],
+      "args": ["-u", "-m", "computer_use_lite.supervisor"],
       "env": {
         "PYTHONPATH": "<REPO>\\\\src",
         "PYTHONUNBUFFERED": "1"
@@ -120,14 +122,14 @@ The installer preserves other root values and server entries in this file too.
 Open Command Prompt in the repository and run:
 
 ```bat
-.venv\Scripts\python.exe -u -m computer_use_lite.mcp_server
+.venv\Scripts\python.exe -u -m computer_use_lite.supervisor
 ```
 
-This command is an MCP stdio server: it waits for a client and is not intended to be tested by typing into its terminal. Press `Ctrl+C` to stop this manual process before reconnecting clients. Normally the MCP client starts it automatically.
+This command is an MCP stdio server (via the reload supervisor): it waits for a client and is not intended to be tested by typing into its terminal. Press `Ctrl+C` to stop this manual process before reconnecting clients. Normally the MCP client starts it automatically.
 
 ### Check Codex
 
-After reload/restart, open a new chat and inspect the connected MCP tool catalog. It should list `computer_use_lite` tools, including `list_desktop_windows`, `open_desktop`, `discover`, `act`, and `press_key`.
+After reload/restart, open a new chat and inspect the connected MCP tool catalog. It should list `computer_use_lite` tools, including `list_desktop_windows`, `open_desktop`, `discover`, `act`, `press_key`, and `cul_reload`.
 
 ### Check Antigravity
 
@@ -137,7 +139,14 @@ Open the MCP manager and verify the server is connected. Antigravity may lazy-lo
 
 Run `claude mcp list` to check the server status, then use `/mcp` in an interactive session to inspect available tools. If the project defines a local or project MCP server with this same name, Claude Code can use that higher-priority definition instead.
 
-The server currently exposes 13 tools: `open_browser`, `list_desktop_windows`, `open_desktop`, `close_session`, `list_sessions`, `discover`, `inspect`, `act`, `hover`, `navigate`, `scroll`, `press_key`, and `click_at`.
+When launched through `computer_use_lite.supervisor`, the server exposes `16` tools (`15` core automation tools: `open_browser`, `list_desktop_windows`, `open_desktop`, `close_session`, `list_sessions`, `discover`, `inspect`, `act`, `hover`, `navigate`, `scroll`, `press_key`, `click_at`, `drag_at`, and `type_text`, plus `cul_reload`). Launching `computer_use_lite.mcp_server` directly (`--direct`) exposes the `15` core tools without `cul_reload`.
+
+## Hot-reloading edits mid-session (`cul_reload`)
+
+- **Trigger:** Call `cul_reload` after editing files under `src/computer_use_lite/`. The supervisor pre-boots and MCP-handshakes a fresh child process before shutting down the previous child (via `close_all()`, stdin EOF, and Win32 Job Object cleanup) and updates a non-destructive last-known-good (`LKG`) snapshot in a temporary directory.
+- **Session state is intentionally reset:** All open browser/desktop `SESSION:*` IDs, `eN`/`REV` element handles, CDP connections, Chrome children, and active cursor overlays belong to the old child process and are terminated cleanly. Call `open_browser` or `open_desktop` again after `cul_reload`.
+- **Broken edits:** If your edited code raises an import or `SyntaxError` during child startup, the supervisor stays alive, returns a JSON-RPC error instead of crashing the client pipe, retries with exponential backoff, and (after `--rollback-after` consecutive failed starts, default `3`) serves the temporary `LKG` snapshot in-memory/via `sys.path` without overwriting your edited workspace files.
+- **Self-update & client schema limits:** Edits to `src/computer_use_lite/supervisor.py` itself cannot hot-reload and still require restarting/refreshing the MCP server in the client. The supervisor emits `notifications/tools/list_changed` on reload; whether a host client dynamically refreshes newly added tool schemas depends on that client (`cul_reload` and the `15` core schemas remain callable regardless). See [MCP Supervisor Reload Architecture](architecture/MCP_SUPERVISOR_RELOAD.md).
 
 ## Troubleshooting
 

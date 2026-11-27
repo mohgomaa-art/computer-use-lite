@@ -39,7 +39,8 @@ This is the single canonical navigation entry point for **Computer Use Lite (`co
 
 | Document | Scope |
 | :--- | :--- |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Full `HEAD` (`d47b4e9`) component architecture: Browser CDP, Windows UIA, `Resolver`, `blind_gap`, `TaskState`, 13-tool `FastMCP` server, Workstream A Cursor Overlay, `P0-1..P0-5`, and explicit implemented-vs-planned separation |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Current component architecture (`15` Python modules in `src/computer_use_lite/`): Browser CDP, Windows UIA, `Resolver`, `blind_gap`, `TaskState`, `15`-tool `FastMCP` server + `cul_reload` supervisor, Cursor Overlay, `TakeoverGuard`, and implemented-vs-open boundaries |
+| [MCP_SUPERVISOR_RELOAD.md](architecture/MCP_SUPERVISOR_RELOAD.md) | Stdlib-only stdio MCP supervisor (`computer_use_lite.supervisor`), `cul_reload` zero-client-restart reload protocol, Win32 Job Object tree cleanup, non-destructive LKG rollback, and self-update boundaries |
 | [ARCHITECTURE_DECISION.md](ARCHITECTURE_DECISION.md) | Historical empirical decision scorecard (`H1`–`H3`, `M0`–`M5`, `benchmarks_real`, 9-Exp perf study) + ADRs for Workstream A Cursor Overlay and `P0-1..P0-5` |
 | [OPTIMIZATION_ROADMAP.md](OPTIMIZATION_ROADMAP.md) | Complete engineering status across `P0` (`P-01..P-10`, `P0-1..P0-5`), Workstream A, and unimplemented `P1` / `P2` / `Rejected` items |
 | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) | Verified boundaries and open issues across browser discovery, desktop UIA, Cursor Overlay desktop prerequisites, security, and unrun VLM benchmarks |

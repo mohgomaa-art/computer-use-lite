@@ -43,7 +43,7 @@ def test_cul_dx_001_linux_simulated_imports_without_windll_or_comtypes():
         "sys.path.insert(0, r'" + str(SRC) + "'); "
         "import computer_use_lite, computer_use_lite.snapshot, computer_use_lite.desktop_cursor_overlay, "
         "computer_use_lite.desktop_uia, computer_use_lite.blind_gap, computer_use_lite.takeover_guard, "
-        "computer_use_lite.session_manager, computer_use_lite.mcp_server; "
+        "computer_use_lite.session_manager, computer_use_lite.mcp_server, computer_use_lite.supervisor; "
         "print('LINUX_IMPORT_OK')"
     )
     proc = subprocess.run(

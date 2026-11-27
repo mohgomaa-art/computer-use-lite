@@ -20,6 +20,7 @@ Uses IUIAutomation.FindAllBuildCache (one cross-process cache request) so the wh
 tree costs a single round trip per snapshot. Never touches the Desktop Root.
 """
 import atexit
+import contextlib
 import ctypes
 import hashlib
 import os
@@ -83,7 +84,7 @@ MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
 MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP = 0x0008, 0x0010
 MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP = 0x0020, 0x0040
 MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL = 0x0800, 0x1000
-KEYEVENTF_UNICODE, KEYEVENTF_KEYUP = 0x0004, 0x0002
+KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE = 0x0001, 0x0002, 0x0004
 SW_RESTORE = 9
 SW_SHOWNOACTIVATE = 4
 SW_SHOWNA = 8
@@ -172,6 +173,10 @@ if sys.platform == "win32" and _u32 is not None:
     _u32.FindWindowExW.restype = wintypes.HWND
     _u32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
     _u32.SendMessageW.restype = ctypes.c_ssize_t
+    _u32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
+    _u32.MapVirtualKeyW.restype = wintypes.UINT
+    _u32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
+    _u32.GetWindow.restype = wintypes.HWND
 else:
     _k32 = None
 
@@ -278,6 +283,125 @@ class KillSwitch:
         self.last = tuple(xy)
 
 
+class _CoordinatedKillSwitch:
+    """Per-session KillSwitch proxy backed by a shared CursorCoordinator."""
+
+    def __init__(self, coordinator, session_id):
+        self._coord = coordinator
+        self._sid = session_id
+
+    @property
+    def armed(self):
+        return self._coord.armed
+
+    @property
+    def last(self):
+        return self._coord.last
+
+    def ensure_armed(self):
+        self._coord.ensure_armed(self._sid)
+
+    def pre_move(self):
+        self._coord.pre_move(self._sid)
+
+    def moved(self, xy):
+        self._coord.moved(self._sid, xy)
+
+
+class CursorCoordinator:
+    """Centralized cursor-input coordinator shared across managed DesktopSessions."""
+
+    def __init__(self, enabled=True, tolerance=5, stale_ttl_s=60.0):
+        self.enabled = enabled
+        self.tolerance = tolerance
+        self.stale_ttl_s = float(stale_ttl_s)
+        self._lock = threading.Lock()
+        self.armed = False
+        self.last = None
+        self.last_ts = 0.0
+        self.owner_session_id = None
+        self.op_id = 0
+        self.sample_failed = False
+        self.last_error = None
+
+    def bind_session(self, session_id):
+        return _CoordinatedKillSwitch(self, session_id)
+
+    def acquire(self, session_id, op_name="mouse"):
+        coord = self
+
+        class _OpCtx:
+            def __enter__(self):
+                coord._lock.acquire()
+                coord.op_id += 1
+                coord.owner_session_id = session_id
+                return coord.op_id
+
+            def __exit__(self, exc_type, exc, tb):
+                coord._lock.release()
+                return False
+
+        return _OpCtx()
+
+    def ensure_armed(self, session_id=None):
+        if not self.enabled or self.armed:
+            return
+        try:
+            pos = cursor_pos()
+        except OSError as exc:
+            self.sample_failed = True
+            self.last_error = str(exc)
+            raise RuntimeError(
+                f"KillSwitch unable to read physical cursor position ({exc}); refusing unguarded SendInput"
+            ) from exc
+        self.sample_failed = False
+        self.last_error = None
+        self.moved(session_id, pos)
+
+    def pre_move(self, session_id=None):
+        if not self.enabled:
+            return
+        if self.sample_failed:
+            raise RuntimeError(
+                f"KillSwitch previously failed cursor probe ({self.last_error}); refusing SendInput"
+            )
+        if not self.armed:
+            return
+        try:
+            pos = cursor_pos()
+        except OSError as exc:
+            self.sample_failed = True
+            self.last_error = str(exc)
+            raise RuntimeError(
+                f"KillSwitch unable to read physical cursor position ({exc}); refusing unguarded SendInput"
+            ) from exc
+        if self.last:
+            stale = (time.monotonic() - self.last_ts) > self.stale_ttl_s
+            moved_far = (
+                abs(pos[0] - self.last[0]) > self.tolerance
+                or abs(pos[1] - self.last[1]) > self.tolerance
+            )
+            if moved_far:
+                prefix = "HUMAN TAKEOVER (stale command)" if stale else "HUMAN TAKEOVER"
+                raise RuntimeError(f"{prefix}: cursor at {pos}, last commanded {self.last}")
+
+    def moved(self, session_id, xy):
+        self.armed = True
+        self.last = tuple(xy)
+        self.last_ts = time.monotonic()
+        self.owner_session_id = session_id
+
+    def reset(self):
+        """Clear cursor-tracking state cleanly when all sessions have been closed."""
+        with self._lock:
+            self.armed = False
+            self.last = None
+            self.last_ts = 0.0
+            self.owner_session_id = None
+            self.sample_failed = False
+            self.last_error = None
+
+
 def _activate_with_thread_attach(hwnd):
     """Best-effort SetForegroundWindow handoff when background MCP hits Foreground Lock."""
     hw = wintypes.HWND(int(hwnd))
@@ -327,19 +451,46 @@ def bring_window_to_front(hwnd, *, activate=False):
     return True
 
 
-def _ensure_foreground(hwnd):
+def _is_same_process_owned_foreground(hwnd, fg_hwnd):
+    """Return True if fg_hwnd is a visible modal/owned window of the same process."""
+    if not hwnd or not fg_hwnd:
+        return False
+    p_target = wintypes.DWORD()
+    p_fg = wintypes.DWORD()
+    _u32.GetWindowThreadProcessId(wintypes.HWND(int(hwnd)), ctypes.byref(p_target))
+    _u32.GetWindowThreadProcessId(wintypes.HWND(int(fg_hwnd)), ctypes.byref(p_fg))
+    if not p_target.value or p_target.value != p_fg.value:
+        return False
+    owner = _u32.GetWindow(wintypes.HWND(int(fg_hwnd)), 4)  # GW_OWNER
+    return int(owner or 0) == int(hwnd)
+
+
+def _ensure_foreground(hwnd, allow_owned_modal=False):
     if not hwnd:
         return
+    hw = wintypes.HWND(int(hwnd))
     fg = _u32.GetForegroundWindow()
     if fg == hwnd:
         return
-    _u32.ShowWindow(wintypes.HWND(hwnd), SW_RESTORE)
-    if not _u32.SetForegroundWindow(wintypes.HWND(hwnd)) and _u32.IsWindow(wintypes.HWND(hwnd)):
+    if allow_owned_modal and _is_same_process_owned_foreground(hwnd, fg):
+        return
+    # Only restore minimized windows; calling SW_RESTORE on Aero-snapped windows unsnaps them.
+    if _u32.IsIconic(hw):
+        _u32.ShowWindow(hw, SW_RESTORE)
+    if not _u32.SetForegroundWindow(hw) and _u32.IsWindow(hw):
         _activate_with_thread_attach(hwnd)
     time.sleep(0.05)
     fg = _u32.GetForegroundWindow()
-    if fg != hwnd:
-        raise RuntimeError(f"Foreground safety abort: expected hwnd={hwnd}, active foreground={fg}")
+    if fg != hwnd and not (allow_owned_modal and _is_same_process_owned_foreground(hwnd, fg)):
+        fg_title = _window_title(int(fg)) if fg else ""
+        fg_pid = wintypes.DWORD()
+        if fg:
+            _u32.GetWindowThreadProcessId(wintypes.HWND(int(fg)), ctypes.byref(fg_pid))
+        fg_proc = snapshot._process_name(fg_pid.value) if fg_pid.value else "unknown"
+        raise RuntimeError(
+            f"Foreground safety abort: expected hwnd={hwnd}, active foreground={fg} "
+            f"({fg_proc}: {fg_title!r})"
+        )
 
 
 def _send_mouse(nx, ny, flags):
@@ -371,12 +522,23 @@ def move_mouse(x, y, hwnd=None, kill_switch=None):
     return sent
 
 
+_BUTTON_FLAGS = {
+    "left": (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+    "right": (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
+    "middle": (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
+}
+
+
+def _validate_window_point(bounds, x, y, label="Coordinate"):
+    bx, by, bw, bh = bounds
+    ix, iy = int(round(float(x))), int(round(float(y)))
+    if not (bx <= ix < bx + bw and by <= iy < by + bh):
+        raise ValueError(f"{label} ({ix}, {iy}) is outside attached window bounds {[bx, by, bw, bh]}")
+    return ix, iy
+
+
 def click_at(x, y, hwnd=None, kill_switch=None, button="left", clicks=1):
-    btn_flags = {
-        "left": (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
-        "right": (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
-        "middle": (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
-    }.get(button)
+    btn_flags = _BUTTON_FLAGS.get(button)
     if btn_flags is None:
         raise ValueError(f"Unsupported mouse button: {button!r}")
     if clicks < 1 or clicks > 3:
@@ -394,6 +556,43 @@ def click_at(x, y, hwnd=None, kill_switch=None, button="left", clicks=1):
         if sent != 2:
             raise OSError(f"SendInput click failed: {ctypes.get_last_error()}")
     return "sendinput_click"
+
+
+def drag_at(x1, y1, x2, y2, hwnd=None, kill_switch=None, button="left", steps=16, duration_ms=250):
+    """Drag from (x1, y1) to (x2, y2) with guaranteed button-up in finally."""
+    btn_flags = _BUTTON_FLAGS.get(button)
+    if btn_flags is None:
+        raise ValueError(f"Unsupported mouse button: {button!r}")
+    sx, sy = int(x1), int(y1)
+    dx, dy = int(x2), int(y2)
+    move_mouse(sx, sy, hwnd=hwnd, kill_switch=kill_switch)
+    down_f, up_f = btn_flags
+    base = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK
+    nx0, ny0 = _abs_coords(sx, sy)
+    n = max(4, min(int(steps), 40))
+    step_sleep = max(0.002, min(float(duration_ms) / 1000.0 / n, 0.05)) if duration_ms else 0.008
+    last_x, last_y = sx, sy
+    pressed = False
+    try:
+        _send_mouse(nx0, ny0, down_f | base)
+        pressed = True
+        for i in range(1, n + 1):
+            ix = int(round(sx + (dx - sx) * (i / n)))
+            iy = int(round(sy + (dy - sy) * (i / n)))
+            nxi, nyi = _abs_coords(ix, iy)
+            _send_mouse(nxi, nyi, MOUSEEVENTF_MOVE | base)
+            last_x, last_y = ix, iy
+            time.sleep(step_sleep)
+    finally:
+        if pressed:
+            nx_end, ny_end = _abs_coords(last_x, last_y)
+            try:
+                _send_mouse(nx_end, ny_end, up_f | base)
+            except Exception:
+                pass
+            if kill_switch is not None:
+                kill_switch.moved((last_x, last_y))
+    return {"x1": sx, "y1": sy, "x2": dx, "y2": dy, "button": button, "steps": n}
 
 
 def wheel_scroll(x, y, dx=0, dy=0, hwnd=None, kill_switch=None):
@@ -419,8 +618,9 @@ def wheel_scroll(x, y, dx=0, dy=0, hwnd=None, kill_switch=None):
     return {"dx": dx, "dy": dy}
 
 
-VK_SHIFT, VK_CONTROL, VK_MENU, VK_A, VK_DELETE = 0x10, 0x11, 0x12, 0x41, 0x2E
-_MODIFIER_VKS = {"ctrl": VK_CONTROL, "control": VK_CONTROL, "alt": VK_MENU, "shift": VK_SHIFT}
+VK_SHIFT, VK_CONTROL, VK_MENU, VK_A, VK_DELETE = 0xA0, 0xA2, 0xA4, 0x41, 0x2E
+_MODIFIER_VKS = {"ctrl": VK_CONTROL, "control": VK_CONTROL, "alt": VK_MENU, "menu": VK_MENU, "shift": VK_SHIFT}
+_EXTENDED_VKS = frozenset({0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x2D, 0x2E, 0x6F})
 _NAMED_VKS = {
     "enter": 0x0D, "return": 0x0D, "tab": 0x09, "escape": 0x1B, "esc": 0x1B,
     "backspace": 0x08, "delete": 0x2E, "del": 0x2E, "insert": 0x2D, "space": 0x20,
@@ -428,7 +628,34 @@ _NAMED_VKS = {
     "up": 0x26, "arrowup": 0x26, "down": 0x28, "arrowdown": 0x28,
     "left": 0x25, "arrowleft": 0x25, "right": 0x27, "arrowright": 0x27,
     **{f"f{i}": 0x6F + i for i in range(1, 13)},
+    **{f"numpad{i}": 0x60 + i for i in range(10)},
+    "numpad_0": 0x60, "numpad_1": 0x61, "numpad_2": 0x62, "numpad_3": 0x63, "numpad_4": 0x64,
+    "numpad_5": 0x65, "numpad_6": 0x66, "numpad_7": 0x67, "numpad_8": 0x68, "numpad_9": 0x69,
+    "numpad_enter": 0x0D, "numpadenter": 0x0D,
+    "numpad_period": 0x6E, "numpad_decimal": 0x6E, "numpaddecimal": 0x6E, "numpadperiod": 0x6E,
+    "numpad_add": 0x6B, "numpad_plus": 0x6B, "numpadadd": 0x6B, "numpadplus": 0x6B,
+    "numpad_subtract": 0x6D, "numpad_minus": 0x6D, "numpadsubtract": 0x6D, "numpadminus": 0x6D,
+    "numpad_multiply": 0x6A, "numpadmultiply": 0x6A,
+    "numpad_divide": 0x6F, "numpaddivide": 0x6F,
 }
+
+
+def _char_to_vk_mods(ch):
+    """Map a single printable character to (vk, tuple[mod_vks]) or None if unmappable."""
+    if "a" <= ch <= "z":
+        return ord(ch.upper()), ()
+    if "A" <= ch <= "Z":
+        return ord(ch), (VK_SHIFT,)
+    if "0" <= ch <= "9":
+        return ord(ch), ()
+    if _u32 is not None:
+        vk_scan = _u32.VkKeyScanW(ord(ch))
+        vk = vk_scan & 0xFF
+        shift_flag = (vk_scan >> 8) & 0x07
+        if vk != 0xFF and not (shift_flag & 6):
+            mods = (VK_SHIFT,) if (shift_flag & 1) else ()
+            return vk, mods
+    return None
 
 
 def parse_key_combo(key_spec):
@@ -446,21 +673,18 @@ def parse_key_combo(key_spec):
     if low_main in _NAMED_VKS:
         return _NAMED_VKS[low_main], tuple(mods)
     if len(main) == 1:
-        if "a" <= main <= "z":
-            return ord(main.upper()), tuple(mods)
-        if "A" <= main <= "Z":
-            if VK_SHIFT not in mods:
-                mods.append(VK_SHIFT)
-            return ord(main), tuple(mods)
-        if "0" <= main <= "9":
-            return ord(main), tuple(mods)
-        vk_scan = _u32.VkKeyScanW(ord(main))
-        vk = vk_scan & 0xFF
-        shift_flag = (vk_scan >> 8) & 0x07
-        if vk != 0xFF:
-            if (shift_flag & 1) and VK_SHIFT not in mods:
-                mods.append(VK_SHIFT)
+        mapped = _char_to_vk_mods(main)
+        if mapped is not None:
+            vk, char_mods = mapped
+            for cm in char_mods:
+                if cm not in mods:
+                    mods.append(cm)
             return vk, tuple(mods)
+    if "numpad" in low_main:
+        raise ValueError(
+            f"Unsupported key: {key_spec!r} (supported numpad keys: Numpad0..9, "
+            "NumpadEnter, NumpadDecimal, NumpadAdd, NumpadSubtract, NumpadMultiply, NumpadDivide)"
+        )
     raise ValueError(f"Unsupported key: {key_spec!r}")
 
 
@@ -479,7 +703,11 @@ def type_unicode(text, hwnd=None, kill_switch=None):
 
 
 def _key(vk, up=False):
-    inp = _INPUT(1, _UN(ki=_KI(vk, 0, KEYEVENTF_KEYUP if up else 0, 0, 0)))
+    scan = int(_u32.MapVirtualKeyW(int(vk), 0)) if _u32 is not None else 0
+    flags = KEYEVENTF_KEYUP if up else 0
+    if int(vk) in _EXTENDED_VKS:
+        flags |= KEYEVENTF_EXTENDEDKEY
+    inp = _INPUT(1, _UN(ki=_KI(vk, scan, flags, 0, 0)))
     sent = _u32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
     if sent != 1:
         raise OSError(f"SendInput vk failed: {ctypes.get_last_error()}")
@@ -489,12 +717,23 @@ def _key(vk, up=False):
 def press(vk, mods=(), hwnd=None):
     if hwnd is not None:
         _ensure_foreground(hwnd)
-    for m in mods:
-        _key(m)
-    _key(vk)
-    _key(vk, up=True)
-    for m in reversed(mods):
-        _key(m, up=True)
+    pressed_mods = []
+    try:
+        for m in mods:
+            _key(m)
+            pressed_mods.append(m)
+        if pressed_mods:
+            time.sleep(0.008)
+        _key(vk)
+        _key(vk, up=True)
+        if pressed_mods:
+            time.sleep(0.008)
+    finally:
+        for m in reversed(pressed_mods):
+            try:
+                _key(m, up=True)
+            except Exception:
+                pass
 
 
 def _window_title(hwnd):
@@ -596,7 +835,15 @@ class DesktopSession:
 
     name = "desktop"
 
-    def __init__(self, hwnd, show_cursor=None, cursor_glide_ms=None, takeover_glow=None):
+    def __init__(
+        self,
+        hwnd,
+        show_cursor=None,
+        cursor_glide_ms=None,
+        takeover_glow=None,
+        cursor_coordinator=None,
+        session_id=None,
+    ):
         if sys.platform != "win32" or _u32 is None:
             raise RuntimeError("Desktop UIA automation is only supported on Windows.")
         if _u32.IsWindow(wintypes.HWND(int(hwnd))):
@@ -611,7 +858,13 @@ class DesktopSession:
         self._dead = False
         self._stop = False
         self._init_done = threading.Event()
-        self._kill = KillSwitch(enabled=True, tolerance=5)
+        self._coordinator = cursor_coordinator
+        self._session_id = session_id or f"hwnd:{hwnd}"
+        self._kill = (
+            cursor_coordinator.bind_session(self._session_id)
+            if cursor_coordinator is not None
+            else KillSwitch(enabled=True, tolerance=5)
+        )
         self.revision = 0
         self._last = {}
         self._a11y_tried = False
@@ -759,7 +1012,8 @@ class DesktopSession:
     # -- discovery --------------------------------------------------------------
     def _scan(self):
         found = None
-        for attempt in range(3):
+        retry_delays = (0.15, 0.35, 0.70)
+        for attempt in range(len(retry_delays) + 1):
             try:
                 root = self._uia.ElementFromHandle(self.hwnd)
                 found = root.FindAllBuildCache(UIA.TreeScope_Subtree,
@@ -767,8 +1021,8 @@ class DesktopSession:
                 break
             except Exception as exc:
                 hres = exc.args[0] if getattr(exc, "args", None) else None
-                if attempt < 2 and hres in (-2146233083, -2147023436) and _u32.IsWindow(wintypes.HWND(int(self.hwnd))):
-                    time.sleep(0.15)
+                if attempt < len(retry_delays) and hres in (-2146233083, -2147023436) and _u32.IsWindow(wintypes.HWND(int(self.hwnd))):
+                    time.sleep(retry_delays[attempt])
                     continue
                 raise
         inactive_rids = set()
@@ -1025,7 +1279,10 @@ class DesktopSession:
                     move_mouse(int(x + w / 2), int(y + h / 2), hwnd=self.hwnd,
                                kill_switch=getattr(self, "_kill", None))
                     return "hover"
-                e.SetFocus()
+                try:
+                    e.SetFocus()
+                except Exception as exc:
+                    raise ValueError(f"Element is not UIA-focusable ({exc})") from exc
                 return "focus"
 
             return {"mechanism": self._call(run)}
@@ -1187,32 +1444,139 @@ class DesktopSession:
             }
         return self._call(run)
 
-    def scroll(self, dx=0, dy=0):
-        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
-            x, y, w, h = self.bounds()
-            cx, cy = int(x + w / 2), int(y + h / 2)
+    def _cursor_scope(self, op_name):
+        coord = getattr(self, "_coordinator", None)
+        if coord is None:
+            return contextlib.nullcontext()
+        return coord.acquire(getattr(self, "_session_id", f"hwnd:{self.hwnd}"), op_name)
+
+    def _read_focused_text_snapshot(self):
+        """Safely sample non-password focused UIA value/text for post-input readback checks."""
+        if getattr(self, "_uia", None) is None:
+            return None
+
+        def run():
+            try:
+                foc = self._uia.GetFocusedElement()
+                if not foc:
+                    return None
+                val = self._safe_element_value(foc)
+                if val == "[REDACTED]":
+                    return None
+                return val
+            except Exception:
+                return None
+
+        try:
+            return self._call(run)
+        except Exception:
+            return None
+
+    def scroll(self, dx=0, dy=0, x=None, y=None):
+        if (x is None) != (y is None):
+            raise ValueError("Supply both x and y together, or omit both to scroll at window center.")
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)), self._cursor_scope("scroll"):
+            bx, by, bw, bh = self.bounds()
+            if x is None:
+                cx, cy = int(bx + bw / 2), int(by + bh / 2)
+            else:
+                cx, cy = _validate_window_point((bx, by, bw, bh), x, y, label="Scroll coordinate")
             self._overlay_move(cx, cy, cursor_for_action("scroll", dx=dx, dy=dy), wait=True)
-            return wheel_scroll(cx, cy, dx=dx, dy=dy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
+            res = wheel_scroll(cx, cy, dx=dx, dy=dy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
+            return {**res, "x": cx, "y": cy, "verification_scope": "unverified_sendinput"}
 
     def press_key(self, key):
         with takeover_action_scope(getattr(self, "_takeover_guard", None)):
             vk, mods = parse_key_combo(key)
             press(vk, mods=mods, hwnd=self.hwnd)
-            return {"key": key}
+            return {"key": key, "verification_scope": "unverified_sendinput"}
+
+    def press_keys(self, keys, delay_ms=15):
+        if not isinstance(keys, list) or not keys:
+            raise ValueError("keys must be a non-empty list of key strings")
+        if len(keys) > 200:
+            raise ValueError("keys batch exceeds 200 items")
+        bounded_delay = max(0, min(int(delay_ms), 500)) / 1000.0
+        parsed = [parse_key_combo(k) for k in keys]
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            _ensure_foreground(self.hwnd)
+            for idx, (vk, mods) in enumerate(parsed):
+                press(vk, mods=mods, hwnd=None)
+                if bounded_delay > 0 and idx < len(parsed) - 1:
+                    time.sleep(bounded_delay)
+            return {"keys": list(keys), "count": len(keys), "verification_scope": "unverified_sendinput"}
 
     def click_coordinate(self, x, y, button="left", clicks=1):
-        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
-            bx, by, bw, bh = self.bounds()
-            if not (bx <= x < bx + bw and by <= y < by + bh):
-                raise ValueError(
-                    f"Coordinate ({x}, {y}) is outside attached window bounds {[bx, by, bw, bh]}"
-                )
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)), self._cursor_scope("click_at"):
+            bounds = self.bounds()
+            ix, iy = _validate_window_point(bounds, x, y)
             cid = cursor_for_action("click_at", is_blind_coord=True)
-            self._overlay_move(x, y, cid, wait=True)
-            self._overlay_click(x, y, cid, clicks=clicks)
-            mech = click_at(int(x), int(y), hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None),
+            self._overlay_move(ix, iy, cid, wait=True)
+            self._overlay_click(ix, iy, cid, clicks=clicks)
+            mech = click_at(ix, iy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None),
                             button=button, clicks=clicks)
-            return {"x": int(x), "y": int(y), "button": button, "clicks": clicks, "mechanism": mech}
+            return {
+                "x": ix, "y": iy, "button": button, "clicks": clicks,
+                "mechanism": mech, "verification_scope": "unverified_sendinput",
+            }
+
+    def drag_coordinate(self, x1, y1, x2, y2, button="left", steps=16, duration_ms=250):
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)), self._cursor_scope("drag_at"):
+            bounds = self.bounds()
+            sx, sy = _validate_window_point(bounds, x1, y1, label="Drag start")
+            dx, dy = _validate_window_point(bounds, x2, y2, label="Drag end")
+            cid = cursor_for_action("click_at", is_blind_coord=True)
+            self._overlay_move(sx, sy, cid, wait=True)
+            res = drag_at(
+                sx, sy, dx, dy,
+                hwnd=self.hwnd,
+                kill_switch=getattr(self, "_kill", None),
+                button=button,
+                steps=steps,
+                duration_ms=duration_ms,
+            )
+            self._overlay_move(dx, dy, cid, wait=False)
+            return {**res, "duration_ms": int(duration_ms), "verification_scope": "unverified_sendinput"}
+
+    def type_text(self, text, press_enter=False, max_length=1000, input_mode="unicode"):
+        from .state import validate_type_text_args
+
+        normalized = validate_type_text_args(
+            text, press_enter=press_enter, max_length=max_length, input_mode=input_mode
+        )
+        ks = getattr(self, "_kill", None)
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)), self._cursor_scope("type_text"):
+            _ensure_foreground(self.hwnd, allow_owned_modal=True)
+            if ks is not None:
+                ks.pre_move()
+            before_txt = self._read_focused_text_snapshot()
+            lines = normalized.split("\n")
+            for idx, seg in enumerate(lines):
+                if seg:
+                    if input_mode == "vk_scan":
+                        for ch in seg:
+                            if ks is not None:
+                                ks.pre_move()
+                            mapped = _char_to_vk_mods(ch)
+                            if mapped is not None:
+                                press(mapped[0], mods=mapped[1], hwnd=None)
+                            else:
+                                type_unicode(ch, hwnd=None, kill_switch=ks)
+                    else:
+                        type_unicode(seg, hwnd=None, kill_switch=ks)
+                if idx < len(lines) - 1:
+                    press(0x0D, hwnd=None)
+            if press_enter:
+                press(0x0D, hwnd=None)
+            after_txt = self._read_focused_text_snapshot()
+            verified = before_txt is not None and after_txt is not None and after_txt != before_txt
+            return {
+                "typed_chars": len(text),
+                "press_enter": bool(press_enter),
+                "input_mode": input_mode,
+                "verified": verified,
+                "verification_scope": "uia_readback" if verified else "unverified_sendinput",
+            }
 
     def close(self):
         if getattr(self, "_takeover_guard", None) is not None:

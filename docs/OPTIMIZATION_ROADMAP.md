@@ -1,6 +1,9 @@
-# Optimization Roadmap
+# Optimization Roadmap (`d47b4e9` Historical Baseline Snapshot)
 
-This roadmap tracks every performance, discovery, desktop, security, and evaluation track for **Computer Use Lite (`computer-use-lite`)**, consolidated from [FIX_PLAN.md](../research_archive/audits/2026-11-26-fix-plan.md) (`P-01..P-24`) and `research_trace/2026-11-26/OPTIMIZATION_PLAN.md` *(local-only, excluded from public git)* (`P0 -> P1 -> P2`).
+> [!NOTE]
+> **Superseded Snapshot Notice:** This roadmap preserves the phase plan established at `d47b4e9` (`0.1.0-alpha`). Most **`P1`** and **`P2`** items listed below (`P1-1` AX metadata, `P1-2` sticky-header offsets, `P1-4` RTL un-mirroring, `P1-5` Explorer tab/dedup filtering, `P2-1` Linux import safety, and `P2-3` `drag`/desktop Z-order occlusion/`hover`) have since been implemented in `v0.2.0a0` (`9bc5e97`) and `[Unreleased]` — see [`CHANGELOG.md`](../CHANGELOG.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md) for current shipped vs. open boundaries.
+
+This roadmap tracks the original performance, discovery, desktop, security, and evaluation tracks for **Computer Use Lite (`computer-use-lite`)**, consolidated from [FIX_PLAN.md](../research_archive/audits/2026-11-26-fix-plan.md) (`P-01..P-24`) and `research_trace/2026-11-26/OPTIMIZATION_PLAN.md` *(local-only, excluded from public git)* (`P0 -> P1 -> P2`).
 
 > [!IMPORTANT]
 > **Implementation Boundary Rule:** Items marked **Completed** or **Implemented in `src/`** exist in `HEAD` (`d47b4e9`). Items under **`P1`**, **`P2`**, or **Rejected** are **NOT implemented** — do not cite them as shipped functionality.

@@ -4,39 +4,39 @@
     "should_trigger": true
   },
   {
-    "query": "i keep getting StaleElementError and ForegroundMismatch when automating a Windows Save As #32770 dialog with DesktopSession — plus ValuePattern updated the edit text without writing the file to disk",
+    "query": "i keep getting StaleElementError, ForegroundMismatch, and PermissionDenied when automating a Windows app or #32770 Save As dialog with DesktopSession — plus why was cmd.exe blocked?",
     "should_trigger": true
   },
   {
-    "query": "write a python script using computer_use_lite Api and BrowserSession to inspect an input box, verify password redaction, select an option in a <select> combobox, hover a menu, and capture blind canvas crops without playwright thread errors",
+    "query": "write a python script using computer_use_lite Api and BrowserSession to inspect checkboxes and <select> options, drag an element, hover a menu without losing sibling IDs, and handle password redaction cleanly",
     "should_trigger": true
   },
   {
-    "query": "how do I use click_at on an opaque_canvas blind region returned by discover() without getting an out-of-bounds ValueError?",
+    "query": "clicking a link in my computer-use-lite MCP session opened a second tab in opened_tab — how do I list tabs, switch to the new tab, and click inside an opaque_canvas crop safely?",
     "should_trigger": true
   },
   {
-    "query": "our headless windows ci runner fails on windows_desktop UIA tests in tests/. what env var skips desktop tests when running pytest here?",
+    "query": "i edited src/computer_use_lite/session_manager.py mid-session while connected to Codex/Antigravity — how do I use computer_use_lite.supervisor and cul_reload to apply changes without restarting the client or leaking Chrome processes?",
     "should_trigger": true
   },
   {
-    "query": "i want to navigate to a new url inside an existing mcp browser session, avoid domcontentloaded race StaleElementError, and make sure old eN element IDs don't cause silent misclicks",
+    "query": "our ci runner wants to run pytest on computer-use-lite without desktop UIA windows, or toggle headful mode with CUL_MCP_HEADFUL and CUL_TAKEOVER_GLOW — what env vars control this?",
     "should_trigger": true
   },
   {
-    "query": "check the health of active cul sessions, explain why open_browser blocked my file:///C:/temp/test.html or http://127.0.0.1:8080 url, and show what env flags enable them",
+    "query": "my open_browser call returned PermissionDenied with DNS fail-closed SSRF or blocked private URL, and CUL press_key rejected Alt+F4 and Win+R — which env gates control these safely?",
     "should_trigger": true
   },
   {
-    "query": "how do I run the standalone E2E suite or the MCP overhead benchmark in computer-use-lite?",
+    "query": "when using act(..., action='type', clear=False) on DesktopSession vs BrowserSession, why did ValuePattern replace text on Windows while browser appended?",
     "should_trigger": true
   },
   {
-    "query": "is press_key allowed to send Win+R on DesktopSession or will KillSwitch / key parser reject it?",
+    "query": "my Windows DesktopSession hit user_interrupted after pressing Esc or blocked due to Z-order occlusion in verify_fresh — how should my agent handle this and inspect PrintWindow crops?",
     "should_trigger": true
   },
   {
-    "query": "why did discover() return BLIND_REGIONS:0 on an embedded third-party iframe and PrintWindow mirror a right-to-left Windows app in my computer_use_lite session?",
+    "query": "how do I run the standalone E2E suite, test_supervisor.py, or the MCP overhead benchmark in computer-use-lite?",
     "should_trigger": true
   },
   {
