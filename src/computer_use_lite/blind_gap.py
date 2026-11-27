@@ -73,8 +73,8 @@ def _is_window_cloaked(hwnd):
         return False
 
 
-def _is_window_occluded_or_bg(hwnd, bbox):
-    """Return True if target HWND is non-foreground, minimized, or overlapped by a higher Z-order window."""
+def _is_window_occluded_or_bg(hwnd, bbox, require_foreground=True):
+    """Return True if target HWND is minimized, cloaked, non-foreground (when required), or occluded by a higher Z-order window."""
     u32 = ctypes.WinDLL("user32", use_last_error=True)
     u32.IsWindow.argtypes = [wintypes.HWND]
     u32.IsWindow.restype = wintypes.BOOL
@@ -92,10 +92,13 @@ def _is_window_occluded_or_bg(hwnd, bbox):
     target = wintypes.HWND(hwnd)
     if u32.IsIconic(target):
         return True
-    fg = int(u32.GetForegroundWindow() or 0)
-    if fg != int(hwnd):
-        return True
+    if require_foreground:
+        fg = int(u32.GetForegroundWindow() or 0)
+        if fg != int(hwnd):
+            return True
     if not u32.IsWindow(target):
+        return True
+    if _is_window_cloaked(int(hwnd)):
         return True
 
     left, top, right, bottom = bbox

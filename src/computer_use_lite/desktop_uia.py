@@ -221,11 +221,42 @@ class KillSwitch:
         self.tolerance = tolerance
         self.armed = False
         self.last = None
+        self.sample_failed = False
+        self.last_error = None
+
+    def ensure_armed(self):
+        """Capture baseline physical cursor before SendInput; fail closed on read error."""
+        if not self.enabled or self.armed:
+            return
+        try:
+            pos = cursor_pos()
+        except OSError as exc:
+            self.sample_failed = True
+            self.last_error = str(exc)
+            raise RuntimeError(
+                f"KillSwitch unable to read physical cursor position ({exc}); refusing unguarded SendInput"
+            ) from exc
+        self.sample_failed = False
+        self.last_error = None
+        self.moved(pos)
 
     def pre_move(self):
-        if not self.enabled or not self.armed:
+        if not self.enabled:
             return
-        pos = cursor_pos()
+        if self.sample_failed:
+            raise RuntimeError(
+                f"KillSwitch previously failed cursor probe ({self.last_error}); refusing SendInput"
+            )
+        if not self.armed:
+            return
+        try:
+            pos = cursor_pos()
+        except OSError as exc:
+            self.sample_failed = True
+            self.last_error = str(exc)
+            raise RuntimeError(
+                f"KillSwitch unable to read physical cursor position ({exc}); refusing unguarded SendInput"
+            ) from exc
         if self.last and (abs(pos[0] - self.last[0]) > self.tolerance
                           or abs(pos[1] - self.last[1]) > self.tolerance):
             raise RuntimeError(f"HUMAN TAKEOVER: cursor at {pos}, last commanded {self.last}")
@@ -319,11 +350,7 @@ def move_mouse(x, y, hwnd=None, kill_switch=None):
     if hwnd is not None:
         _ensure_foreground(hwnd)
     if kill_switch is not None:
-        if not kill_switch.armed:
-            try:
-                kill_switch.moved(cursor_pos())
-            except OSError:
-                pass
+        kill_switch.ensure_armed()
         kill_switch.pre_move()
     nx, ny = _abs_coords(x, y)
     sent = _send_mouse(nx, ny, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK)
@@ -801,6 +828,10 @@ class DesktopSession:
                 raise StaleElementError(
                     f"{el.get('id') or 'element'} moved {old} -> {new_box} since revision {el.get('revision')}"
                 )
+            from . import blind_gap
+            rect_bbox = (new_box[0], new_box[1], new_box[0] + new_box[2], new_box[1] + new_box[3])
+            if blind_gap._is_window_occluded_or_bg(self.hwnd, rect_bbox, require_foreground=False):
+                raise StaleElementError(f"{el.get('id') or 'element'} is occluded by another window")
             key = tuple(ref["runtime_id"])
             if key in self._last:
                 self._last[key]["box"] = new_box

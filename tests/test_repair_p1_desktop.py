@@ -125,7 +125,8 @@ def test_cul_desk_001_and_002_occlusion_and_killswitch_fail_closed(monkeypatch):
         with pytest.raises(RuntimeError, match="KillSwitch"):
             desktop_uia.move_mouse(100, 100, hwnd=None, kill_switch=ks)
 
-    # Part 2: Real Win32 target window occluded by a higher-Z covering window
+    # Part 2: Real Win32 target window occluded by a higher-Z covering window (on message-pumped thread)
+    import threading
     u32 = ctypes.WinDLL("user32", use_last_error=True)
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     k32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
@@ -138,27 +139,58 @@ def test_cul_desk_001_and_002_occlusion_and_killswitch_fail_closed(monkeypatch):
     u32.CreateWindowExW.restype = wintypes.HWND
     u32.DestroyWindow.argtypes = [wintypes.HWND]
     u32.DestroyWindow.restype = wintypes.BOOL
+    u32.PostThreadMessageW.argtypes = [wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    u32.PostThreadMessageW.restype = wintypes.BOOL
     u32.SetWindowPos.argtypes = [
         wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT,
     ]
     u32.SetWindowPos.restype = wintypes.BOOL
     hinst = k32.GetModuleHandleW(None)
-    hwnd_bg = None
-    hwnd_btn = None
-    hwnd_cover = None
-    try:
+    ready = threading.Event()
+    cover_req = threading.Event()
+    cover_done = threading.Event()
+    stop_req = threading.Event()
+    handles = {}
+
+    def _win_thread():
+        handles["tid"] = k32.GetCurrentThreadId()
         hwnd_bg = u32.CreateWindowExW(
             0, "STATIC", "CULTargetBgWin", 0x10000000 | 0x00C00000,
             120, 120, 320, 220, None, None, hinst, None,
         )
-        assert hwnd_bg
         hwnd_btn = u32.CreateWindowExW(
             0, "BUTTON", "CULInnerBtn", 0x10000000 | 0x40000000,
             40, 40, 140, 44, hwnd_bg, None, hinst, None,
         )
-        assert hwnd_btn
-        time.sleep(0.2)
+        handles["bg"] = int(hwnd_bg or 0)
+        handles["btn"] = int(hwnd_btn or 0)
+        ready.set()
+        msg = wintypes.MSG()
+        while not stop_req.is_set():
+            while u32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
+                u32.TranslateMessage(ctypes.byref(msg))
+                u32.DispatchMessageW(ctypes.byref(msg))
+            if cover_req.is_set() and not cover_done.is_set():
+                hwnd_cov = u32.CreateWindowExW(
+                    0x00000008, "STATIC", "CULCoverWin", 0x10000000 | 0x00C00000,
+                    100, 100, 360, 260, None, None, hinst, None,
+                )
+                if hwnd_cov:
+                    u32.SetWindowPos(hwnd_cov, wintypes.HWND(0), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010 | 0x0040)
+                handles["cover"] = int(hwnd_cov or 0)
+                cover_done.set()
+            time.sleep(0.01)
+        for key in ("cover", "btn", "bg"):
+            h = handles.get(key)
+            if h:
+                u32.DestroyWindow(wintypes.HWND(h))
 
+    th = threading.Thread(target=_win_thread, daemon=True)
+    th.start()
+    try:
+        assert ready.wait(timeout=3.0)
+        hwnd_bg = handles["bg"]
+        assert hwnd_bg and handles["btn"]
         ds = desktop_uia.DesktopSession(hwnd_bg)
         try:
             nodes = ds.discover()
@@ -167,21 +199,16 @@ def test_cul_desk_001_and_002_occlusion_and_killswitch_fail_closed(monkeypatch):
             assert fresh_ok["occluded"] is False
 
             # Place a higher Z-order covering window over CULTargetBgWin
-            hwnd_cover = u32.CreateWindowExW(
-                0x00000008, "STATIC", "CULCoverWin", 0x10000000 | 0x00C00000,
-                100, 100, 360, 260, None, None, hinst, None,
-            )
-            assert hwnd_cover
-            u32.SetWindowPos(hwnd_cover, wintypes.HWND(0), 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0010 | 0x0040)
+            cover_req.set()
+            assert cover_done.wait(timeout=3.0)
             time.sleep(0.15)
             with pytest.raises(StaleElementError, match="occluded"):
                 ds.verify_fresh(btn)
         finally:
             ds.close()
     finally:
-        for h in (hwnd_cover, hwnd_btn, hwnd_bg):
-            if h:
-                u32.DestroyWindow(h)
+        stop_req.set()
+        th.join(timeout=3.0)
 
 
 @pytest.mark.windows_desktop
