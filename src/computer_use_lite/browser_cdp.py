@@ -61,6 +61,17 @@ _IS_SENSITIVE_ELEM_JS = r"""const _isSensitiveElem = (el) => {
   return /\b(cc[_-]?num(?:ber)?|card[_-]?num(?:ber)?|security[_-]?code|api[_-]?key|one[_-]?time[_-]?code)\b/.test(spaced);
 };"""
 
+_DIGEST_TEXT_JS = r"""const _digestText = (raw) => {
+  const s = String(raw || '');
+  if (s.length <= 400) return s;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return s.slice(0, 350) + '...[' + s.length + ':' + (h >>> 0).toString(16) + ']';
+};"""
+
 _HOVER_TRIGGER_JS = r"""(() => {
   const triggers = new Set();
   const vw = window.innerWidth || 1280, vh = window.innerHeight || 720;
@@ -2476,12 +2487,13 @@ class BrowserSession:
               const sel = this.selected !== undefined ? String(!!this.selected)
                 : (this.getAttribute ? this.getAttribute('aria-selected') : null);
               const open = this.open !== undefined ? String(!!this.open) : null;
+              {_DIGEST_TEXT_JS}
               const inSubdoc = Boolean(
                 {str(is_subframe).lower()}
                 || (this.ownerDocument && (this.ownerDocument !== document || window !== window.top))
               );
               const bodyText = inSubdoc && this.ownerDocument && this.ownerDocument.body
-                ? (this.ownerDocument.body.innerText || '').slice(0, 400) : '';
+                ? _digestText(this.ownerDocument.body.innerText || '') : '';
               return {{
                 ro,
                 secret: _isSensitiveElem(this),
@@ -2543,12 +2555,13 @@ class BrowserSession:
                 aeSecret = _isSensitiveElem(ae);
                 aeVal = ae.value !== undefined ? String(ae.value) : (ae.textContent || '').slice(0, 80);
               }}
+              {_DIGEST_TEXT_JS}
               return {{
                 title: document.title,
                 ae_tag: aeTag,
                 ae_val: aeVal,
                 ae_secret: aeSecret,
-                text: (document.body.innerText || '').slice(0, 400),
+                text: _digestText(document.body.innerText || ''),
                 n: els.length,
               }};
             }}""")

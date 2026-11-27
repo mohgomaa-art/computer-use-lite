@@ -209,3 +209,24 @@ def test_cul_perf_001_drag_read_page_hover_wait_and_session_ttl(tmp_path):
             await mgr.close_all()
 
     asyncio.run(_ttl_run())
+
+
+def test_signature_detects_dom_text_change_beyond_400_chars(tmp_path):
+    from urllib.parse import quote
+
+    buttons = "".join(
+        f"<button id='b{i}' onclick=\"document.getElementById('tail_out').textContent='clicked:{i}'\">Action {i:02d}</button>"
+        for i in range(1, 91)
+    )
+    html = f"<!doctype html><html><body><div>{buttons}</div><div id='tail_out'>idle</div></body></html>"
+    s = BrowserSession(url=f"data:text/html,{quote(html)}", headless=True, viewport=(1280, 720))
+    try:
+        api = Api(s, state_path=tmp_path / "dense_tail.json")
+        api.discover_interactables(export_crops=False)
+        b74 = next(r for r in api.resolver.records if r.get("name") == "Action 74")
+        res = api.execute_action(b74["id"], "click")
+        assert res["ok"] is True
+        assert res["verified"] is True, res
+        assert "delta" in res["verification_scope"] or res["verification_scope"] == "same_frame_verified"
+    finally:
+        s.close()
