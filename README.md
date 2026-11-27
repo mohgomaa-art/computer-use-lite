@@ -188,9 +188,15 @@ with BrowserSession(url="https://example.com", headless=True, viewport=(1280, 72
     print(api.execute_action("e1", "click", revision=1))
 ```
 
-Launch the `13`-tool MCP server (`stdio`):
+Launch the MCP server (`stdio`) — reload-supervised (`15` core tools + `cul_reload` = `16` tools, recommended for agent-driven development) or direct (`15` core tools):
 
 ```powershell
+# Supervised (supports mid-session `cul_reload` without client restart):
+computer-use-lite-mcp-supervised
+# or:
+python -u -m computer_use_lite.supervisor
+
+# Direct unsupervised server (`15` tools):
 computer-use-lite-mcp
 # or:
 python -u -m computer_use_lite.mcp_server

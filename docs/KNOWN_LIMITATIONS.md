@@ -43,3 +43,5 @@ This document reconciles barriers resolved between [`v0.1.0a0`](https://github.c
    Real third-party embeds (`youtube.com/embed`), Store Notepad real Save As UIA on `WinSta0\Default`, and Desktop `T2` (`Calculator`) remain outside the local `post-fix-v1` harness.
 4. **Heuristic Token Metric (`TOKENS_EST` & `utf8_bytes`):**  
    `Api.last_stats` now emits both `utf8_bytes` and `tokens_note` clarifying `round(chars / 4, 1)` is a byte/char heuristic rather than provider BPE billing.
+5. **`mcp` SDK Dependency Pin (`<2`):**  
+   `pyproject.toml` and `requirements.txt` pin `mcp>=1.25.0,<2` (using the `FastMCP` v1 server API) until migrated to `mcp` 2.x (`MCPServer`).
