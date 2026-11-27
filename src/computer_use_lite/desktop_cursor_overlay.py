@@ -76,8 +76,96 @@ _GLIDE_REF_PX = 900.0
 _GLIDE_LONG_PX = 320.0
 _GLIDE_SPRING_TAU = 5.5
 _MAX_DT_S = 0.05
+_GLOW_FADE_IN_S = 0.20
+_GLOW_FADE_OUT_S = 0.25
+_GLOW_PULSE_PERIOD_S = 2.40
 CUL_GREEN = "#0E9F6E"
 CUL_GREEN_RGB = (14, 159, 110)
+
+
+def resolve_desktop_takeover_glow_enabled(enabled: bool | None = None) -> bool:
+    """Resolve optional green desktop takeover border glow (default OFF)."""
+    if sys.platform != "win32":
+        return False
+    if enabled is not None:
+        return bool(enabled)
+    return os.environ.get("CUL_TAKEOVER_GLOW", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def enumerate_monitors_with_dpi() -> list[dict]:
+    """Return physical monitor rects [(left, top, width, height, dpi)] cleanly."""
+    if sys.platform != "win32":
+        return []
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    monitors: list[dict] = []
+    try:
+        shcore = ctypes.WinDLL("shcore", use_last_error=False)
+        shcore.GetDpiForMonitor.argtypes = [
+            wintypes.HANDLE, ctypes.c_int, ctypes.POINTER(wintypes.UINT), ctypes.POINTER(wintypes.UINT)
+        ]
+        shcore.GetDpiForMonitor.restype = ctypes.c_long
+    except Exception:
+        shcore = None
+
+    MONITORENUMPROC = ctypes.WINFUNCTYPE(
+        wintypes.BOOL, wintypes.HANDLE, wintypes.HDC, ctypes.POINTER(wintypes.RECT), wintypes.LPARAM
+    )
+
+    @MONITORENUMPROC
+    def _cb(hmon, _hdc, lprect, _lp):
+        r = lprect.contents
+        w = max(1, int(r.right) - int(r.left))
+        h = max(1, int(r.bottom) - int(r.top))
+        dpi = 96
+        if shcore is not None:
+            try:
+                dx = wintypes.UINT(96)
+                dy = wintypes.UINT(96)
+                if shcore.GetDpiForMonitor(hmon, 0, ctypes.byref(dx), ctypes.byref(dy)) == 0 and dx.value > 0:
+                    dpi = int(dx.value)
+            except Exception:
+                pass
+        monitors.append({"left": int(r.left), "top": int(r.top), "width": w, "height": h, "dpi": dpi})
+        return True
+
+    u32.EnumDisplayMonitors.argtypes = [wintypes.HDC, ctypes.POINTER(wintypes.RECT), MONITORENUMPROC, wintypes.LPARAM]
+    u32.EnumDisplayMonitors.restype = wintypes.BOOL
+    try:
+        u32.EnumDisplayMonitors(None, None, _cb, 0)
+    except Exception:
+        monitors = []
+    if not monitors:
+        vx, vy = int(u32.GetSystemMetrics(76)), int(u32.GetSystemMetrics(77))
+        vw, vh = max(1, int(u32.GetSystemMetrics(78))), max(1, int(u32.GetSystemMetrics(79)))
+        monitors.append({"left": vx, "top": vy, "width": vw, "height": vh, "dpi": 96})
+    return monitors
+
+
+def _render_monitor_glow_bgra(width: int, height: int, dpi: int = 96) -> bytes:
+    """Render soft multi-layer #0E9F6E inset perimeter glow for a monitor surface."""
+    from PIL import Image, ImageDraw
+
+    w, h = max(8, int(width)), max(8, int(height))
+    scale = max(1.0, float(dpi) / 96.0)
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(im)
+    r, g, b = CUL_GREEN_RGB
+    layers = [
+        (round(3 * scale), 155),
+        (round(8 * scale), 95),
+        (round(16 * scale), 48),
+        (round(28 * scale), 22),
+    ]
+    for inset, alpha in layers:
+        pad = max(0, inset // 2)
+        if pad * 2 + 2 >= min(w, h):
+            continue
+        draw.rectangle(
+            (pad, pad, w - 1 - pad, h - 1 - pad),
+            outline=(r, g, b, alpha),
+            width=max(2, round(inset * 0.6)),
+        )
+    return _to_premul_bgra(im)
 
 _REGISTRY_LOCK = threading.Lock()
 _ACTIVE_OVERLAYS: dict[int, "DesktopCursorOverlay"] = {}
@@ -466,7 +554,9 @@ class _LayeredSurface:
         finally:
             self._u32.ReleaseDC(None, screen_dc)
 
-    def present(self, x: int, y: int, width: int, height: int, bgra_bytes: bytes | None) -> None:
+    def present(
+        self, x: int, y: int, width: int, height: int, bgra_bytes: bytes | None, const_alpha: int = 255
+    ) -> None:
         self.ensure(width, height)
         if bgra_bytes is not None:
             ctypes.memmove(self._bits, bgra_bytes, len(bgra_bytes))
@@ -475,7 +565,7 @@ class _LayeredSurface:
             pt_dst = wintypes.POINT(int(x), int(y))
             pt_src = wintypes.POINT(0, 0)
             sz = _SIZE(int(width), int(height))
-            blend = _BLENDFUNCTION(0, 0, 255, 1)
+            blend = _BLENDFUNCTION(0, 0, max(0, min(255, int(const_alpha))), 1)
             self._u32.UpdateLayeredWindow(
                 wintypes.HWND(self.hwnd), screen_dc, ctypes.byref(pt_dst), ctypes.byref(sz),
                 self._mem_dc, ctypes.byref(pt_src), 0, ctypes.byref(blend), _ULW_ALPHA,
@@ -513,8 +603,14 @@ class _LayeredSurface:
 class DesktopCursorOverlay:
     """Thread-isolated 60.0 Hz click-through layered 3D cursor overlay for DesktopSession."""
 
-    def __init__(self, initial_xy: tuple[float, float] = (0.0, 0.0), glide_ms: int | None = None):
+    def __init__(
+        self,
+        initial_xy: tuple[float, float] = (0.0, 0.0),
+        glide_ms: int | None = None,
+        takeover_glow: bool | None = None,
+    ):
         self.glide_ms = resolve_desktop_glide_ms(glide_ms)
+        self.takeover_glow_enabled = resolve_desktop_takeover_glow_enabled(takeover_glow)
         self.hwnd: int = 0
         self._halo_hwnd: int = 0
         self.thread_ident: int | None = None
@@ -560,6 +656,10 @@ class DesktopCursorOverlay:
             "last_fps": 0.0,
             "visible": False,
             "capture_suppressed": False,
+            "glow_active": False,
+            "glow_alpha": 0.0,
+            "glow_last_tick": 0.0,
+            "glow_pulse_t0": 0.0,
         }
 
         self._sprites: dict[tuple[str, bool], tuple[object, bytes, int, int]] = {}
@@ -572,6 +672,7 @@ class DesktopCursorOverlay:
         self._hinst = None
         self._cursor_surf: _LayeredSurface | None = None
         self._halo_surf: _LayeredSurface | None = None
+        self._glow_layers: list[tuple[int, int, int, int, _LayeredSurface, bytes]] = []
         self._animating = False
         self._dirty = False
         self._last_frame_ns = 0
@@ -613,7 +714,7 @@ class DesktopCursorOverlay:
                     self._dirty = True
                     return 0
                 if msg == _WM_CLOSE:
-                    for h in (self._halo_hwnd, self.hwnd):
+                    for h in [self._halo_hwnd, self.hwnd, *(surf.hwnd for *_, surf, _ in self._glow_layers)]:
                         if h:
                             u32.DestroyWindow(wintypes.HWND(h))
                     return 0
@@ -717,13 +818,16 @@ class DesktopCursorOverlay:
                 except Exception:
                     pass
             with _REGISTRY_LOCK:
-                for h in (self.hwnd, self._halo_hwnd):
+                for h in [self.hwnd, self._halo_hwnd, *(surf.hwnd for *_, surf, _ in self._glow_layers)]:
                     if h:
                         _ACTIVE_OVERLAYS.pop(h, None)
             if self._cursor_surf is not None:
                 self._cursor_surf.free()
             if self._halo_surf is not None:
                 self._halo_surf.free()
+            for *_, surf, _ in self._glow_layers:
+                surf.free()
+            self._glow_layers.clear()
             if self._u32 is not None and self._class_name:
                 try:
                     self._u32.UnregisterClassW(self._class_name, self._hinst)
@@ -804,9 +908,16 @@ class DesktopCursorOverlay:
                 self._cursor_surf.hide()
                 if self._halo_surf is not None:
                     self._halo_surf.hide()
+                for *_, surf, _ in self._glow_layers:
+                    surf.hide()
                 return
 
-            show_busy = bool(st["busy"] and st["busy_since"] > 0.0 and (now - st["busy_since"]) >= _BUSY_SHAPE_DELAY_S)
+            show_busy = bool(
+                st["busy"]
+                and st["glide_ms"] <= 0.0
+                and st["busy_since"] > 0.0
+                and (now - st["busy_since"]) >= _BUSY_SHAPE_DELAY_S
+            )
             if show_busy and st["cursor_id"] != "progress":
                 if st["cursor_id"] not in ("progress", "not-allowed"):
                     self._state["pre_busy_cursor_id"] = st["cursor_id"]
@@ -885,6 +996,26 @@ class DesktopCursorOverlay:
             elif halo_box is not None:
                 animating = True
 
+            glow_active = bool(st["glow_active"])
+            glow_alpha = float(st["glow_alpha"])
+            glow_last = float(st["glow_last_tick"])
+            dt_glow = min(_MAX_DT_S, max(0.001, now - glow_last)) if glow_last > 0.0 else 0.016667
+            if glow_active:
+                glow_alpha = min(1.0, glow_alpha + dt_glow / _GLOW_FADE_IN_S)
+                self._state["glow_last_tick"] = now
+                if glow_alpha < 1.0:
+                    animating = True
+                else:
+                    animating = True  # pulse subtly at 2.4s while active
+            elif glow_alpha > 0.0:
+                glow_alpha = max(0.0, glow_alpha - dt_glow / _GLOW_FADE_OUT_S)
+                self._state["glow_last_tick"] = now if glow_alpha > 0.0 else 0.0
+                if glow_alpha > 0.0:
+                    animating = True
+            else:
+                self._state["glow_last_tick"] = 0.0
+            self._state["glow_alpha"] = glow_alpha
+
             self._state["frame_count"] += 1
             if self._last_frame_ns > 0 and self._animating:
                 dt_ns = now_ns - self._last_frame_ns
@@ -895,6 +1026,7 @@ class DesktopCursorOverlay:
             self._last_frame_ns = now_ns
             self._animating = animating
 
+        self._update_glow_layers(now, glow_active, glow_alpha, float(st.get("glow_pulse_t0", now)))
         self._update_halo_layer(halo_box, st["halo_tone"])
 
         render_cursor_id = "progress" if show_busy else st["cursor_id"]
@@ -1094,6 +1226,61 @@ class DesktopCursorOverlay:
                 self._state["halo_until"] = min(self._state["halo_until"], now + 0.5)
         self._post_sync()
 
+    def _ensure_glow_layers(self) -> None:
+        if self._glow_layers or not self._u32 or not self._gdi:
+            return
+        ex_style = (
+            _WS_EX_LAYERED | _WS_EX_TRANSPARENT | _WS_EX_TOPMOST
+            | _WS_EX_TOOLWINDOW | _WS_EX_NOACTIVATE
+        )
+        for mon in enumerate_monitors_with_dpi():
+            hwnd = self._create_overlay_hwnd(self._u32, ex_style)
+            try:
+                self._u32.SetWindowDisplayAffinity(wintypes.HWND(hwnd), _WDA_EXCLUDEFROMCAPTURE)
+            except Exception:
+                pass
+            surf = _LayeredSurface(self._u32, self._gdi, hwnd)
+            bgra = _render_monitor_glow_bgra(mon["width"], mon["height"], mon["dpi"])
+            with _REGISTRY_LOCK:
+                _ACTIVE_OVERLAYS[hwnd] = self
+            self._glow_layers.append((mon["left"], mon["top"], mon["width"], mon["height"], surf, bgra))
+
+    def _update_glow_layers(self, now: float, glow_active: bool, glow_alpha: float, pulse_t0: float) -> None:
+        if not glow_active and glow_alpha <= 0.0:
+            for *_, surf, _ in self._glow_layers:
+                surf.hide()
+            return
+        if not self._glow_layers:
+            self._ensure_glow_layers()
+        pulse = 1.0
+        if glow_active and glow_alpha >= 1.0:
+            phase = ((now - pulse_t0) / _GLOW_PULSE_PERIOD_S) * 2.0 * math.pi
+            pulse = 0.725 + 0.175 * math.sin(phase)
+        else:
+            pulse = 0.85 * glow_alpha
+        const_alpha = max(0, min(255, int(round(pulse * 255))))
+        for left, top, width, height, surf, bgra in self._glow_layers:
+            initial = surf.pixel_key != ("glow", width, height)
+            surf.present(left, top, width, height, bgra if initial else None, const_alpha=const_alpha)
+            if initial:
+                surf.pixel_key = ("glow", width, height)
+
+    def set_takeover_glow(self, active: bool) -> bool:
+        """Fade the #0E9F6E multi-monitor takeover glow cleanly in (200ms) or out (250ms)."""
+        if self._closed or not self.hwnd:
+            return False
+        now = time.perf_counter()
+        want = bool(active)
+        with self._lock:
+            self._state["glow_active"] = want
+            self._state["glow_last_tick"] = now
+            if want and self._state["glow_pulse_t0"] <= 0.0:
+                self._state["glow_pulse_t0"] = now
+            if not want:
+                self._state["glow_pulse_t0"] = 0.0
+        self._post_sync()
+        return want
+
     def set_capture_suppressed(self, suppressed: bool) -> None:
         with self._lock:
             self._state["capture_suppressed"] = bool(suppressed)
@@ -1107,6 +1294,7 @@ class DesktopCursorOverlay:
                 **self._state,
                 "hwnd": self.hwnd,
                 "halo_hwnd": self._halo_hwnd,
+                "glow_hwnds": [surf.hwnd for *_, surf, _ in self._glow_layers],
                 "thread_ident": self.thread_ident,
                 "excluded_from_capture": self.excluded_from_capture,
             }

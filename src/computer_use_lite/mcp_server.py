@@ -12,6 +12,7 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+# AI Modification Note: Mapped UserInterruptedError to explicit user_interrupted MCP error payload.
 """Model Context Protocol (MCP) server for Computer Use Lite."""
 import asyncio
 import base64
@@ -30,6 +31,7 @@ from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 
 from .resolver import StaleElementError
 from .session_manager import SessionLimitError, SessionManager, SessionNotFoundError
+from .takeover_guard import UserInterruptedError
 
 _SERVER_INSTRUCTIONS = (
     "Computer Use Lite provides fast local browser (Chromium CDP) and Windows desktop (UIA) "
@@ -132,6 +134,15 @@ def _error_result(exc: Exception) -> CallToolResult:
             "error": str(exc),
             "recoverable": True,
             "next_step": "Call list_sessions() and close_session(session_id) on idle sessions.",
+        }
+    elif isinstance(exc, UserInterruptedError):
+        payload = {
+            "ok": False,
+            "user_interrupted": True,
+            "error_type": "user_interrupted",
+            "error": str(exc),
+            "recoverable": True,
+            "next_step": "Physical Esc interrupted agent takeover control; control returned to user.",
         }
     elif isinstance(exc, RuntimeError) and "Foreground safety abort" in str(exc):
         payload = {

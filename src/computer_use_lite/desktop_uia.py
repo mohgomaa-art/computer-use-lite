@@ -12,6 +12,8 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+# AI Modification Note: Added multi-click forwarding in click_coordinate and optional
+# CUL_TAKEOVER_GLOW=1 TakeoverGuard scoping with clean close teardown.
 """M1-Windows - UI Automation scoped strictly to one HWND, on a worker thread.
 
 Uses IUIAutomation.FindAllBuildCache (one cross-process cache request) so the whole
@@ -35,8 +37,10 @@ from .desktop_cursor_overlay import (
     DesktopCursorOverlay,
     is_overlay_hwnd,
     resolve_desktop_overlay_enabled,
+    resolve_desktop_takeover_glow_enabled,
 )
 from .resolver import StaleElementError
+from .takeover_guard import TakeoverGuard, takeover_action_scope
 
 _u32 = ctypes.WinDLL("user32", use_last_error=True)
 if not _u32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
@@ -505,7 +509,7 @@ class DesktopSession:
 
     name = "desktop"
 
-    def __init__(self, hwnd, show_cursor=None, cursor_glide_ms=None):
+    def __init__(self, hwnd, show_cursor=None, cursor_glide_ms=None, takeover_glow=None):
         self.hwnd = hwnd
         self._q = []
         self._cv = threading.Condition()
@@ -523,6 +527,8 @@ class DesktopSession:
         self.show_cursor = False
         self._overlay = None
         self._last_cursor_xy = (0.0, 0.0)
+        self.takeover_glow = resolve_desktop_takeover_glow_enabled(takeover_glow)
+        self._takeover_guard = None
 
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
@@ -531,7 +537,7 @@ class DesktopSession:
         if self._err is not None:
             raise self._err
 
-        if resolve_desktop_overlay_enabled(show_cursor):
+        if resolve_desktop_overlay_enabled(show_cursor) or self.takeover_glow:
             bring_window_to_front(self.hwnd, activate=False)
             try:
                 bx, by, bw, bh = self.bounds()
@@ -540,11 +546,27 @@ class DesktopSession:
                 ix, iy = 0.0, 0.0
             self._last_cursor_xy = (float(ix), float(iy))
             try:
-                self._overlay = DesktopCursorOverlay(initial_xy=(ix, iy), glide_ms=cursor_glide_ms)
-                self.show_cursor = True
+                self._overlay = DesktopCursorOverlay(
+                    initial_xy=(ix, iy),
+                    glide_ms=cursor_glide_ms,
+                    takeover_glow=self.takeover_glow,
+                )
+                self.show_cursor = resolve_desktop_overlay_enabled(show_cursor)
+                if self.takeover_glow:
+                    self._overlay.set_takeover_glow(True)
+                    self._takeover_guard = TakeoverGuard(on_release=lambda _r: self._on_takeover_release())
+                    self._takeover_guard.arm()
             except Exception:
                 self._overlay = None
                 self.show_cursor = False
+
+    def _on_takeover_release(self):
+        ov = getattr(self, "_overlay", None)
+        if ov is not None:
+            try:
+                ov.set_takeover_glow(False)
+            except Exception:
+                pass
 
     # -- worker plumbing --------------------------------------------------------
     def _worker(self):
@@ -823,76 +845,78 @@ class DesktopSession:
                 pass
 
     def perform(self, el, action, value=None):
-        if getattr(self, "show_cursor", False):
-            bring_window_to_front(self.hwnd, activate=False)
-        box = el.get("box") or [0, 0, 0, 0]
-        cx, cy = int(box[0] + box[2] / 2), int(box[1] + box[3] / 2)
-        cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
-        self._overlay_move(cx, cy, cid, box=box, wait=(action in ("hover", "click", "invoke", "type")))
-        if action in ("click", "invoke", "type", "focus"):
-            self._overlay_click(cx, cy, cid)
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            if getattr(self, "show_cursor", False):
+                bring_window_to_front(self.hwnd, activate=False)
+            box = el.get("box") or [0, 0, 0, 0]
+            cx, cy = int(box[0] + box[2] / 2), int(box[1] + box[3] / 2)
+            cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
+            self._overlay_move(cx, cy, cid, box=box, wait=(action in ("hover", "click", "invoke", "type")))
+            if action in ("click", "invoke", "type", "focus"):
+                self._overlay_click(cx, cy, cid)
 
-        def run():
-            e = self._element(el)
-            if action == "type":
-                if _window_class(self.hwnd) == "#32770":
-                    return _commit_dialog_text(self.hwnd, e, box, value, self._kill)
-                try:
-                    self._pattern(e, UIA.UIA_ValuePatternId,
-                                  UIA.IUIAutomationValuePattern).SetValue(str(value or ""))
-                    return "value_pattern"
-                except Exception:
-                    _ensure_foreground(self.hwnd)
-                    e.SetFocus()
-                    type_unicode(value or "", hwnd=self.hwnd, kill_switch=self._kill)
-                    return "sendinput"
-            if action in ("click", "invoke"):
-                for pat_id, iface, label in (
-                    (UIA.UIA_InvokePatternId, UIA.IUIAutomationInvokePattern, "invoke_pattern"),
-                    (UIA.UIA_TogglePatternId, UIA.IUIAutomationTogglePattern, "toggle_pattern"),
-                    (UIA.UIA_SelectionItemPatternId, UIA.IUIAutomationSelectionItemPattern, "selection_item_pattern"),
-                ):
+            def run():
+                e = self._element(el)
+                if action == "type":
+                    if _window_class(self.hwnd) == "#32770":
+                        return _commit_dialog_text(self.hwnd, e, box, value, self._kill)
                     try:
-                        p = self._pattern(e, pat_id, iface)
-                        if label == "invoke_pattern":
-                            p.Invoke()
-                        elif label == "toggle_pattern":
-                            p.Toggle()
-                        else:
-                            p.Select()
-                        return label
+                        self._pattern(e, UIA.UIA_ValuePatternId,
+                                      UIA.IUIAutomationValuePattern).SetValue(str(value or ""))
+                        return "value_pattern"
+                    except Exception:
+                        _ensure_foreground(self.hwnd)
+                        e.SetFocus()
+                        type_unicode(value or "", hwnd=self.hwnd, kill_switch=self._kill)
+                        return "sendinput"
+                if action in ("click", "invoke"):
+                    for pat_id, iface, label in (
+                        (UIA.UIA_InvokePatternId, UIA.IUIAutomationInvokePattern, "invoke_pattern"),
+                        (UIA.UIA_TogglePatternId, UIA.IUIAutomationTogglePattern, "toggle_pattern"),
+                        (UIA.UIA_SelectionItemPatternId, UIA.IUIAutomationSelectionItemPattern, "selection_item_pattern"),
+                    ):
+                        try:
+                            p = self._pattern(e, pat_id, iface)
+                            if label == "invoke_pattern":
+                                p.Invoke()
+                            elif label == "toggle_pattern":
+                                p.Toggle()
+                            else:
+                                p.Select()
+                            return label
+                        except Exception:
+                            pass
+                    try:
+                        ec = self._pattern(e, UIA.UIA_ExpandCollapsePatternId, UIA.IUIAutomationExpandCollapsePattern)
+                        state = ec.CurrentExpandCollapseState
+                        if state in (0, 2):  # Collapsed or PartiallyExpanded
+                            ec.Expand()
+                            return "expand_collapse_pattern"
+                        if state == 1:  # Expanded
+                            ec.Collapse()
+                            return "expand_collapse_pattern"
                     except Exception:
                         pass
-                try:
-                    ec = self._pattern(e, UIA.UIA_ExpandCollapsePatternId, UIA.IUIAutomationExpandCollapsePattern)
-                    state = ec.CurrentExpandCollapseState
-                    if state in (0, 2):  # Collapsed or PartiallyExpanded
-                        ec.Expand()
-                        return "expand_collapse_pattern"
-                    if state == 1:  # Expanded
-                        ec.Collapse()
-                        return "expand_collapse_pattern"
-                except Exception:
-                    pass
-                x, y, w, h = el["box"]
-                return click_at(int(x + w / 2), int(y + h / 2), hwnd=self.hwnd,
-                                kill_switch=getattr(self, "_kill", None))
-            if action == "hover":
-                x, y, w, h = el["box"]
-                move_mouse(int(x + w / 2), int(y + h / 2), hwnd=self.hwnd,
-                           kill_switch=getattr(self, "_kill", None))
-                return "hover"
-            e.SetFocus()
-            return "focus"
+                    x, y, w, h = el["box"]
+                    return click_at(int(x + w / 2), int(y + h / 2), hwnd=self.hwnd,
+                                    kill_switch=getattr(self, "_kill", None))
+                if action == "hover":
+                    x, y, w, h = el["box"]
+                    move_mouse(int(x + w / 2), int(y + h / 2), hwnd=self.hwnd,
+                               kill_switch=getattr(self, "_kill", None))
+                    return "hover"
+                e.SetFocus()
+                return "focus"
 
-        return {"mechanism": self._call(run)}
+            return {"mechanism": self._call(run)}
 
     def hover(self, el):
-        x, y, w, h = el["box"]
-        cx, cy = int(x + w / 2), int(y + h / 2)
-        self._overlay_move(cx, cy, cursor_for_action("hover", role=el.get("role")), box=el["box"], wait=True)
-        move_mouse(cx, cy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
-        return {"x": cx, "y": cy}
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            x, y, w, h = el["box"]
+            cx, cy = int(x + w / 2), int(y + h / 2)
+            self._overlay_move(cx, cy, cursor_for_action("hover", role=el.get("role")), box=el["box"], wait=True)
+            move_mouse(cx, cy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
+            return {"x": cx, "y": cy}
 
     def clear(self, el):
         def run():
@@ -987,31 +1011,44 @@ class DesktopSession:
         return self._call(run)
 
     def scroll(self, dx=0, dy=0):
-        x, y, w, h = self.bounds()
-        cx, cy = int(x + w / 2), int(y + h / 2)
-        self._overlay_move(cx, cy, cursor_for_action("scroll", dx=dx, dy=dy), wait=True)
-        return wheel_scroll(cx, cy, dx=dx, dy=dy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            x, y, w, h = self.bounds()
+            cx, cy = int(x + w / 2), int(y + h / 2)
+            self._overlay_move(cx, cy, cursor_for_action("scroll", dx=dx, dy=dy), wait=True)
+            return wheel_scroll(cx, cy, dx=dx, dy=dy, hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None))
 
     def press_key(self, key):
-        vk, mods = parse_key_combo(key)
-        press(vk, mods=mods, hwnd=self.hwnd)
-        return {"key": key}
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            vk, mods = parse_key_combo(key)
+            press(vk, mods=mods, hwnd=self.hwnd)
+            return {"key": key}
 
     def click_coordinate(self, x, y, button="left", clicks=1):
-        bx, by, bw, bh = self.bounds()
-        if not (bx <= x < bx + bw and by <= y < by + bh):
-            raise ValueError(
-                f"Coordinate ({x}, {y}) is outside attached window bounds {[bx, by, bw, bh]}"
-            )
-        cid = cursor_for_action("click_at", is_blind_coord=True)
-        self._overlay_move(x, y, cid, wait=True)
-        self._overlay_click(x, y, cid, clicks=clicks)
-        mech = click_at(int(x), int(y), hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None),
-                        button=button, clicks=clicks)
-        return {"x": int(x), "y": int(y), "button": button, "clicks": clicks, "mechanism": mech}
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            bx, by, bw, bh = self.bounds()
+            if not (bx <= x < bx + bw and by <= y < by + bh):
+                raise ValueError(
+                    f"Coordinate ({x}, {y}) is outside attached window bounds {[bx, by, bw, bh]}"
+                )
+            cid = cursor_for_action("click_at", is_blind_coord=True)
+            self._overlay_move(x, y, cid, wait=True)
+            self._overlay_click(x, y, cid, clicks=clicks)
+            mech = click_at(int(x), int(y), hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None),
+                            button=button, clicks=clicks)
+            return {"x": int(x), "y": int(y), "button": button, "clicks": clicks, "mechanism": mech}
 
     def close(self):
+        if getattr(self, "_takeover_guard", None) is not None:
+            try:
+                self._takeover_guard.disarm()
+            except Exception:
+                pass
+            self._takeover_guard = None
         if getattr(self, "_overlay", None) is not None:
+            try:
+                self._overlay.set_takeover_glow(False)
+            except Exception:
+                pass
             try:
                 self._overlay.close()
             finally:

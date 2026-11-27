@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import http.server
+import json
 import os
 import socketserver
 from pathlib import Path
@@ -741,5 +742,302 @@ def test_browser_headful_raises_window_and_tracks_hwnd():
                 s.close()
     finally:
         u32.DestroyWindow(wintypes.HWND(covering_hwnd))
+
+
+def test_cursor_fixes_a_to_g_regressions(monkeypatch):
+    """Verify Fixes A-G and Section 4 motion/reduced-motion behavior in Chromium."""
+    import json as _json
+    from computer_use_lite.cursor_overlay import build_overlay_init_script
+
+    html_body = """<!doctype html><html><head><title>CUL Audit A-G</title></head>
+    <body>
+      <button id="b1">One</button>
+      <a id="pop" href="/?tab=2" target="_blank">Tab2</a>
+    </body></html>"""
+    with _CspServer(html_body, strict_csp=False) as srv:
+        s = BrowserSession(url=srv.url, headless=False, viewport=(1000, 620), show_cursor=True, cursor_glide_ms=140)
+        try:
+            # G: canvas_rects ignores [data-cul-overlay] Shadow DOM wake canvas
+            api = Api(s)
+            lm = api.discover_interactables(export_crops=False)
+            assert s.canvas_rects() == []
+            assert api.regions == []
+            assert "opaque_canvas" not in lm
+
+            # A: No progress flash under 350ms + <=1 glyph rebuild over 3 pointer actions
+            s.page.evaluate(
+                """() => {
+                  const g = document.querySelector('[data-cul-overlay]').shadowRoot.querySelector('svg g');
+                  window.__rebuilds = 0;
+                  new MutationObserver(() => { window.__rebuilds++; }).observe(g, {childList: true});
+                }"""
+            )
+            for x in (100, 260, 420):
+                s.set_cursor_busy(True)
+                s._move_cursor(x, 80, "pointer")
+                s._dispatch_cursor("click", x, 80, "pointer")
+                s.set_cursor_busy(False)
+            assert s.page.evaluate("() => window.__rebuilds") == 1
+
+            # B: Error glyph reverts after ~900ms, cancelled by follow-up action
+            s.show_action_outcome(ok=False, verified=False, x=150, y=150, reason="TestErr")
+            assert s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState().cursorId") == "not-allowed"
+            time.sleep(1.05)
+            assert s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState().cursorId") == "pointer"
+
+            # C: Double-click gives +2 clickCount, >=2 ripples, stable crosshair for blind click_at
+            s.page.evaluate(
+                """() => {
+                  const rbox = document.querySelector('[data-cul-overlay]').shadowRoot.querySelector('[data-cul-ripples]');
+                  window.__rip = 0;
+                  new MutationObserver((ms) => { for (const m of ms) window.__rip += m.addedNodes.length; }).observe(rbox, {childList: true});
+                }"""
+            )
+            c0 = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState().clickCount")
+            s.click_coordinate(180, 180, clicks=2)
+            time.sleep(0.28)
+            st_c = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")
+            assert st_c["clickCount"] - c0 == 2
+            assert s.page.evaluate("() => window.__rip") >= 2
+            assert st_c["cursorId"] == "crosshair"
+
+            # D & Sec4: Post-spring max tilt <= 5 deg and zero horizontal target overshoot
+            s.page.evaluate(
+                """() => {
+                  const sh = document.querySelector('[data-cul-overlay]').shadowRoot;
+                  const rig = sh.querySelector('[data-cul-rig]');
+                  const anc = sh.querySelector('[data-cul-anchor]');
+                  window.__maxTilt = 0;
+                  window.__maxX = 0;
+                  function poll() {
+                    const rt = rig.style.transform || '';
+                    for (const m of rt.matchAll(/rotate[XY]\\((-?[\\d.]+)deg\\)/g)) {
+                      window.__maxTilt = Math.max(window.__maxTilt, Math.abs(parseFloat(m[1])));
+                    }
+                    const mx = /translate3d\\(([\\d.-]+)px/.exec(anc.style.transform || '');
+                    if (mx) window.__maxX = Math.max(window.__maxX, parseFloat(mx[1]));
+                    if (!window.__stopPoll) requestAnimationFrame(poll);
+                  }
+                  window.__stopPoll = false;
+                  requestAnimationFrame(poll);
+                }"""
+            )
+            s._move_cursor(40, 40, "pointer")
+            s._move_cursor(920, 560, "pointer")
+            diag = s.page.evaluate("() => { window.__stopPoll = true; return {tilt: window.__maxTilt, maxX: window.__maxX}; }")
+            assert diag["tilt"] <= 5.0
+            assert diag["maxX"] <= 920.1
+
+            # F: Tab switch + navigation perform zero full init-script re-evals
+            init_resends = []
+            orig_cdp = s._cdp_send
+
+            def _spy_send(method, params=None, session_id=None):
+                if method == "Runtime.evaluate":
+                    expr = (params or {}).get("expression", "")
+                    if len(expr) > 10000 and "cul.agent.cursor" in expr:
+                        init_resends.append(len(expr))
+                return orig_cdp(method, params, session_id=session_id)
+
+            monkeypatch.setattr(s, "_cdp_send", _spy_send)
+            with s.page.expect_popup():
+                s.page.click("#pop")
+            for _ in range(30):
+                if len(s._reconcile_pages()) >= 2:
+                    break
+                time.sleep(0.05)
+            s.switch_tab(1)
+            s.switch_tab(0)
+            s.navigate(srv.url + "?nav=1")
+            assert init_resends == []
+            assert s.page.evaluate("() => Boolean(window[Symbol.for('cul.agent.cursor')])") is True
+            s.close_tab(1)
+
+            # E: Hidden/paused-rAF resolves cleanly under 1 s
+            t0 = time.perf_counter()
+            res_e = s.page.evaluate(
+                """() => {
+                  window.requestAnimationFrame = () => 0;
+                  const c = window[Symbol.for('cul.agent.cursor')];
+                  return Promise.all([
+                    c.moveTo(200, 200, 'pointer', {glideMs: 140}),
+                    c.moveTo(540, 320, 'pointer', {glideMs: 140}),
+                  ]).then(() => c.getState());
+                }"""
+            )
+            assert (time.perf_counter() - t0) < 1.0
+            assert res_e["x"] == 540 and res_e["y"] == 320
+        finally:
+            s.close()
+
+    # Reduced motion mode disables tilt and animated glide
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(headless=True)
+        ctx = b.new_context(reduced_motion="reduce")
+        pg = ctx.new_page()
+        pg.set_content("<!doctype html><html><body><button>RM</button></body></html>")
+        pg.evaluate(build_overlay_init_script())
+        rm = pg.evaluate(
+            """() => {
+              const c = window[Symbol.for('cul.agent.cursor')];
+              c.moveTo(750, 420, 'pointer', {glideMs: 450});
+              return c.getState();
+            }"""
+        )
+        assert rm["reducedMotion"] is True and rm["rigTransform"] in ("", "none") and rm["x"] == 750
+        b.close()
+
+
+def test_takeover_glow_default_off_and_guard_state_machine(monkeypatch):
+    """Verify CUL_TAKEOVER_GLOW=1 flag default OFF, glow UI, and Esc interrupt state machine."""
+    from computer_use_lite import mcp_server, takeover_guard
+    from computer_use_lite.takeover_guard import (
+        InputEvent,
+        TakeoverGuard,
+        UserInterruptedError,
+        VK_ESCAPE,
+        resolve_takeover_glow_enabled,
+    )
+
+    monkeypatch.delenv("CUL_TAKEOVER_GLOW", raising=False)
+    assert resolve_takeover_glow_enabled() is False
+
+    # Injectable fake hook backend covering idle -> armed -> active -> interrupted + injected ignore + watchdog
+    class _FakeHook:
+        def __init__(self):
+            self.installed = False
+            self.cb = None
+
+        def install(self, cb):
+            self.installed = True
+            self.cb = cb
+            return True
+
+        def uninstall(self):
+            self.installed = False
+            self.cb = None
+
+    released = []
+    fake_now = [100.0]
+    hook = _FakeHook()
+    guard = TakeoverGuard(
+        hook_backend=hook,
+        watchdog_timeout_s=2.0,
+        on_release=lambda r: released.append(r),
+        clock=lambda: fake_now[0],
+        enable_atexit=False,
+    )
+    assert guard.state == "idle"
+    assert guard.arm() is True
+    assert guard.state == "armed" and hook.installed is True
+    guard.activate()
+    assert guard.state == "active"
+
+    # Injected SendInput Esc/mouse must NEVER trip interruption
+    assert hook.cb(InputEvent(kind="key", vk_code=VK_ESCAPE, injected=True, is_down=True)) is True
+    assert guard.state == "active"
+    assert hook.cb(InputEvent(kind="mouse", injected=True, is_down=False)) is True
+    assert guard.state == "active"
+
+    # Physical Esc immediately transitions active -> interrupted, uninstalls hooks, invokes release
+    hook.cb(InputEvent(kind="key", vk_code=VK_ESCAPE, injected=False, is_down=True))
+    assert guard.state == "interrupted"
+    assert hook.installed is False
+    assert released == ["user_interrupted"]
+    with pytest.raises(UserInterruptedError):
+        guard.check_not_interrupted()
+
+    # Watchdog >2s stall auto-releases control
+    hook2 = _FakeHook()
+    w_released = []
+    guard2 = TakeoverGuard(
+        hook_backend=hook2,
+        watchdog_timeout_s=0.1,
+        on_release=lambda r: w_released.append(r),
+        clock=lambda: fake_now[0],
+        enable_atexit=False,
+    )
+    guard2.arm()
+    guard2.activate()
+    fake_now[0] += 0.25
+    assert guard2.poll_watchdog() is True
+    assert guard2.state == "interrupted"
+    assert hook2.installed is False
+    assert w_released == ["watchdog_timeout"]
+    guard2.disarm()
+
+    # MCP error formatting returns explicit user_interrupted result
+    mcp_res = mcp_server._error_result(UserInterruptedError("Esc pressed"))
+    assert mcp_res.isError is True
+    parsed = json.loads(mcp_res.content[0].text)
+    assert parsed["error_type"] == "user_interrupted" and parsed["user_interrupted"] is True
+
+    # Browser green glow (#0E9F6E, pointer-events: none) + clean toggle
+    monkeypatch.setenv("CUL_TAKEOVER_GLOW", "1")
+    with _CspServer("<!doctype html><html><body><button>Glow</button></body></html>", strict_csp=True) as srv:
+        s = BrowserSession(url=srv.url, headless=True, show_cursor=False, cursor_glide_ms=0)
+        try:
+            assert s.takeover_glow is True
+            st = s.page.evaluate(
+                """() => {
+                  const host = document.querySelector('[data-cul-overlay]');
+                  const g = host.shadowRoot.querySelector('[data-cul-takeover-glow]');
+                  return {
+                    st: window[Symbol.for('cul.agent.cursor')].getState(),
+                    pe: g ? g.style.pointerEvents : '',
+                    bs: g ? g.style.boxShadow : '',
+                  };
+                }"""
+            )
+            assert st["st"]["takeoverGlowActive"] is True
+            assert st["pe"] == "none"
+            assert "14, 159, 110" in st["bs"]
+        finally:
+            s.close()
+
+
+@pytest.mark.windows_desktop
+@pytest.mark.skipif(
+    sys.platform != "win32" or os.environ.get("CUL_SKIP_DESKTOP") == "1",
+    reason="Interactive Win32 takeover glow test skipped when CUL_SKIP_DESKTOP=1",
+)
+def test_desktop_takeover_glow_monitors_and_error_revert():
+    """Verify desktop multi-monitor green takeover glow HWNDs, clicks=2, and 900ms error revert."""
+    from computer_use_lite import desktop_uia, desktop_cursor_overlay
+
+    mons = desktop_cursor_overlay.enumerate_monitors_with_dpi()
+    assert len(mons) >= 1 and mons[0]["dpi"] >= 72
+    ov = desktop_cursor_overlay.DesktopCursorOverlay(glide_ms=0, takeover_glow=True)
+    try:
+        ov.set_takeover_glow(True)
+        time.sleep(0.24)
+        st = ov.get_state()
+        assert st["glow_active"] is True
+        assert len(st["glow_hwnds"]) == len(mons)
+        listed_hwnds = {w["hwnd"] for w in desktop_uia.list_windows(limit=200)}
+        for gh in st["glow_hwnds"]:
+            assert desktop_cursor_overlay.is_overlay_hwnd(gh) is True
+            assert gh not in listed_hwnds
+
+        # Double-click on desktop overlay increments click_count by 2 and keeps blind crosshair
+        c0 = ov.get_state()["click_count"]
+        ov.click(200, 200, "crosshair", clicks=2)
+        time.sleep(0.28)
+        assert ov.get_state()["click_count"] - c0 == 2
+        assert ov.get_state()["cursor_id"] == "crosshair"
+
+        # Error glyph auto-reverts after 900ms
+        ov.outcome(ok=False, verified=False, reason="DesktopErr")
+        assert ov.get_state()["cursor_id"] == "not-allowed"
+        time.sleep(1.0)
+        assert ov.get_state()["cursor_id"] == "crosshair"
+
+        ov.set_takeover_glow(False)
+        time.sleep(0.28)
+        assert ov.get_state()["glow_active"] is False
+    finally:
+        ov.close()
+
 
 

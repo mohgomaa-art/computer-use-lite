@@ -73,6 +73,8 @@ OVERLAY_CONFIG = {
     "hiddenTabTimeoutPadMs": 250,
     "hiddenTabTimeoutMaxMs": 700,
     "glowPulseMs": 2400,
+    "glowFadeInMs": 200,
+    "glowFadeOutMs": 250,
 }
 _BODY_GRAD = "url(#cul-obs-body)"
 _FACET_GRAD = "url(#cul-obs-facet)"
@@ -464,6 +466,7 @@ def build_overlay_init_script() -> str:
 
   let root = null, anchor = null, rig = null, press = null, morph = null, offset = null;
   let hostSvg = null, shapeLayer = null, dropShadow = null, halo = null, ripples = null, wake = null, wakeCtx = null;
+  let glowEl = null, glowAnim = null, glowActive = false;
   let activeId = 'default', preBusyId = 'default', lastActionId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
   let prevX = 640, prevY = 360, rafId = 0, busy = false, lastTickTs = 0;
   let vpW = 1280, vpH = 720, resizeBound = false;
@@ -605,6 +608,19 @@ def build_overlay_init_script() -> str:
     flt.appendChild(dropShadow);
     defs.appendChild(flt);
 
+    glowEl = document.createElement('div');
+    glowEl.setAttribute('data-cul-takeover-glow', '1');
+    Object.assign(glowEl.style, {{
+      position:'fixed', inset:'0px', pointerEvents:'none', zIndex:'2147483646',
+      opacity:'0', willChange:'opacity',
+      boxShadow: [
+        'inset 0 0 18px rgba(14, 159, 110, 0.48)',
+        'inset 0 0 42px rgba(14, 159, 110, 0.32)',
+        'inset 0 0 84px rgba(14, 159, 110, 0.18)',
+        'inset 0 0 138px rgba(14, 159, 110, 0.10)',
+      ].join(', '),
+    }});
+
     wake = document.createElement('canvas');
     Object.assign(wake.style, {{position:'fixed', inset:'0px', width:'100%', height:'100%', pointerEvents:'none'}});
     wakeCtx = wake.getContext('2d');
@@ -630,12 +646,15 @@ def build_overlay_init_script() -> str:
     }});
 
     ripples = document.createElement('div');
+    ripples.setAttribute('data-cul-ripples', '1');
     Object.assign(ripples.style, {{position:'fixed', inset:'0px', pointerEvents:'none'}});
 
     anchor = document.createElement('div');
+    anchor.setAttribute('data-cul-anchor', '1');
     Object.assign(anchor.style, {{position:'fixed', top:'0px', left:'0px', pointerEvents:'none', willChange:'transform'}});
 
     rig = document.createElement('div');
+    rig.setAttribute('data-cul-rig', '1');
     Object.assign(rig.style, {{perspective:'260px', transformOrigin:'0px 0px', willChange:'transform'}});
 
     press = document.createElement('div');
@@ -657,7 +676,7 @@ def build_overlay_init_script() -> str:
     press.appendChild(morph);
     rig.appendChild(press);
     anchor.appendChild(rig);
-    root.append(wake, halo, ripples, anchor);
+    root.append(glowEl, wake, halo, ripples, anchor);
     targetParent.appendChild(host);
     applyShape(activeId, false);
     place(curX, curY, false);
@@ -941,15 +960,46 @@ def build_overlay_init_script() -> str:
       busy = nextBusy;
       clearBusyTimer();
       if (busy) {{
-        busyTimer = setTimeout(() => {{
-          busyTimer = 0;
-          if (!busy) return;
-          if (activeId !== 'progress' && activeId !== 'not-allowed') preBusyId = activeId;
-          applyShape('progress', true);
-        }}, CFG.busyDelayMs);
+        const armBusy = () => {{
+          busyTimer = setTimeout(() => {{
+            busyTimer = 0;
+            if (!busy) return;
+            if (activeGlide) {{
+              armBusy();
+              return;
+            }}
+            if (activeId !== 'progress' && activeId !== 'not-allowed') preBusyId = activeId;
+            applyShape('progress', true);
+          }}, CFG.busyDelayMs);
+        }};
+        armBusy();
       }} else if (activeId === 'progress') {{
         applyShape(preBusyId || 'default', true);
       }}
+    }},
+    setTakeoverGlow(flag) {{
+      if (!ensureMounted() || !glowEl) return false;
+      const next = Boolean(flag);
+      if (next === glowActive) return glowActive;
+      glowActive = next;
+      if (glowAnim) {{
+        try {{ glowAnim.cancel(); }} catch (_e) {{}}
+        glowAnim = null;
+      }}
+      if (glowActive) {{
+        glowEl.style.transition = `opacity ${{CFG.glowFadeInMs}}ms ease`;
+        glowEl.style.opacity = reduced ? '0.78' : '0.85';
+        if (!reduced && glowEl.animate) {{
+          glowAnim = glowEl.animate(
+            [{{opacity: 0.55}}, {{opacity: 0.90}}, {{opacity: 0.55}}],
+            {{duration: CFG.glowPulseMs, iterations: Infinity, easing: 'ease-in-out'}}
+          );
+        }}
+      }} else {{
+        glowEl.style.transition = `opacity ${{CFG.glowFadeOutMs}}ms ease`;
+        glowEl.style.opacity = '0';
+      }}
+      return glowActive;
     }},
     getState() {{
       const spec = SPECS[activeId] || SPECS.default;
@@ -975,6 +1025,7 @@ def build_overlay_init_script() -> str:
         rigTransform: rig ? rig.style.transform : '',
         shadowDx: dropShadow ? dropShadow.getAttribute('dx') : '',
         shadowDy: dropShadow ? dropShadow.getAttribute('dy') : '',
+        takeoverGlowActive: Boolean(glowActive),
       }};
     }},
   }};

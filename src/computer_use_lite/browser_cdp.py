@@ -40,7 +40,9 @@ from .cursor_overlay import (
     resolve_glide_ms,
     resolve_overlay_enabled,
 )
+from .takeover_guard import TakeoverGuard, resolve_takeover_glow_enabled, takeover_action_scope
 from .resolver import StaleElementError, visible as _box_visible
+from .takeover_guard import TakeoverGuard, resolve_takeover_glow_enabled, takeover_action_scope
 
 ROLES = {"button", "link", "textbox", "searchbox", "checkbox", "menuitem", "tab",
          "combobox", "switch", "radio", "listitem", "treeitem"}
@@ -569,6 +571,7 @@ class BrowserSession:
         show_cursor=None,
         cursor_glide_ms=None,
         url_validator=None,
+        takeover_glow=None,
     ):
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
@@ -589,6 +592,10 @@ class BrowserSession:
         self._pending_new_pages = []
         self._cursor_doc_script_ids = {}
         self.show_cursor = resolve_overlay_enabled(bool(headless) and not bool(connect), show_cursor)
+        self.takeover_glow = resolve_takeover_glow_enabled(takeover_glow)
+        self._takeover_guard = None
+        if self.takeover_glow:
+            self.show_cursor = True
         self.cursor_glide_ms = resolve_glide_ms(bool(headless) and not bool(connect), cursor_glide_ms)
         try:
             if connect:
@@ -622,6 +629,10 @@ class BrowserSession:
             self.cdp = self._attach_cdp(connect, self._direct_ws)
             if self.show_cursor:
                 self._ensure_cursor_mounted()
+            if self.takeover_glow:
+                self._dispatch_cursor("setTakeoverGlow", True)
+                self._takeover_guard = TakeoverGuard(on_release=lambda _r: self._on_takeover_release())
+                self._takeover_guard.arm()
         except Exception:
             try:
                 if self.browser is not None:
@@ -1898,8 +1909,14 @@ class BrowserSession:
         except Exception:
             pass
 
+    def _on_takeover_release(self) -> None:
+        try:
+            self._dispatch_cursor("setTakeoverGlow", False)
+        except Exception:
+            pass
+
     def _ensure_cursor_mounted(self):
-        if not self.show_cursor:
+        if not self.show_cursor and not self.takeover_glow:
             return
         self._register_cursor_doc_script()
         try:
@@ -1908,8 +1925,12 @@ class BrowserSession:
                 {"expression": "Boolean(window[Symbol.for('cul.agent.cursor')])", "returnByValue": True},
             )
             if (probe or {}).get("result", {}).get("value") is True:
+                if self.takeover_glow and self._takeover_guard is not None and not self._takeover_guard.interrupted:
+                    self._dispatch_cursor("setTakeoverGlow", True)
                 return
             self._cdp_send("Runtime.evaluate", {"expression": build_overlay_init_script(), "returnByValue": True})
+            if self.takeover_glow and (self._takeover_guard is None or not self._takeover_guard.interrupted):
+                self._dispatch_cursor("setTakeoverGlow", True)
         except Exception:
             pass
 
@@ -1970,63 +1991,65 @@ class BrowserSession:
         return bx[0] + bx[2] / 2.0, bx[1] + bx[3] / 2.0
 
     def perform(self, el, action, value=None, clear=True):
-        if el.get("enabled") is False:
-            raise RuntimeError(f"element {el.get('id') or el.get('name')} is disabled")
-        if not self.headless and self.show_cursor:
-            self._raise_playwright_browser_window(activate=False)
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            if el.get("enabled") is False:
+                raise RuntimeError(f"element {el.get('id') or el.get('name')} is disabled")
+            if not self.headless and self.show_cursor:
+                self._raise_playwright_browser_window(activate=False)
 
-        ref = el.get("ref") or {}
-        sid = ref.get("cdp_session_id")
-        bx = el.get("box")
-        x, y = self._center(el)
-        expects_popup = False
-        obj_id = self._resolve_node_id(el)
-        if obj_id:
-            state = self._call_on_node(obj_id, _NODE_PROBE_JS, True, session_id=sid)
-            if state:
-                if state.get("disabled"):
-                    raise RuntimeError("element is disabled")
-                expects_popup = bool(state.get("opens_new_tab"))
-                bx = state.get("box") or el["box"]
-                if state.get("cross_origin") or sid:
-                    try:
-                        fx, fy = self._current_frame_offset(ref)
-                        b_local = self._box_from_cdp_border(ref.get("backend_node_id"), session_id=sid)
-                        bx = [round(b_local[0] + fx, 1), round(b_local[1] + fy, 1), b_local[2], b_local[3]]
-                    except Exception:
-                        pass
-                x, y = self._center({"box": bx})
-                if state.get("occluded"):
-                    raise StaleElementError(f"element occluded at ({x:.1f}, {y:.1f})")
+            ref = el.get("ref") or {}
+            sid = ref.get("cdp_session_id")
+            bx = el.get("box")
+            x, y = self._center(el)
+            expects_popup = False
+            obj_id = self._resolve_node_id(el)
+            if obj_id:
+                state = self._call_on_node(obj_id, _NODE_PROBE_JS, True, session_id=sid)
+                if state:
+                    if state.get("disabled"):
+                        raise RuntimeError("element is disabled")
+                    expects_popup = bool(state.get("opens_new_tab"))
+                    bx = state.get("box") or el["box"]
+                    if state.get("cross_origin") or sid:
+                        try:
+                            fx, fy = self._current_frame_offset(ref)
+                            b_local = self._box_from_cdp_border(ref.get("backend_node_id"), session_id=sid)
+                            bx = [round(b_local[0] + fx, 1), round(b_local[1] + fy, 1), b_local[2], b_local[3]]
+                        except Exception:
+                            pass
+                    x, y = self._center({"box": bx})
+                    if state.get("occluded"):
+                        raise StaleElementError(f"element occluded at ({x:.1f}, {y:.1f})")
 
-        cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
-        self._move_cursor(x, y, cid, halo=bx)
-        before_tabs = len(self._reconcile_pages()) if (action == "click" and expects_popup) else 0
-        if action in ("click", "type", "focus"):
-            self._dispatch_cursor("click", round(float(x), 1), round(float(y), 1), cid)
-            self.page.mouse.click(x, y)
-            if action == "click" and expects_popup:
-                for _ in range(14):
-                    if len(self._reconcile_pages()) > before_tabs:
-                        break
-                    try:
-                        self.page.wait_for_timeout(15)
-                    except Exception:
-                        break
-        if action == "type":
-            if clear:
-                self.page.keyboard.press("Control+a")
-                self.page.keyboard.press("Backspace")
-            if value is not None and str(value) != "":
-                self.page.keyboard.type(str(value))
-        return {"x": round(x, 1), "y": round(y, 1)}
+            cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
+            self._move_cursor(x, y, cid, halo=bx)
+            before_tabs = len(self._reconcile_pages()) if (action == "click" and expects_popup) else 0
+            if action in ("click", "type", "focus"):
+                self._dispatch_cursor("click", round(float(x), 1), round(float(y), 1), cid)
+                self.page.mouse.click(x, y)
+                if action == "click" and expects_popup:
+                    for _ in range(14):
+                        if len(self._reconcile_pages()) > before_tabs:
+                            break
+                        try:
+                            self.page.wait_for_timeout(15)
+                        except Exception:
+                            break
+            if action == "type":
+                if clear:
+                    self.page.keyboard.press("Control+a")
+                    self.page.keyboard.press("Backspace")
+                if value is not None and str(value) != "":
+                    self.page.keyboard.type(str(value))
+            return {"x": round(x, 1), "y": round(y, 1)}
 
     def hover(self, el):
-        x, y = self._center(el)
-        cid = cursor_for_action("hover", role=el.get("role"))
-        self._move_cursor(x, y, cid, halo=el.get("box"))
-        self.page.mouse.move(x, y)
-        return {"x": x, "y": y}
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            x, y = self._center(el)
+            cid = cursor_for_action("hover", role=el.get("role"))
+            self._move_cursor(x, y, cid, halo=el.get("box"))
+            self.page.mouse.move(x, y)
+            return {"x": x, "y": y}
 
     def _find_descendant_chrome_hwnd(self):
         """Locate visible Chromium top-level HWND spawned under this Playwright driver."""
@@ -2116,45 +2139,48 @@ class BrowserSession:
         return {"url": self.page.url, "title": self.page.title(), "navigated": resp is not None}
 
     def scroll(self, dx=0, dy=0):
-        vx, vy, vw, vh = self.bounds()
-        cx, cy = vx + vw / 2, vy + vh / 2
-        self._move_cursor(cx, cy, cursor_for_action("scroll", dx=dx, dy=dy))
-        self.page.mouse.move(cx, cy)
-        self.page.mouse.wheel(dx, dy)
-        pos = self.page.evaluate(
-            "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => "
-            "r([Math.round(window.scrollX), Math.round(window.scrollY)]))))"
-        )
-        return {"dx": dx, "dy": dy, "scroll_x": pos[0], "scroll_y": pos[1]}
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            vx, vy, vw, vh = self.bounds()
+            cx, cy = vx + vw / 2, vy + vh / 2
+            self._move_cursor(cx, cy, cursor_for_action("scroll", dx=dx, dy=dy))
+            self.page.mouse.move(cx, cy)
+            self.page.mouse.wheel(dx, dy)
+            pos = self.page.evaluate(
+                "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => "
+                "r([Math.round(window.scrollX), Math.round(window.scrollY)]))))"
+            )
+            return {"dx": dx, "dy": dy, "scroll_x": pos[0], "scroll_y": pos[1]}
 
     def press_key(self, key):
-        if not isinstance(key, str) or not key.strip():
-            raise ValueError("Key must be a non-empty string")
-        aliases = {
-            "ctrl": "Control", "esc": "Escape", "return": "Enter",
-            "up": "ArrowUp", "down": "ArrowDown", "left": "ArrowLeft", "right": "ArrowRight",
-            "del": "Delete",
-        }
-        parts = [p.strip() for p in key.split("+") if p.strip()]
-        if any(p.lower() in {"win", "lwin", "rwin", "meta", "super", "command", "cmd"} for p in parts):
-            raise ValueError(f"Blocked OS modifier key in {key!r}")
-        normalized = "+".join(aliases.get(p.lower(), p) for p in parts)
-        self.page.keyboard.press(normalized)
-        return {"key": normalized}
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError("Key must be a non-empty string")
+            aliases = {
+                "ctrl": "Control", "esc": "Escape", "return": "Enter",
+                "up": "ArrowUp", "down": "ArrowDown", "left": "ArrowLeft", "right": "ArrowRight",
+                "del": "Delete",
+            }
+            parts = [p.strip() for p in key.split("+") if p.strip()]
+            if any(p.lower() in {"win", "lwin", "rwin", "meta", "super", "command", "cmd"} for p in parts):
+                raise ValueError(f"Blocked OS modifier key in {key!r}")
+            normalized = "+".join(aliases.get(p.lower(), p) for p in parts)
+            self.page.keyboard.press(normalized)
+            return {"key": normalized}
 
     def click_coordinate(self, x, y, button="left", clicks=1):
-        if button not in ("left", "right", "middle"):
-            raise ValueError(f"Unsupported mouse button: {button!r}")
-        if clicks < 1 or clicks > 3:
-            raise ValueError(f"Unsupported click count: {clicks}")
-        vx, vy, vw, vh = self.bounds()
-        if not (vx <= x < vx + vw and vy <= y < vy + vh):
-            raise ValueError(f"Coordinate ({x}, {y}) is outside viewport {[vx, vy, vw, vh]}")
-        cid = cursor_for_action("click_at", is_blind_coord=True)
-        self._move_cursor(x, y, cid)
-        self._dispatch_cursor("click", round(float(x), 1), round(float(y), 1), cid, {"button": button, "clicks": clicks})
-        self.page.mouse.click(x, y, button=button, click_count=clicks)
-        return {"x": x, "y": y, "button": button, "clicks": clicks}
+        with takeover_action_scope(getattr(self, "_takeover_guard", None)):
+            if button not in ("left", "right", "middle"):
+                raise ValueError(f"Unsupported mouse button: {button!r}")
+            if clicks < 1 or clicks > 3:
+                raise ValueError(f"Unsupported click count: {clicks}")
+            vx, vy, vw, vh = self.bounds()
+            if not (vx <= x < vx + vw and vy <= y < vy + vh):
+                raise ValueError(f"Coordinate ({x}, {y}) is outside viewport {[vx, vy, vw, vh]}")
+            cid = cursor_for_action("click_at", is_blind_coord=True)
+            self._move_cursor(x, y, cid)
+            self._dispatch_cursor("click", round(float(x), 1), round(float(y), 1), cid, {"button": button, "clicks": clicks})
+            self.page.mouse.click(x, y, button=button, click_count=clicks)
+            return {"x": x, "y": y, "button": button, "clicks": clicks}
 
     def _safe_url(self):
         try:
@@ -2207,6 +2233,16 @@ class BrowserSession:
         }
 
     def close(self):
+        if getattr(self, "_takeover_guard", None) is not None:
+            try:
+                self._dispatch_cursor("setTakeoverGlow", False)
+            except Exception:
+                pass
+            try:
+                self._takeover_guard.disarm()
+            except Exception:
+                pass
+            self._takeover_guard = None
         if getattr(self, "_context", None) is not None:
             try:
                 self._context.remove_listener("page", self._on_new_page)
