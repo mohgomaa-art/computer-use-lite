@@ -584,11 +584,12 @@ def _is_ancestor(parents, anc, node):
 
 
 def _resolve_direct_ws(direct_ws=None) -> bool:
+    """Return True only when direct CDP WebSocket exposure is explicitly opted in."""
     if direct_ws is not None:
         return bool(direct_ws)
     import os
     raw = os.environ.get("CUL_MCP_DIRECT_WS", "").strip().lower()
-    return raw not in ("0", "false", "no", "off")
+    return raw in ("1", "true", "yes", "on")
 
 
 class BrowserSession:

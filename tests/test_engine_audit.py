@@ -642,7 +642,7 @@ def test_opt_merge_direct_ws_targeted_freshness_and_reconnect(tmp_path):
     </body></html>"""
     p_html = tmp_path / "opt_merge.html"
     p_html.write_text(html, encoding="utf-8")
-    s = BrowserSession(url=p_html.as_uri(), headless=True, viewport=(1280, 720))
+    s = BrowserSession(url=p_html.as_uri(), headless=True, viewport=(1280, 720), direct_ws=True)
     try:
         assert isinstance(s.cdp, browser_cdp.DirectCdpClient), f"expected DirectCdpClient, got {type(s.cdp)}"
         api = Api(s, state_path=tmp_path / "state.json")

@@ -1006,8 +1006,31 @@ def test_p0_5_cdp_remote_debugging_origin_security_gate(tmp_path, monkeypatch):
         return raw.splitlines()[0] if raw else ""
 
     try:
-        # 1. Default DirectWS mode: must bind loopback only and allow exact-port loopback origin ONLY
+        # 1. Default mode (CUL_MCP_DIRECT_WS unset): pipe-only mode, ZERO TCP debugging port opened
         monkeypatch.delenv("CUL_MCP_DIRECT_WS", raising=False)
+
+        async def _run_pipe_mgr():
+            mgr = SessionManager()
+            try:
+                opened = await mgr.open_browser(url=f"{base_url}/", headless=True, auto_discover=True)
+                sid = opened["session_id"]
+                worker = mgr._sessions[sid]
+                assert worker._session._debug_port is None
+                assert not any(a.startswith("--remote-debugging-port") for a in captured_launch_args[-1])
+                btn_id = next(
+                    ln.split("|")[0]
+                    for ln in opened["discovery"]["line_map"].splitlines()
+                    if ln.startswith("e") and "PingGate" in ln
+                )
+                act_res = await mgr.act(sid, btn_id, "click")
+                assert act_res["ok"] is True and act_res["verified"] is True
+            finally:
+                await mgr.close_all()
+
+        asyncio.run(_run_pipe_mgr())
+
+        # 2. Explicit opt-in (CUL_MCP_DIRECT_WS=1): bind loopback only and allow exact-port loopback origin ONLY
+        monkeypatch.setenv("CUL_MCP_DIRECT_WS", "1")
         bs = BrowserSession(url=f"{base_url}/", headless=True, viewport=(800, 600))
         try:
             port = bs._debug_port
@@ -1036,29 +1059,6 @@ def test_p0_5_cdp_remote_debugging_origin_security_gate(tmp_path, monkeypatch):
             assert "101" in exact_status, f"Expected exact origin 101 handshake, got: {exact_status!r}"
         finally:
             bs.close()
-
-        # 2. CUL_MCP_DIRECT_WS=0 (and direct_ws=False): pipe-only mode, ZERO TCP debugging port opened
-        monkeypatch.setenv("CUL_MCP_DIRECT_WS", "0")
-
-        async def _run_pipe_mgr():
-            mgr = SessionManager()
-            try:
-                opened = await mgr.open_browser(url=f"{base_url}/", headless=True, auto_discover=True)
-                sid = opened["session_id"]
-                worker = mgr._sessions[sid]
-                assert worker._session._debug_port is None
-                assert not any(a.startswith("--remote-debugging-port") for a in captured_launch_args[-1])
-                btn_id = next(
-                    ln.split("|")[0]
-                    for ln in opened["discovery"]["line_map"].splitlines()
-                    if ln.startswith("e") and "PingGate" in ln
-                )
-                act_res = await mgr.act(sid, btn_id, "click")
-                assert act_res["ok"] is True and act_res["verified"] is True
-            finally:
-                await mgr.close_all()
-
-        asyncio.run(_run_pipe_mgr())
     finally:
         srv.shutdown()
         srv.server_close()
