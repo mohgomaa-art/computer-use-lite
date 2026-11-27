@@ -180,11 +180,12 @@ _NODE_PROBE_JS = """function(doScroll) {
     return [clx + offsetX, cly + offsetY];
   };
   let chosenTop = _probeLocal(r.left + r.width / 2, r.top + r.height / 2);
+  let clickShifted = false;
   if (!chosenTop && r.width >= 6 && r.height >= 6) {
     const fracs = [[0.5, 0.78], [0.5, 0.22], [0.22, 0.5], [0.78, 0.5], [0.5, 0.88]];
     for (const [fx, fy] of fracs) {
       chosenTop = _probeLocal(r.left + r.width * fx, r.top + r.height * fy);
-      if (chosenTop) break;
+      if (chosenTop) { clickShifted = true; break; }
     }
   }
   const ok = Boolean(chosenTop);
@@ -201,7 +202,10 @@ _NODE_PROBE_JS = """function(doScroll) {
     gone: false, disabled: false, offscreen: false, occluded: !ok, cross_origin: crossOrigin,
     in_iframe: inIframe,
     opens_new_tab: opensNewTab,
-    click_point: chosenTop ? [Math.round(chosenTop[0] * 10) / 10, Math.round(chosenTop[1] * 10) / 10] : null,
+    click_point: (!crossOrigin && clickShifted && chosenTop)
+      ? [Math.round(chosenTop[0] * 10) / 10, Math.round(chosenTop[1] * 10) / 10] : null,
+    click_rel_offset: (crossOrigin && clickShifted && chosenTop)
+      ? [Math.round((chosenTop[0] - r.left) * 10) / 10, Math.round((chosenTop[1] - r.top) * 10) / 10] : null,
     box: [Math.round(ax * 10) / 10, Math.round(ay * 10) / 10,
           Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]
   };
@@ -2171,14 +2175,20 @@ class BrowserSession:
                             bx = [round(b_local[0] + fx, 1), round(b_local[1] + fy, 1), b_local[2], b_local[3]]
                         except Exception:
                             pass
-                    if state.get("click_point"):
-                        x, y = float(state["click_point"][0]), float(state["click_point"][1])
+                    is_oopif = bool(state.get("cross_origin") or sid)
+                    if is_oopif and state.get("click_rel_offset"):
+                        ro = state["click_rel_offset"]
+                        x, y = float(bx[0]) + float(ro[0]), float(bx[1]) + float(ro[1])
+                    elif not is_oopif and state.get("click_point"):
+                        cp = state["click_point"]
+                        x, y = float(cp[0]), float(cp[1])
                     else:
                         x, y = self._center({"box": bx})
                     if state.get("occluded"):
                         raise StaleElementError(f"element occluded at ({x:.1f}, {y:.1f})")
-                    if state.get("cross_origin") or sid:
-                        verification_scope = self._verify_top_frame_hit(ref, [x - 1, y - 1, 2, 2] if state.get("click_point") else bx)
+                    if is_oopif:
+                        hit_box = [x - 1, y - 1, 2, 2] if state.get("click_rel_offset") else bx
+                        verification_scope = self._verify_top_frame_hit(ref, hit_box)
                     elif state.get("in_iframe"):
                         verification_scope = "same_origin_ancestor_verified"
 
