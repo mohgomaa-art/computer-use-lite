@@ -53,6 +53,7 @@ Issues = "https://github.com/mohgomaa-art/computer-use-lite/issues"
 dev = [
   "pytest>=7.0",
   "tomlkit>=0.12",
+  "psutil>=6.0",
 ]
 benchmarks = [
   "websockets>=14.0",

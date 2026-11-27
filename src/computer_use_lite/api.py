@@ -82,16 +82,19 @@ class Api:
         alerts = getattr(self.session, "dialog_alerts", None) or []
         if alerts:
             safe_alerts = [
-                " ".join(str(msg).replace("|", "/").split())
+                state.sanitize_ui_text(msg, max_len=240)
                 for msg in alerts
                 if str(msg).strip()
             ]
             if safe_alerts:
-                head += "\n" + "\n".join(f"DIALOG_ALERT:{msg}" for msg in safe_alerts)
+                head += "\n" + "\n".join(
+                    f"DIALOG_ALERT:[UNTRUSTED_UI_TEXT] {msg} [/UNTRUSTED_UI_TEXT]"
+                    for msg in safe_alerts
+                )
         lines = [head]
         for r in shown:
             x, y, w, h = [int(v) for v in r["box"]]
-            name = (r.get("name") or "").replace("|", "/").replace("\n", " ")[:40]
+            name = state.sanitize_ui_text(r.get("name") or "", max_len=40)
             acts = ACTIONS.get(r.get("role"), "click" if r.get("role") in INTERACTIVE else "")
             extra = f"|children={r['children_count']}" if r.get("children_count") else ""
             lines.append(f"{r['id']}|{r.get('role') or '?'}|{name}|{x},{y},{w},{h}|{acts}{extra}")

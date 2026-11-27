@@ -29,8 +29,11 @@ import time
 import warnings
 from ctypes import wintypes
 
-import comtypes
-import comtypes.client
+if sys.platform == "win32":
+    import comtypes
+    import comtypes.client
+else:
+    comtypes = None
 
 from . import snapshot
 from .cursor_overlay import cursor_for_action
@@ -44,14 +47,17 @@ from .resolver import StaleElementError
 from .state import _OS_KEY_TOKENS as _BLOCKED_KEY_TOKENS, validate_desktop_target, validate_key_spec
 from .takeover_guard import TakeoverGuard, takeover_action_scope
 
-_u32 = ctypes.WinDLL("user32", use_last_error=True)
-if not _u32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
-    _u32.SetProcessDPIAware()
-
-try:
-    comtypes.client.GetModule("UIAutomationCore.dll")
-    from comtypes.gen import UIAutomationClient as UIA
-except Exception:  # pragma: no cover - fallback keeps the module importable
+if sys.platform == "win32":
+    _u32 = ctypes.WinDLL("user32", use_last_error=True)
+    if not _u32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+        _u32.SetProcessDPIAware()
+    try:
+        comtypes.client.GetModule("UIAutomationCore.dll")
+        from comtypes.gen import UIAutomationClient as UIA
+    except Exception:  # pragma: no cover - fallback keeps the module importable
+        UIA = None
+else:
+    _u32 = None
     UIA = None
 
 _TYPE_NAMES = (
@@ -114,57 +120,60 @@ class _INPUT(ctypes.Structure):
     _fields_ = [("type", wintypes.DWORD), ("u", _UN)]
 
 
-_u32.GetForegroundWindow.argtypes = []
-_u32.GetForegroundWindow.restype = wintypes.HWND
-_u32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
-_u32.ShowWindow.restype = wintypes.BOOL
-_u32.SetForegroundWindow.argtypes = [wintypes.HWND]
-_u32.SetForegroundWindow.restype = wintypes.BOOL
-_u32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(_INPUT), ctypes.c_int]
-_u32.SendInput.restype = wintypes.UINT
-_u32.GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
-_u32.GetCursorPos.restype = wintypes.BOOL
-_u32.GetSystemMetrics.argtypes = [ctypes.c_int]
-_u32.GetSystemMetrics.restype = ctypes.c_int
-_u32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
-_u32.GetClassNameW.restype = ctypes.c_int
-_u32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
-_u32.GetWindowTextLengthW.restype = ctypes.c_int
-_u32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
-_u32.GetWindowTextW.restype = ctypes.c_int
-_u32.SendMessageTimeoutW.argtypes = [
-    wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
-    wintypes.UINT, wintypes.UINT, ctypes.POINTER(wintypes.DWORD),
-]
-_u32.SendMessageTimeoutW.restype = ctypes.c_ssize_t
-_u32.SystemParametersInfoW.argtypes = [wintypes.UINT, wintypes.UINT, ctypes.c_void_p, wintypes.UINT]
-_u32.SystemParametersInfoW.restype = wintypes.BOOL
-_u32.EnumChildWindows.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.LPARAM]
-_u32.EnumChildWindows.restype = wintypes.BOOL
-_u32.IsWindow.argtypes = [wintypes.HWND]
-_u32.IsWindow.restype = wintypes.BOOL
-_u32.IsWindowVisible.argtypes = [wintypes.HWND]
-_u32.IsWindowVisible.restype = wintypes.BOOL
-_u32.IsIconic.argtypes = [wintypes.HWND]
-_u32.IsIconic.restype = wintypes.BOOL
-_u32.SetWindowPos.argtypes = [
-    wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
-    ctypes.c_int, ctypes.c_int, wintypes.UINT,
-]
-_u32.SetWindowPos.restype = wintypes.BOOL
-_u32.BringWindowToTop.argtypes = [wintypes.HWND]
-_u32.BringWindowToTop.restype = wintypes.BOOL
-_u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
-_u32.GetWindowThreadProcessId.restype = wintypes.DWORD
-_u32.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
-_u32.AttachThreadInput.restype = wintypes.BOOL
-_k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-_k32.GetCurrentThreadId.argtypes = []
-_k32.GetCurrentThreadId.restype = wintypes.DWORD
-_u32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
-_u32.FindWindowExW.restype = wintypes.HWND
-_u32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
-_u32.SendMessageW.restype = ctypes.c_ssize_t
+if sys.platform == "win32" and _u32 is not None:
+    _u32.GetForegroundWindow.argtypes = []
+    _u32.GetForegroundWindow.restype = wintypes.HWND
+    _u32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    _u32.ShowWindow.restype = wintypes.BOOL
+    _u32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    _u32.SetForegroundWindow.restype = wintypes.BOOL
+    _u32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(_INPUT), ctypes.c_int]
+    _u32.SendInput.restype = wintypes.UINT
+    _u32.GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
+    _u32.GetCursorPos.restype = wintypes.BOOL
+    _u32.GetSystemMetrics.argtypes = [ctypes.c_int]
+    _u32.GetSystemMetrics.restype = ctypes.c_int
+    _u32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    _u32.GetClassNameW.restype = ctypes.c_int
+    _u32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
+    _u32.GetWindowTextLengthW.restype = ctypes.c_int
+    _u32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    _u32.GetWindowTextW.restype = ctypes.c_int
+    _u32.SendMessageTimeoutW.argtypes = [
+        wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+        wintypes.UINT, wintypes.UINT, ctypes.POINTER(wintypes.DWORD),
+    ]
+    _u32.SendMessageTimeoutW.restype = ctypes.c_ssize_t
+    _u32.SystemParametersInfoW.argtypes = [wintypes.UINT, wintypes.UINT, ctypes.c_void_p, wintypes.UINT]
+    _u32.SystemParametersInfoW.restype = wintypes.BOOL
+    _u32.EnumChildWindows.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.LPARAM]
+    _u32.EnumChildWindows.restype = wintypes.BOOL
+    _u32.IsWindow.argtypes = [wintypes.HWND]
+    _u32.IsWindow.restype = wintypes.BOOL
+    _u32.IsWindowVisible.argtypes = [wintypes.HWND]
+    _u32.IsWindowVisible.restype = wintypes.BOOL
+    _u32.IsIconic.argtypes = [wintypes.HWND]
+    _u32.IsIconic.restype = wintypes.BOOL
+    _u32.SetWindowPos.argtypes = [
+        wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+        ctypes.c_int, ctypes.c_int, wintypes.UINT,
+    ]
+    _u32.SetWindowPos.restype = wintypes.BOOL
+    _u32.BringWindowToTop.argtypes = [wintypes.HWND]
+    _u32.BringWindowToTop.restype = wintypes.BOOL
+    _u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    _u32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    _u32.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
+    _u32.AttachThreadInput.restype = wintypes.BOOL
+    _k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _k32.GetCurrentThreadId.argtypes = []
+    _k32.GetCurrentThreadId.restype = wintypes.DWORD
+    _u32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
+    _u32.FindWindowExW.restype = wintypes.HWND
+    _u32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    _u32.SendMessageW.restype = ctypes.c_ssize_t
+else:
+    _k32 = None
 
 
 def _resolve_dialog_edit_hwnd(element) -> int:
@@ -208,6 +217,8 @@ def _commit_dialog_text(dlg_hwnd, element, box, value, kill_switch) -> str:
 
 
 def cursor_pos():
+    if _u32 is None:
+        raise RuntimeError("Windows desktop cursor queries require win32.")
     pt = wintypes.POINT()
     if not _u32.GetCursorPos(ctypes.byref(pt)):
         raise OSError(f"GetCursorPos failed: {ctypes.get_last_error()}")
@@ -586,6 +597,8 @@ class DesktopSession:
     name = "desktop"
 
     def __init__(self, hwnd, show_cursor=None, cursor_glide_ms=None, takeover_glow=None):
+        if sys.platform != "win32" or _u32 is None:
+            raise RuntimeError("Desktop UIA automation is only supported on Windows.")
         if _u32.IsWindow(wintypes.HWND(int(hwnd))):
             meta = snapshot.window(int(hwnd), bump=False) or {}
             validate_desktop_target(meta.get("process") or "", _window_class(int(hwnd)), meta.get("title") or "")

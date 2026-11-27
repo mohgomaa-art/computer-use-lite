@@ -34,3 +34,27 @@ jobs:
 
       - name: Run non-interactive pytest suite
         run: pytest -v -rs --strict-markers -W error::pytest.PytestReturnNotNoneWarning
+
+  test-linux-portability:
+    runs-on: ubuntu-latest
+    env:
+      CUL_SKIP_DESKTOP: "1"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install package and dev dependencies on Linux
+        run: python -m pip install -e ".[dev]"
+
+      - name: Compile check on Linux
+        run: python -m compileall -q src experiments benchmarks tests
+
+      - name: Verify copyright and SPDX headers
+        run: python scripts/verify_copyright_headers.py
+
+      - name: Run non-Windows portability tests
+        run: pytest tests/test_repair_p2_portability.py -v --strict-markers

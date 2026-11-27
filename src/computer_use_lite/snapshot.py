@@ -18,15 +18,24 @@ Captures the active window only: HWND, owning process, DPI-aware bounds and a
 monotonically increasing screen_revision. The Desktop Root is never scanned.
 """
 import ctypes
+import sys
 import threading
 import time
 from ctypes import wintypes
 
-_u32 = ctypes.WinDLL("user32", use_last_error=True)
-_k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+if sys.platform == "win32":
+    _u32 = ctypes.WinDLL("user32", use_last_error=True)
+    _k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    if not _u32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+        _u32.SetProcessDPIAware()
+else:
+    _u32 = None
+    _k32 = None
 
-if not _u32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
-    _u32.SetProcessDPIAware()
+
+def _require_win32():
+    if sys.platform != "win32" or _u32 is None or _k32 is None:
+        raise RuntimeError("Windows snapshot primitives require win32.")
 
 _revision = 0
 _rev_lock = threading.Lock()
@@ -87,6 +96,7 @@ def _window_bounds(hwnd):
 
 
 def client_origin(hwnd):
+    _require_win32()
     pt = wintypes.POINT(0, 0)
     _u32.ClientToScreen(wintypes.HWND(hwnd), ctypes.byref(pt))
     return pt.x, pt.y
@@ -94,6 +104,7 @@ def client_origin(hwnd):
 
 def active_window():
     """Snapshot of the current foreground window. No desktop-root enumeration."""
+    _require_win32()
     hwnd = _u32.GetForegroundWindow()
     if not hwnd:
         return None
@@ -110,6 +121,7 @@ def active_window():
 
 def window(hwnd, bump=False):
     """Metadata/bounds of a specific window; never bumps revision unless bump=True."""
+    _require_win32()
     pid = wintypes.DWORD()
     _u32.GetWindowThreadProcessId(wintypes.HWND(hwnd), ctypes.byref(pid))
     n = _u32.GetWindowTextLengthW(hwnd)

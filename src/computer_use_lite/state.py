@@ -245,3 +245,16 @@ def validate_desktop_target(process_name: str, class_name: str = "", title: str 
             f"Refusing to attach to sensitive desktop window class {class_name!r} ({title!r}; "
             "set CUL_DESKTOP_ALLOW_SENSITIVE=1 or CUL_DESKTOP_ALLOW_PROCESSES to allow)."
         )
+
+
+_CTRL_RE = re.compile(r"[\x00-\x1f\x7f]+")
+_MARKER_RE = re.compile(r"\[/?UNTRUSTED_[^\]]*\]", re.IGNORECASE)
+
+
+def sanitize_ui_text(value: object, max_len: int = 240) -> str:
+    """Strip control/newline/delimiter characters so external UI strings cannot forge protocol lines."""
+    raw = str(value or "")
+    cleaned = _CTRL_RE.sub(" ", raw)
+    cleaned = _MARKER_RE.sub(" ", cleaned)
+    cleaned = " ".join(cleaned.replace("|", "/").split())
+    return cleaned[:max_len] if max_len and max_len > 0 else cleaned
