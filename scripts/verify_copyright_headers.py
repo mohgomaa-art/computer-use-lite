@@ -45,6 +45,7 @@ EXCLUDED_EXTENSION_REASONS = {
     ".yml": "CI workflow configuration (.github/workflows/ci.yml)",
     ".yaml": "YAML configuration metadata",
     ".cff": "Citation metadata (CITATION.cff)",
+    ".bat": "Windows Command Prompt installer wrapper governed by root LICENSE/NOTICE",
 }
 
 EXCLUDED_NOEXT_REASONS = {
@@ -72,18 +73,17 @@ FORBIDDEN_HEADER_PHRASES = (
 )
 
 
-def _audit_python_file(path: pathlib.Path, txt: str) -> list[str]:
+def _audit_hash_comment_header(txt: str, *, allow_shebang_encoding: bool) -> list[str]:
     errs: list[str] = []
     lines = txt.splitlines()
 
-    # Check comment placement order before code / docstrings
     idx = 0
-    if idx < len(lines) and lines[idx].startswith("#!"):
-        idx += 1
-    if idx < len(lines) and re.match(r"^#.*coding[:=]", lines[idx]):
-        idx += 1
+    if allow_shebang_encoding:
+        if idx < len(lines) and lines[idx].startswith("#!"):
+            idx += 1
+        if idx < len(lines) and re.match(r"^#.*coding[:=]", lines[idx]):
+            idx += 1
 
-    # Top comment block immediately following shebang/encoding
     header_block: list[str] = []
     while idx < len(lines) and (lines[idx].startswith("#") or not lines[idx].strip()):
         header_block.append(lines[idx])
@@ -105,8 +105,11 @@ def _audit_python_file(path: pathlib.Path, txt: str) -> list[str]:
         errs.append(f"Expected exactly 1 top SPDX identifier line, found {spdx_count}")
     if copy_count != 1:
         errs.append(f"Expected exactly 1 top Copyright line, found {copy_count}")
+    return errs
 
-    # Verify syntax + docstring / __future__ validity
+
+def _audit_python_file(path: pathlib.Path, txt: str) -> list[str]:
+    errs = _audit_hash_comment_header(txt, allow_shebang_encoding=True)
     try:
         ast.parse(txt)
     except SyntaxError as exc:
@@ -190,6 +193,8 @@ def run_audit(root: pathlib.Path = REPO_ROOT) -> dict:
             txt = p.read_text(encoding="utf-8", errors="replace")
             if ext == ".py":
                 errs = _audit_python_file(p, txt)
+            elif ext in {".ps1", ".psm1", ".sh"}:
+                errs = _audit_hash_comment_header(txt, allow_shebang_encoding=(ext == ".sh"))
             elif ext == ".html":
                 errs = _audit_html_file(txt)
             elif ext in {".ts", ".tsx", ".js", ".mjs", ".cjs"}:
@@ -211,7 +216,8 @@ def run_audit(root: pathlib.Path = REPO_ROOT) -> dict:
     license_txt = (root / "LICENSE").read_text(encoding="utf-8")
     notice_txt = (root / "NOTICE").read_text(encoding="utf-8")
     third_party_preserved = all(
-        term in notice_txt for term in ("playwright", "pillow", "websockets", "mcp", "uiautomation", "comtypes", "pytest", "psutil", "anyio")
+        term in notice_txt
+        for term in ("playwright", "pillow", "websockets", "mcp", "uiautomation", "comtypes", "pytest", "psutil", "tomlkit", "anyio")
     )
 
     return {

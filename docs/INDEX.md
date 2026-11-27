@@ -2,11 +2,11 @@
 
 This is the single canonical navigation entry point for **Computer Use Lite (`computer-use-lite`)**, authored by Mohamed Gomaa ([`@mohgomaa-art`](https://github.com/mohgomaa-art/)).
 
-> **Maturity & Epistemic Rule:** Computer Use Lite is an **Experimental Public Research Preview** (`v0.1.0a1` Benchmark Research Edition built over audited runtime baseline `v0.1.0a0` / `0d19a9e`). Documents distinguish verified code (`[VERIFIED-CODE]`), measured datasets (`[MEASURED]`), partial pilots, unimplemented plans (`[PROPOSAL]`), and open runtime defects (`NOT FIXED`). See [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) and [RESEARCH_METHODOLOGY.md](RESEARCH_METHODOLOGY.md).
+> **Maturity & Epistemic Rule:** Computer Use Lite is an **Experimental Public Research Preview** (`v0.1.0a2` Benchmark Research Edition built over audited runtime baseline `v0.1.0a0` / `0d19a9e`). Documents distinguish verified code (`[VERIFIED-CODE]`), measured datasets (`[MEASURED]`), partial pilots, unimplemented plans (`[PROPOSAL]`), and open runtime defects (`NOT FIXED`). See [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) and [RESEARCH_METHODOLOGY.md](RESEARCH_METHODOLOGY.md).
 
 ---
 
-## Benchmark Publication & Release Dossier (`v0.1.0a1`)
+## Benchmark Publication & Release Dossier (`v0.1.0a2`)
 
 | Document / Collection | Scope |
 | :--- | :--- |
@@ -24,6 +24,7 @@ This is the single canonical navigation entry point for **Computer Use Lite (`co
 | Document | Purpose |
 | :--- | :--- |
 | [README.md](../README.md) | Overview, installation, quickstart examples, test/benchmark commands, and high-level maturity summary |
+| [WINDOWS_MCP_SETUP.md](WINDOWS_MCP_SETUP.md) | Windows installer and configuration guide for Codex, Antigravity, and Claude Code |
 | [SECURITY.md](../SECURITY.md) | Supported trust scope (`single-user local workstation`), `P0-4`/`P0-5` protections, open threats (DNS-rebinding TOCTOU, local DirectWS TCP exposure, `KillSwitch` init), and vulnerability reporting |
 | [CHANGELOG.md](../CHANGELOG.md) | Release log preserving `[0.1.0-alpha]` (`698861d`) and post-release Workstream A Cursor Overlay + `P0-1..P0-5` changes (`d47b4e9`) |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Development setup, environment flags, test markers, SPDX rules, and privacy/archive rules |

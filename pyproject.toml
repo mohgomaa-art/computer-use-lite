@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "computer-use-lite"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Experimental local-first semantic browser (CDP) and Windows desktop (UIA) interaction engine for AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -52,10 +52,14 @@ Issues = "https://github.com/mohgomaa-art/computer-use-lite/issues"
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0",
+  "tomlkit>=0.12",
 ]
 benchmarks = [
   "websockets>=14.0",
   "psutil>=6.0",
+]
+setup = [
+  "tomlkit>=0.12",
 ]
 
 [tool.setuptools.packages.find]

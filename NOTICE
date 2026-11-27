@@ -34,6 +34,9 @@ Verified via Python package metadata (`importlib.metadata` on 2026-11-26):
 8. psutil (>=6.0; tested 7.2.2, optional benchmarks dependency)
    License: BSD-3-Clause — permissive; compatible with Apache-2.0.
 
+9. tomlkit (>=0.12, optional setup/dev dependency)
+   License: MIT — permissive; compatible with Apache-2.0.
+
 Transitive Runtime Packages Verified:
 - anyio (tested 4.15.1): MIT — compatible
 - pyee (tested 14.0.0): MIT — compatible
