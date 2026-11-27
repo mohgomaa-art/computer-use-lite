@@ -461,6 +461,7 @@ def build_overlay_init_script() -> str:
   let activeId = 'default', preBusyId = 'default', lastActionId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
   let prevX = 640, prevY = 360, rafId = 0, busy = false, lastTickTs = 0;
   let busyTimer = 0, errorTimer = 0, pressTimer = 0, pressAnim = null, cursorSheet = null;
+  let glideSeq = 0, activeGlideCancel = null;
   const pulseTimers = [];
   let lastHaloKey = '', lastHaloSize = '', lastHaloTone = '';
   let lastOutcome = null, lastOutcomeReason = '', clickCount = 0, outcomeCount = 0;
@@ -784,26 +785,63 @@ def build_overlay_init_script() -> str:
     halo.style.opacity = '1';
   }}
 
+  function cancelActiveGlide() {{
+    glideSeq += 1;
+    if (activeGlideCancel) {{
+      const fn = activeGlideCancel;
+      activeGlideCancel = null;
+      try {{ fn(); }} catch (_e) {{}}
+    }}
+  }}
+
   const api = {{
     moveTo(x, y, cursorId, opts = {{}}) {{
       if (!ensureMounted()) return;
       clearErrorTimer();
+      cancelActiveGlide();
       applyShape(cursorId || activeId, true);
       setHalo(opts.halo || null, 'input');
       const glideMs = reduced ? 0 : Math.max(0, Number(opts.glideMs || 0));
       const sx = curX, sy = curY, ex = Number(x), ey = Number(y);
-      if (glideMs <= 0 || Math.hypot(ex - sx, ey - sy) < 0.5) {{
+      if (document.hidden || glideMs <= 0 || Math.hypot(ex - sx, ey - sy) < 0.5) {{
         place(ex, ey, true);
-        return;
+        return true;
       }}
+      const mySeq = ++glideSeq;
       const t0 = performance.now();
+      const timeoutMs = Math.min(CFG.hiddenTabTimeoutMaxMs, glideMs + CFG.hiddenTabTimeoutPadMs);
       return new Promise((resolve) => {{
+        let done = false;
+        let fallbackTimer = 0;
+        const finish = (snapToEnd) => {{
+          if (done) return;
+          done = true;
+          if (fallbackTimer) {{
+            clearTimeout(fallbackTimer);
+            fallbackTimer = 0;
+          }}
+          if (activeGlideCancel === cancelFn) activeGlideCancel = null;
+          if (snapToEnd) place(ex, ey, true);
+          resolve(Boolean(snapToEnd));
+        }};
+        const cancelFn = () => finish(false);
+        activeGlideCancel = cancelFn;
+        fallbackTimer = setTimeout(() => finish(true), timeoutMs);
         function step(now) {{
+          if (done || mySeq !== glideSeq) {{
+            finish(false);
+            return;
+          }}
+          if (document.hidden) {{
+            finish(true);
+            return;
+          }}
           const t = Math.min(1, (now - t0) / glideMs);
           const ease = 1 - Math.pow(1 - t, 3);
           const arc = Math.sin(t * Math.PI) * Math.min(14, Math.hypot(ex - sx, ey - sy) * 0.06);
           place(sx + (ex - sx) * ease, sy + (ey - sy) * ease - arc, true);
-          if (t < 1) window.requestAnimationFrame(step); else {{ place(ex, ey, true); resolve(true); }}
+          if (t < 1) window.requestAnimationFrame(step);
+          else finish(true);
         }}
         window.requestAnimationFrame(step);
       }});
@@ -811,6 +849,7 @@ def build_overlay_init_script() -> str:
     click(x, y, cursorId, opts = {{}}) {{
       if (!ensureMounted()) return;
       clearErrorTimer();
+      cancelActiveGlide();
       clearPulseTimers();
       lastOutcome = null;
       lastOutcomeReason = '';
