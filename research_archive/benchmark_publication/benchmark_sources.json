@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0.0",
+  "publication_version": "0.1.0a1",
+  "historical_baseline": {
+    "tag": "v0.1.0a0",
+    "commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+    "package_version_in_commit": "0.1.0a0"
+  },
+  "sources": [
+    {
+      "id": "src-browser-benchmark-72",
+      "title": "Browser MCP Comparison (Playwright MCP vs CUL Browser MCP, 72 runs)",
+      "kind": "measured_external_worktree",
+      "commit_or_ref": "fdc92d9ae6af00ebc38d3574501331bcfe90c2b6",
+      "note": "Executed on local benchmark worktree outside origin/main; browser-only safeguard mode.",
+      "artifacts": {
+        "raw_jsonl": "runs/20261126_195128/raw/results.jsonl",
+        "raw_jsonl_sha256": "11db160b0e3b1efed730bb7133a010ec6d78bed175e4e3366b175ffce6b9f8e0",
+        "protocol_md": "runs/20261126_195128/PROTOCOL.md",
+        "protocol_sha256": "9bfbe628cbfc949a3c93cac250654885c4d70926fa2724d51bcfcfbfdf34d82b",
+        "analysis_summary": "runs/20261126_195128/analysis_summary.json",
+        "report_md": "runs/20261126_195128/REPORT.md"
+      }
+    },
+    {
+      "id": "src-observation-proxy-study",
+      "title": "Semantic Observation Size Proxy Comparison (112 vs 1,196 est tokens)",
+      "kind": "measured_sandbox_and_checked_in_proxies",
+      "commit_or_ref": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+      "note": "Primary 112 est tokens across 12 browser tasks x 5 headless runs (round(len/4, 1)) recorded in 2026-11-27 evaluation alongside checked-in harness_validation.json (12-task single-pass mean 115.07) and Phase D benchmarks_real.json (1,229 static baseline; 1,196 from 28x28 tiling on 1280x720).",
+      "checked_in_artifacts": [
+        "results/agent_benchmark/harness_validation.json",
+        "results/benchmarks/benchmarks_real.json",
+        "docs/BENCHMARKS.md",
+        "docs/RESEARCH_METHODOLOGY.md"
+      ]
+    },
+    {
+      "id": "src-windows-pytest-audit",
+      "title": "Independent Windows 11 Audit (0d19a9e)",
+      "kind": "measured_windows_audit",
+      "commit_or_ref": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+      "environment": "Microsoft Windows 11 Pro (10.0.26200), Python 3.12.10, Playwright 1.65.2, Chromium 159.0.8154.6",
+      "summary": "70 passed in 197.50s (0 failed, 0 skipped); CI subset 58 passed, 12 skipped in 86.66s (CUL_SKIP_DESKTOP=1); verified browser probes (B5-B8, B10-B11, B14-1) and isolated exebox Win32/UIA probes (B9, B12, B13, B14-3).",
+      "sanitized_evidence_images": [
+        "docs/assets/evidence/b5_cross_origin_iframe_under_fixed_overlay.png",
+        "docs/assets/evidence/b12_ltr_printwindow.png",
+        "docs/assets/evidence/b12_rtl_printwindow.png"
+      ]
+    },
+    {
+      "id": "src-desktop-pilot-v1",
+      "title": "Supervised Desktop Pilot v1 Status",
+      "kind": "partial_pilot",
+      "commit_or_ref": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+      "fixture_manifests": [
+        {"file": "T1-20261126T234126678Z-0d0f54bf.json", "task": "T1", "sha256": "8df51c3fe906c3d5dd10e08bd137d6f2922695c826fd3507f748791033894eea", "bytes": 23},
+        {"file": "T1-20261126T234447647Z-bc13dcb4.json", "task": "T1", "sha256": "8df51c3fe906c3d5dd10e08bd137d6f2922695c826fd3507f748791033894eea", "bytes": 23},
+        {"file": "T2-20261126T234621819Z-095bb954.json", "task": "T2", "sha256": "8ba31d365e5e29df34e0a8b7a6637d91c0b1d48550644705e47da7eda23b8e7d", "bytes": 23}
+      ],
+      "note": "Two supervised CUL T1 trials reported passing with SHA-256 oracle verification (VerifyT1 stdout not saved separately); T2 incomplete; Native vs CUL head-to-head comparison not completed."
+    }
+  ]
+}

@@ -1,0 +1,272 @@
+{
+  "schema_version": "1.0.0",
+  "release_version": "0.1.0a1",
+  "historical_release_version": "0.1.0a0",
+  "historical_release_commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+  "benchmark_commit": "fdc92d9ae6af00ebc38d3574501331bcfe90c2b6",
+  "dataset_date": "2026-11-27",
+  "browser_benchmark": {
+    "study_name": "Browser MCP Head-to-Head Comparison (Playwright MCP vs CUL Browser MCP)",
+    "not_native_cua_note": "Playwright MCP uses accessibility snapshots, not pure screenshots; this is NOT Native OpenAI Computer Use vs CUL.",
+    "cul_arm_commit": "fdc92d9",
+    "cul_arm_commit_note": "Browser-only MCP safeguard commit (CUL_MCP_BROWSER_ONLY=1); not automatically identical to later commits.",
+    "total_runs": 72,
+    "runs_per_arm": 36,
+    "task_count": 12,
+    "repetitions_per_task": 3,
+    "random_seed": 2040777688,
+    "codex_cli_version": "0.166.0",
+    "requested_model": "gpt-6-luna",
+    "playwright_mcp_package": "@playwright/mcp@0.0.86",
+    "arms": [
+      {
+        "id": "playwright_mcp",
+        "label": "Playwright MCP",
+        "n": 36,
+        "successes": 31,
+        "failures": 5,
+        "success_rate_pct": 86.11,
+        "wilson95_pct": [71.34, 93.92],
+        "median_tokens": 126087,
+        "p95_tokens": 175285.5,
+        "median_input_tokens": 125710,
+        "median_cached_input_tokens": 105728,
+        "median_output_tokens": 383,
+        "total_tokens": 4507524,
+        "median_steps": 3.0,
+        "p95_steps": 4.25,
+        "total_steps": 116,
+        "median_wall_sec": 26.48,
+        "median_wall_ms": 26480.53,
+        "p95_wall_sec": 35.73,
+        "total_wall_ms": 959477.99
+      },
+      {
+        "id": "cul_browser_mcp",
+        "label": "CUL Browser MCP",
+        "n": 36,
+        "successes": 36,
+        "failures": 0,
+        "success_rate_pct": 100.0,
+        "wilson95_pct": [90.36, 100.0],
+        "median_tokens": 176506,
+        "p95_tokens": 236080.75,
+        "median_input_tokens": 176071,
+        "median_cached_input_tokens": 147840,
+        "median_output_tokens": 445,
+        "total_tokens": 6311807,
+        "median_steps": 4.5,
+        "p95_steps": 5.0,
+        "total_steps": 152,
+        "median_wall_sec": 26.87,
+        "median_wall_ms": 26869.85,
+        "p95_wall_sec": 34.70,
+        "total_wall_ms": 936835.70
+      }
+    ],
+    "paired_comparisons": {
+      "success_cul_wins_losses_ties": [5, 0, 31],
+      "tokens_lower_cul_wins_losses_ties": [7, 29, 0],
+      "steps_lower_cul_wins_losses_ties": [0, 28, 8],
+      "wall_lower_cul_wins_losses_ties": [15, 21, 0]
+    },
+    "deltas": {
+      "median_tokens_pct_diff": 40.0,
+      "median_tokens_abs_diff": 50419,
+      "median_wall_pct_diff": 1.5,
+      "median_wall_sec_diff": 0.39,
+      "median_steps_abs_diff": 1.5
+    },
+    "confounds_and_disclosures": [
+      "Prompt contamination on b11_dense_90_grid_filter: shared goal text explicitly exposed CUL parameter name 'filter_query' to both arms (3/3 passed in both arms; Arm A used median 88,216 tokens vs CUL 164,300 tokens).",
+      "Arm A called browser_run_code_unsafe once on b12_opaque_canvas_click run 1 (page.mouse.click(199, 271)), so Arm A was not strictly accessibility-snapshot-only on all 36 runs.",
+      "CUL consumed ~40.0% more median tokens (176,506 vs 126,087) and +50.0% more median steps (4.5 vs 3.0) because each act bumps revision state and favors re-discovery.",
+      "CUL median wall time was ~1.5% slower (26.87s vs 26.48s), although cumulative total wall time across 36 runs was 936.84s vs 959.48s.",
+      "All 12 tasks were synthetic local HTML fixtures; results do not prove universal CUL superiority."
+    ],
+    "per_task": [
+      {"id": "b01_order_form", "a_success": "3/3", "b_success": "3/3", "a_tokens": 126165, "b_tokens": 220906, "a_wall_sec": 28.48, "b_wall_sec": 30.23},
+      {"id": "b02_password_redaction", "a_success": "3/3", "b_success": "3/3", "a_tokens": 104055, "b_tokens": 184687, "a_wall_sec": 27.76, "b_wall_sec": 29.96},
+      {"id": "b03_scrolled_target", "a_success": "3/3", "b_success": "3/3", "a_tokens": 152591, "b_tokens": 197653, "a_wall_sec": 31.57, "b_wall_sec": 25.75},
+      {"id": "b04_dynamic_drawer", "a_success": "3/3", "b_success": "3/3", "a_tokens": 130368, "b_tokens": 228896, "a_wall_sec": 25.92, "b_wall_sec": 28.26},
+      {"id": "b05_modal_occlusion", "a_success": "3/3", "b_success": "3/3", "a_tokens": 149036, "b_tokens": 148787, "a_wall_sec": 24.71, "b_wall_sec": 28.83},
+      {"id": "b06_custom_div_switch", "a_success": "3/3", "b_success": "3/3", "a_tokens": 126009, "b_tokens": 200496, "a_wall_sec": 27.05, "b_wall_sec": 30.24},
+      {"id": "b07_open_shadow_dom", "a_success": "3/3", "b_success": "3/3", "a_tokens": 125772, "b_tokens": 191419, "a_wall_sec": 22.16, "b_wall_sec": 27.28},
+      {"id": "b08_closed_shadow_dom", "a_success": "0/3", "b_success": "3/3", "a_tokens": 132196, "b_tokens": 114509, "a_wall_sec": 27.92, "b_wall_sec": 20.01},
+      {"id": "b09_cross_origin_oopif", "a_success": "3/3", "b_success": "3/3", "a_tokens": 103599, "b_tokens": 139494, "a_wall_sec": 19.51, "b_wall_sec": 18.96},
+      {"id": "b10_hover_reveal_menu", "a_success": "3/3", "b_success": "3/3", "a_tokens": 130735, "b_tokens": 163204, "a_wall_sec": 25.75, "b_wall_sec": 24.03},
+      {"id": "b11_dense_90_grid_filter", "a_success": "3/3", "b_success": "3/3", "a_tokens": 88216, "b_tokens": 164300, "a_wall_sec": 18.83, "b_wall_sec": 18.85, "contaminated": true},
+      {"id": "b12_opaque_canvas_click", "a_success": "1/3", "b_success": "3/3", "a_tokens": 108749, "b_tokens": 121805, "a_wall_sec": 28.74, "b_wall_sec": 22.70, "armA_run_code_once": true}
+    ]
+  },
+  "observation_size_comparison": {
+    "subtitle": "Estimated Observation Size — Not Actual API Token Usage",
+    "cul_estimated_tokens": 112,
+    "screenshot_estimated_tokens": 1196,
+    "approximate_ratio": 10.7,
+    "estimator_formula": "round(text_length / 4)",
+    "screenshot_formula": "ceil(1280 / 28) * ceil(720 / 28) = 46 * 26 = 1196 patches",
+    "sample_description": "12 browser fixtures x 5 headless runs (60 observations; min 23, max 664 on 90-button b11 grid)",
+    "checked_in_reference_comparisons": {
+      "harness_validation_12_browser_mean": 115.07,
+      "phase_d_static_screenshot_proxy": 1229,
+      "phase_d_uncapped_github_trending": 1263.8,
+      "phase_d_uncapped_file_explorer": 1611.0
+    },
+    "caveats": [
+      "Observation-size proxy only (round(text_length / 4)); NOT actual provider BPE token usage or total API task billing.",
+      "Multi-turn Codex runs (FIG-03) showed CUL used ~40% more median total tokens due to extra discovery steps and conversation context.",
+      "Dense uncapped surfaces (File Explorer uncapped 1,611; GitHub Trending uncapped 1,264) exceed static screenshot proxies, and Arabic text uses more BPE tokens per character."
+    ]
+  },
+  "windows_test_suite": {
+    "label": "Automated Test-Suite Execution (Not AI-Agent Success Rate)",
+    "commit": "0d19a9e",
+    "os": "Microsoft Windows 11 Pro (10.0.26200)",
+    "python": "3.12.10",
+    "passed": 70,
+    "failed": 0,
+    "skipped": 0,
+    "total": 70,
+    "duration_seconds": 197.50,
+    "ci_non_interactive_subset": {
+      "env": "CUL_SKIP_DESKTOP=1",
+      "passed": 58,
+      "failed": 0,
+      "skipped": 12,
+      "duration_seconds": 86.66
+    },
+    "caveat": "Covers deterministic software tests in tests/; NOT an AI-agent task benchmark or proof of production security."
+  },
+  "desktop_pilot_status": {
+    "banner": "Unfinished Pilot — Not a Head-to-Head Comparison",
+    "trials": [
+      {
+        "id": "cul_t1",
+        "label": "CUL Desktop T1 (File Explorer + Archive + Rename)",
+        "status": "PASSED (2/2)",
+        "badge": "2/2 PASSED",
+        "details": "Two supervised CUL T1 trials reported passing with SHA-256 fixture verification (2 prepare manifests archived on 2026-11-26T23:41Z & 23:44Z; verify stdout not persisted separately)."
+      },
+      {
+        "id": "cul_t2",
+        "label": "CUL Desktop T2 (Explorer + Calculator -> 7006652.txt)",
+        "status": "INCOMPLETE",
+        "badge": "INCOMPLETE",
+        "details": "Fixture manifest created (2026-11-26T23:46Z, input.txt 23 B); Calculator workflow and oracle verification not completed."
+      },
+      {
+        "id": "native_vs_cul",
+        "label": "Native Computer Use vs CUL Head-to-Head",
+        "status": "NOT COMPLETED",
+        "badge": "NOT COMPLETED",
+        "details": "No paired 8-trial Native (@oai/sky) vs CUL desktop benchmark completed. Prior Native Calculator smoke test was pre-pilot only."
+      }
+    ],
+    "audited_windows_uia_evidence": [
+      "Win32 #32770 Save As dialog commit verified via physical disk SHA-256 match",
+      "File Explorer inactive-tab controls leak into UIA map with offscreen: false (71 -> 85 elements across 1 -> 2 tabs)",
+      "Desktop verify_fresh hardcodes occluded: False and invokes across covering windows",
+      "Win32 PrintWindow horizontally mirrors WS_EX_LAYOUTRTL Arabic test windows",
+      "show_cursor=True Shadow DOM canvas triggers false full-viewport opaque_canvas (1280x720) blind crop"
+    ]
+  },
+  "architecture_pipeline": {
+    "title": "Semantic-First Hybrid Execution with Conditional Visual Fallback",
+    "stages": [
+      {"step": 1, "id": "ui_observation", "label": "UI Observation", "detail": "Browser DOMSnapshot + AXTree / Windows UIA CUIAutomation8"},
+      {"step": 2, "id": "semantic_discovery", "label": "Semantic Discovery", "detail": "Filter interactive nodes, IoU dedupe (0.75), format REV:N line_map (cap 60)"},
+      {"step": 3, "id": "resolution", "label": "Revision-Checked Element Resolution", "detail": "Check REV:N match, <=2 px bounds stability, occlusion probe"},
+      {"step": 4, "id": "action", "label": "Action", "detail": "CDP click/type/hover/scroll or UIA invoke/SendInput + revision bump"},
+      {"step": 5, "id": "verification", "label": "Verification", "detail": "URL/focus/title/delta heuristic returns ok & verified flags"}
+    ],
+    "conditional_branch": {
+      "trigger": "Opaque canvas (<canvas>) or sparse UIA (<6 controls / low_uia)",
+      "target_label": "Targeted Visual Fallback",
+      "detail": "Export bounded blindN PNG crop via Playwright / Win32 PrintWindow + click_at"
+    }
+  },
+  "security_and_reliability_findings": [
+    {
+      "id": "F-01",
+      "title": "Cross-frame wrong-target clicks (iframe under fixed overlay)",
+      "severity": "Critical",
+      "evidence_status": "CONFIRMED",
+      "fix_status": "NOT FIXED",
+      "source_ref": "browser_cdp.py:97,129-134",
+      "summary": "act() returns ok:true, verified:true while click lands on transparent cover (coverClicks=1, btnClicks=0)."
+    },
+    {
+      "id": "F-02",
+      "title": "Sensitive-field redaction gaps & over-redaction",
+      "severity": "High",
+      "evidence_status": "CONFIRMED",
+      "fix_status": "NOT FIXED",
+      "source_ref": "browser_cdp.py:1863,2150",
+      "summary": "Regex misses card/ccnum/ssn & autocomplete=cc-number while hiding address_shipping/opinion/spinner."
+    },
+    {
+      "id": "F-03",
+      "title": "Cursor overlay false opaque-canvas trigger",
+      "severity": "High",
+      "evidence_status": "CONFIRMED",
+      "fix_status": "NOT FIXED",
+      "source_ref": "cursor_overlay.py:494,517",
+      "summary": "show_cursor=True creates Shadow DOM canvas causing full-screen 1280x720 blind0 crop on every discover."
+    },
+    {
+      "id": "F-04",
+      "title": "DNS fail-open on unresolvable hostnames & TOCTOU",
+      "severity": "Medium",
+      "evidence_status": "CONFIRMED / NOT RUN",
+      "fix_status": "NOT FIXED",
+      "source_ref": "session_manager.py:141-145",
+      "summary": "Offline/nonexistent .invalid domain passes pre-check (CONFIRMED); live DNS-rebinding exploit NOT RUN."
+    },
+    {
+      "id": "F-05",
+      "title": "Direct CDP loopback WebSocket without auth",
+      "severity": "Medium",
+      "evidence_status": "PARTIAL (NOT RUN)",
+      "fix_status": "NOT FIXED",
+      "source_ref": "browser_cdp.py:550-555,602-608",
+      "summary": "Default DirectWS binds loopback port with no token auth; same-host origin-less exploit NOT RUN."
+    },
+    {
+      "id": "F-06",
+      "title": "Desktop occlusion hardcoded False (occluded: False)",
+      "severity": "Medium",
+      "evidence_status": "CONFIRMED",
+      "fix_status": "NOT FIXED",
+      "source_ref": "desktop_uia.py:786",
+      "summary": "verify_fresh hardcodes occluded=False; invoke_pattern acts silently on completely covered windows."
+    },
+    {
+      "id": "F-07",
+      "title": "File Explorer inactive-tab UIA control leakage",
+      "severity": "Medium",
+      "evidence_status": "CONFIRMED",
+      "fix_status": "NOT FIXED",
+      "source_ref": "desktop_uia.py (FindAllBuildCache)",
+      "summary": "Multi-tab Explorer surfaces 4 background tab controls with offscreen:false (71 -> 85 controls)."
+    },
+    {
+      "id": "F-08",
+      "title": "Win32 PrintWindow horizontal RTL mirroring",
+      "severity": "Medium",
+      "evidence_status": "CONFIRMED",
+      "fix_status": "NOT FIXED",
+      "source_ref": "blind_gap.py (PrintWindow)",
+      "summary": "WS_EX_LAYOUTRTL Arabic/RTL windows capture horizontally flipped glyphs vs correct UIA rects."
+    },
+    {
+      "id": "F-REF",
+      "title": "Claim: src/engine/ holds stale unpatched source copy",
+      "severity": "Info",
+      "evidence_status": "REFUTED",
+      "fix_status": "NO DEFECT",
+      "source_ref": "src/engine/*.py",
+      "summary": "All 8 modules in src/engine/ are 16-line importlib aliases forwarding cleanly to computer_use_lite."
+    }
+  ]
+}
