@@ -12,6 +12,7 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+# AI Modification Note: Excluded [data-cul-overlay] Shadow DOM host in canvas_rects().
 """M1-Browser - CDP DOMSnapshot + Accessibility tree, viewport & occlusion filtered.
 
 Union of DOMSnapshot (isClickable or cursor:pointer) and AX roles over a persistent
@@ -1013,7 +1014,10 @@ class BrowserSession:
               const r = c.getBoundingClientRect();
               if (r.width > 1 && r.height > 1) out.push([r.x, r.y, r.width, r.height]);
             }
-            for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot);
+            for (const el of root.querySelectorAll('*')) {
+              if (el.hasAttribute && el.hasAttribute('data-cul-overlay')) continue;
+              if (el.shadowRoot) walk(el.shadowRoot);
+            }
           };
           walk(document);
           return out;
