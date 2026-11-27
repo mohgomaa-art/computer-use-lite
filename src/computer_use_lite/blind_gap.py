@@ -186,10 +186,12 @@ class _BITMAPINFOHEADER(ctypes.Structure):
 
 def _capture_hwnd_printwindow(hwnd, crop_bbox):
     """Fallback desktop capture via PrintWindow when ImageGrab is blocked (e.g. non-interactive desktop)."""
-    from PIL import Image
+    from PIL import Image, ImageOps
 
     u32 = ctypes.WinDLL("user32", use_last_error=True)
     gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
+    u32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+    u32.GetWindowLongW.restype = wintypes.LONG
     rect = wintypes.RECT()
     if not u32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect)):
         raise OSError(f"GetWindowRect failed for hwnd={hwnd}")
@@ -207,6 +209,9 @@ def _capture_hwnd_printwindow(hwnd, crop_bbox):
         raw = ctypes.create_string_buffer(ww * wh * 4)
         gdi32.GetDIBits(memdc, hbmp, 0, wh, raw, ctypes.byref(bmi), 0)
         img = Image.frombuffer("RGBA", (ww, wh), raw, "raw", "BGRA", 0, 1).convert("RGB")
+        # WS_EX_LAYOUTRTL (0x00400000) causes PrintWindow bitmaps to be horizontally mirrored relative to screen coords.
+        if u32.GetWindowLongW(wintypes.HWND(hwnd), -20) & 0x00400000:
+            img = ImageOps.mirror(img)
         cl, ct, cr, cb = crop_bbox
         rel_l = max(0, min(ww - 1, cl - rect.left))
         rel_t = max(0, min(wh - 1, ct - rect.top))

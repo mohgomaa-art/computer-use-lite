@@ -19,6 +19,7 @@
 Uses IUIAutomation.FindAllBuildCache (one cross-process cache request) so the whole
 tree costs a single round trip per snapshot. Never touches the Desktop Root.
 """
+import atexit
 import ctypes
 import hashlib
 import os
@@ -517,17 +518,66 @@ def _activate_accessibility(hwnd):
     time.sleep(0.25)
 
 
+_SR_LOCK = threading.RLock()
+_SR_NEEDS_RESTORE = False
+_SR_ORIG_VALUE = 0
+_SR_ATEXIT_REGISTERED = False
+
+
+def _restore_screenreader_state():
+    """Restore original SPI_SETSCREENREADER state cleanly on finally or interpreter exit."""
+    global _SR_NEEDS_RESTORE
+    with _SR_LOCK:
+        if not _SR_NEEDS_RESTORE or _u32 is None:
+            return
+        try:
+            _u32.SystemParametersInfoW(SPI_SETSCREENREADER, int(_SR_ORIG_VALUE), None, SPIF_SENDCHANGE)
+        except Exception:
+            pass
+        finally:
+            _SR_NEEDS_RESTORE = False
+
+
 def _pulse_screenreader(hwnd):
-    orig = ctypes.c_bool(False)
-    _u32.SystemParametersInfoW(SPI_GETSCREENREADER, 0, ctypes.byref(orig), 0)
-    if orig.value:
-        _activate_accessibility(hwnd)
-        return
-    try:
-        _u32.SystemParametersInfoW(SPI_SETSCREENREADER, 1, None, SPIF_SENDCHANGE)
-        _activate_accessibility(hwnd)
-    finally:
-        _u32.SystemParametersInfoW(SPI_SETSCREENREADER, 0, None, SPIF_SENDCHANGE)
+    global _SR_NEEDS_RESTORE, _SR_ORIG_VALUE, _SR_ATEXIT_REGISTERED
+    if not _SR_ATEXIT_REGISTERED:
+        atexit.register(_restore_screenreader_state)
+        _SR_ATEXIT_REGISTERED = True
+    with _SR_LOCK:
+        orig = ctypes.c_bool(False)
+        _u32.SystemParametersInfoW(SPI_GETSCREENREADER, 0, ctypes.byref(orig), 0)
+        if orig.value:
+            _activate_accessibility(hwnd)
+            return
+        _SR_ORIG_VALUE = 0
+        _SR_NEEDS_RESTORE = True
+        try:
+            _u32.SystemParametersInfoW(SPI_SETSCREENREADER, 1, None, SPIF_SENDCHANGE)
+            _activate_accessibility(hwnd)
+        finally:
+            _restore_screenreader_state()
+
+
+def _inactive_explorer_tab_hwnds(root_hwnd):
+    """Return lower Z-order ShellTabWindowClass HWNDs representing inactive Explorer tabs."""
+    if _window_class(root_hwnd) != "CabinetWClass":
+        return []
+    _u32.GetTopWindow.argtypes = [wintypes.HWND]
+    _u32.GetTopWindow.restype = wintypes.HWND
+    _u32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
+    _u32.GetWindow.restype = wintypes.HWND
+    shell_tabs = []
+    seen = set()
+    cur = _u32.GetTopWindow(wintypes.HWND(int(root_hwnd)))
+    steps = 0
+    while cur and int(cur) not in seen and steps < 256:
+        cur_int = int(cur)
+        seen.add(cur_int)
+        if _u32.IsWindowVisible(cur) and _window_class(cur_int) == "ShellTabWindowClass":
+            shell_tabs.append(cur_int)
+        cur = _u32.GetWindow(cur, 2)  # GW_HWNDNEXT
+        steps += 1
+    return shell_tabs[1:] if len(shell_tabs) > 1 else []
 
 
 class DesktopSession:
@@ -708,9 +758,30 @@ class DesktopSession:
                     time.sleep(0.15)
                     continue
                 raise
+        inactive_rids = set()
+        inactive_tabs = _inactive_explorer_tab_hwnds(self.hwnd)
+        if inactive_tabs:
+            rid_cr = self._uia.CreateCacheRequest()
+            rid_cr.AddProperty(UIA.UIA_RuntimeIdPropertyId)
+            true_cond = self._uia.CreateTrueCondition()
+            for tab_hwnd in inactive_tabs:
+                try:
+                    sub_el = self._uia.ElementFromHandle(tab_hwnd)
+                    sub_found = sub_el.FindAllBuildCache(UIA.TreeScope_Subtree, true_cond, rid_cr)
+                    for j in range(sub_found.Length):
+                        se = sub_found.GetElement(j)
+                        srid = se.GetCachedPropertyValue(UIA.UIA_RuntimeIdPropertyId) or se.GetRuntimeId()
+                        if srid:
+                            inactive_rids.add(tuple(srid))
+                except Exception:
+                    continue
         out = []
         for i in range(found.Length):
             el = found.GetElement(i)
+            raw_rid = el.GetCachedPropertyValue(UIA.UIA_RuntimeIdPropertyId)
+            rid = list(raw_rid) if raw_rid else list(el.GetRuntimeId())
+            if inactive_rids and tuple(rid) in inactive_rids:
+                continue
             ctype = _TYPE_NAMES.get(el.CachedControlType, "Unknown")
             role = WANTED.get(ctype + "Control", "")
             r = el.CachedBoundingRectangle
@@ -725,8 +796,6 @@ class DesktopSession:
             ):
                 if el.GetCachedPropertyValue(pid):
                     patterns.append(pname)
-            raw_rid = el.GetCachedPropertyValue(UIA.UIA_RuntimeIdPropertyId)
-            rid = list(raw_rid) if raw_rid else list(el.GetRuntimeId())
             out.append({
                 "source": "uia",
                 "role": role or ctype,
@@ -913,7 +982,12 @@ class DesktopSession:
                             if label == "invoke_pattern":
                                 p.Invoke()
                             elif label == "toggle_pattern":
+                                before_t = p.CurrentToggleState
                                 p.Toggle()
+                                for _ in range(3):
+                                    if p.CurrentToggleState != before_t:
+                                        break
+                                    time.sleep(0.01)
                             else:
                                 p.Select()
                             return label
