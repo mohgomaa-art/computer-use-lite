@@ -834,6 +834,19 @@ class DesktopCursorOverlay:
                 else:
                     animating = True
 
+            if st["click_pulses_left"] > 0:
+                if now >= st["next_pulse_at"]:
+                    rem = st["click_pulses_left"] - 1
+                    self._state["click_pulses_left"] = rem
+                    self._state["next_pulse_at"] = (now + _CLICK_PULSE_GAP_S) if rem > 0 else 0.0
+                    self._state["press_until"] = now + _PRESS_DURATION_S
+                    self._state["ripple_start"] = now
+                    st["press_until"] = self._state["press_until"]
+                    st["ripple_start"] = now
+                    st["ripple_xy"] = (cx, cy)
+                    self._state["ripple_xy"] = (cx, cy)
+                animating = True
+
             pressed = now < st["press_until"]
             if pressed:
                 animating = True
@@ -966,10 +979,11 @@ class DesktopCursorOverlay:
         if wait and actual_ms > 0.0:
             time.sleep(min(actual_ms, 240.0) / 1000.0)
 
-    def click(self, x: float, y: float, cursor_id: str = "pointer") -> None:
-        """Emit neutral input-execution press & ripple (distinct from postcondition verification)."""
+    def click(self, x: float, y: float, cursor_id: str = "pointer", *, clicks: int = 1) -> None:
+        """Emit neutral input-execution press & ripple pulses (supports multi-clicks cleanly)."""
         if self._closed or not self.hwnd:
             return
+        n = max(1, min(3, int(clicks)))
         cx, cy = float(x), float(y)
         now = time.perf_counter()
         with self._lock:
@@ -982,13 +996,15 @@ class DesktopCursorOverlay:
             self._state["target_x"] = cx
             self._state["target_y"] = cy
             self._state["glide_ms"] = 0.0
-            self._state["press_until"] = now + 0.095
+            self._state["press_until"] = now + _PRESS_DURATION_S
             self._state["ripple_xy"] = (cx, cy)
             self._state["ripple_tone"] = "input"
             self._state["ripple_start"] = now
+            self._state["click_pulses_left"] = n - 1
+            self._state["next_pulse_at"] = (now + _CLICK_PULSE_GAP_S) if n > 1 else 0.0
             self._state["last_outcome"] = None
             self._state["last_outcome_reason"] = ""
-            self._state["click_count"] += 1
+            self._state["click_count"] += n
         self._post_sync()
 
     def outcome(

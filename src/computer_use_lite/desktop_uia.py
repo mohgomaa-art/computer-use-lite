@@ -797,11 +797,11 @@ class DesktopSession:
             except Exception:
                 pass
 
-    def _overlay_click(self, x, y, cursor_id):
+    def _overlay_click(self, x, y, cursor_id, *, clicks: int = 1):
         ov = getattr(self, "_overlay", None)
         if ov is not None:
             try:
-                ov.click(x, y, cursor_id)
+                ov.click(x, y, cursor_id, clicks=clicks)
             except Exception:
                 pass
 
@@ -1005,7 +1005,7 @@ class DesktopSession:
             )
         cid = cursor_for_action("click_at", is_blind_coord=True)
         self._overlay_move(x, y, cid, wait=True)
-        self._overlay_click(x, y, cid)
+        self._overlay_click(x, y, cid, clicks=clicks)
         mech = click_at(int(x), int(y), hwnd=self.hwnd, kill_switch=getattr(self, "_kill", None),
                         button=button, clicks=clicks)
         return {"x": int(x), "y": int(y), "button": button, "clicks": clicks, "mechanism": mech}

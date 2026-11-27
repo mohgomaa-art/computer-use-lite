@@ -461,6 +461,7 @@ def build_overlay_init_script() -> str:
   let activeId = 'default', preBusyId = 'default', lastActionId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
   let prevX = 640, prevY = 360, rafId = 0, busy = false, lastTickTs = 0;
   let busyTimer = 0, errorTimer = 0, pressTimer = 0, pressAnim = null, cursorSheet = null;
+  const pulseTimers = [];
   let lastHaloKey = '', lastHaloSize = '', lastHaloTone = '';
   let lastOutcome = null, lastOutcomeReason = '', clickCount = 0, outcomeCount = 0;
   const particles = [];
@@ -483,6 +484,51 @@ def build_overlay_init_script() -> str:
       clearTimeout(errorTimer);
       errorTimer = 0;
     }}
+  }}
+
+  function clearPulseTimers() {{
+    while (pulseTimers.length) {{
+      clearTimeout(pulseTimers.pop());
+    }}
+  }}
+
+  function triggerPressPulse(px, py) {{
+    if (press) {{
+      if (pressTimer) {{
+        clearTimeout(pressTimer);
+        pressTimer = 0;
+      }}
+      if (pressAnim) {{
+        try {{ pressAnim.cancel(); }} catch (_e) {{}}
+        pressAnim = null;
+      }}
+      let animated = false;
+      const ms = CFG.pressMs;
+      const sc = CFG.pressScale;
+      if (!reduced && typeof press.animate === 'function') {{
+        press.style.transform = 'scale(1) translateZ(0px)';
+        try {{
+          pressAnim = press.animate(
+            [
+              {{ transform: `scale(${{sc}}) translateZ(-6px)` }},
+              {{ transform: 'scale(1) translateZ(0px)' }},
+            ],
+            {{ duration: ms, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'none' }}
+          );
+          pressAnim.onfinish = () => {{ pressAnim = null; }};
+          pressAnim.oncancel = () => {{ pressAnim = null; }};
+          animated = true;
+        }} catch (_e) {{}}
+      }}
+      if (!animated) {{
+        press.style.transform = reduced ? 'scale(1)' : `scale(${{sc}}) translateZ(-6px)`;
+        pressTimer = setTimeout(() => {{
+          pressTimer = 0;
+          if (press) press.style.transform = 'scale(1) translateZ(0px)';
+        }}, ms);
+      }}
+    }}
+    spawnRipple(px, py, 'input');
   }}
 
   function svgEl(tag, attrs) {{
@@ -763,45 +809,17 @@ def build_overlay_init_script() -> str:
     click(x, y, cursorId, opts = {{}}) {{
       if (!ensureMounted()) return;
       clearErrorTimer();
+      clearPulseTimers();
       lastOutcome = null;
       lastOutcomeReason = '';
-      clickCount += 1;
+      const n = Math.max(1, Math.min(3, Math.floor(Number(opts.clicks || 1)) || 1));
+      clickCount += n;
       applyShape(cursorId || activeId, true);
       place(x, y, true);
-      if (press) {{
-        if (pressTimer) {{
-          clearTimeout(pressTimer);
-          pressTimer = 0;
-        }}
-        if (pressAnim) {{
-          try {{ pressAnim.cancel(); }} catch (_e) {{}}
-          pressAnim = null;
-        }}
-        let animated = false;
-        if (typeof press.animate === 'function') {{
-          press.style.transform = 'scale(1) translateZ(0px)';
-          try {{
-            pressAnim = press.animate(
-              [
-                {{ transform: 'scale(0.90) translateZ(-6px)' }},
-                {{ transform: 'scale(1) translateZ(0px)' }},
-              ],
-              {{ duration: 130, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'none' }}
-            );
-            pressAnim.onfinish = () => {{ pressAnim = null; }};
-            pressAnim.oncancel = () => {{ pressAnim = null; }};
-            animated = true;
-          }} catch (_e) {{}}
-        }}
-        if (!animated) {{
-          press.style.transform = 'scale(0.90) translateZ(-6px)';
-          pressTimer = setTimeout(() => {{
-            pressTimer = 0;
-            if (press) press.style.transform = 'scale(1) translateZ(0px)';
-          }}, 110);
-        }}
+      triggerPressPulse(x, y);
+      for (let i = 1; i < n; i++) {{
+        pulseTimers.push(setTimeout(() => triggerPressPulse(x, y), i * CFG.clickPulseGapMs));
       }}
-      spawnRipple(x, y, 'input');
     }},
     outcome(kind, opts = {{}}) {{
       if (!ensureMounted()) return;
