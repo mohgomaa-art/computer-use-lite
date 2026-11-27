@@ -806,6 +806,16 @@ class DesktopCursorOverlay:
                 st["cursor_id"] = "progress"
 
             animating = st["busy"]
+            if st["error_until"] > 0.0:
+                if now >= st["error_until"]:
+                    self._state["error_until"] = 0.0
+                    st["error_until"] = 0.0
+                    if st["cursor_id"] == "not-allowed" and not st["busy"]:
+                        revert_cid = st["error_return_cursor_id"] or "default"
+                        self._state["cursor_id"] = revert_cid
+                        st["cursor_id"] = revert_cid
+                else:
+                    animating = True
             cx, cy = st["x"], st["y"]
             if st["glide_ms"] > 0.0 and st["glide_start"] > 0.0:
                 t = min(1.0, max(0.0, (now - st["glide_start"]) * 1000.0 / st["glide_ms"]))
@@ -935,6 +945,7 @@ class DesktopCursorOverlay:
             sx, sy = self._state["x"], self._state["y"]
             dist = math.hypot(tx - sx, ty - sy)
             actual_ms = float(glide_ms) if (glide_ms > 0 and dist >= 1.5 and self._state["visible"]) else 0.0
+            self._state["error_until"] = 0.0
             self._state["cursor_id"] = cursor_id
             if cursor_id not in ("progress", "not-allowed"):
                 self._state["pre_busy_cursor_id"] = cursor_id
@@ -962,6 +973,7 @@ class DesktopCursorOverlay:
         cx, cy = float(x), float(y)
         now = time.perf_counter()
         with self._lock:
+            self._state["error_until"] = 0.0
             self._state["cursor_id"] = cursor_id
             if cursor_id not in ("progress", "not-allowed"):
                 self._state["pre_busy_cursor_id"] = cursor_id
@@ -1011,7 +1023,15 @@ class DesktopCursorOverlay:
                 self._state["halo_tone"] = kind
                 self._state["halo_until"] = now + 0.85
             if kind == "error":
+                prev_cid = self._state["cursor_id"]
+                if prev_cid not in ("progress", "not-allowed"):
+                    self._state["error_return_cursor_id"] = prev_cid
+                elif self._state["pre_busy_cursor_id"] not in ("progress", "not-allowed"):
+                    self._state["error_return_cursor_id"] = self._state["pre_busy_cursor_id"]
                 self._state["cursor_id"] = "not-allowed"
+                self._state["error_until"] = now + _ERROR_RESET_S
+            else:
+                self._state["error_until"] = 0.0
         self._post_sync()
 
     def set_busy(self, flag: bool) -> None:
@@ -1020,6 +1040,7 @@ class DesktopCursorOverlay:
         now = time.perf_counter()
         with self._lock:
             if flag:
+                self._state["error_until"] = 0.0
                 if not self._state["busy"]:
                     if self._state["cursor_id"] not in ("progress", "not-allowed"):
                         self._state["pre_busy_cursor_id"] = self._state["cursor_id"]

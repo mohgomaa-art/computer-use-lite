@@ -458,9 +458,9 @@ def build_overlay_init_script() -> str:
 
   let root = null, anchor = null, rig = null, press = null, morph = null, offset = null;
   let hostSvg = null, shapeLayer = null, dropShadow = null, halo = null, ripples = null, wake = null, wakeCtx = null;
-  let activeId = 'default', preBusyId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
+  let activeId = 'default', preBusyId = 'default', lastActionId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
   let prevX = 640, prevY = 360, rafId = 0, busy = false, lastTickTs = 0;
-  let busyTimer = 0, pressTimer = 0, pressAnim = null, cursorSheet = null;
+  let busyTimer = 0, errorTimer = 0, pressTimer = 0, pressAnim = null, cursorSheet = null;
   let lastHaloKey = '', lastHaloSize = '', lastHaloTone = '';
   let lastOutcome = null, lastOutcomeReason = '', clickCount = 0, outcomeCount = 0;
   const particles = [];
@@ -475,6 +475,13 @@ def build_overlay_init_script() -> str:
     if (busyTimer) {{
       clearTimeout(busyTimer);
       busyTimer = 0;
+    }}
+  }}
+
+  function clearErrorTimer() {{
+    if (errorTimer) {{
+      clearTimeout(errorTimer);
+      errorTimer = 0;
     }}
   }}
 
@@ -602,7 +609,10 @@ def build_overlay_init_script() -> str:
     const ox = -(spec.hotspot[0] * ratio);
     const oy = -(spec.hotspot[1] * ratio);
     offset.style.transform = `translate3d(${{ox}}px, ${{oy}}px, 0px)`;
-    if (id !== 'progress' && id !== 'not-allowed') preBusyId = id;
+    if (id !== 'progress' && id !== 'not-allowed') {{
+      preBusyId = id;
+      lastActionId = id;
+    }}
     if (shapeLayer && (id !== activeId || shapeLayer.childNodes.length === 0)) {{
       activeId = id;
       while (shapeLayer.firstChild) shapeLayer.removeChild(shapeLayer.firstChild);
@@ -729,6 +739,7 @@ def build_overlay_init_script() -> str:
   const api = {{
     moveTo(x, y, cursorId, opts = {{}}) {{
       if (!ensureMounted()) return;
+      clearErrorTimer();
       applyShape(cursorId || activeId, true);
       setHalo(opts.halo || null, 'input');
       const glideMs = reduced ? 0 : Math.max(0, Number(opts.glideMs || 0));
@@ -751,6 +762,7 @@ def build_overlay_init_script() -> str:
     }},
     click(x, y, cursorId, opts = {{}}) {{
       if (!ensureMounted()) return;
+      clearErrorTimer();
       lastOutcome = null;
       lastOutcomeReason = '';
       clickCount += 1;
@@ -793,6 +805,7 @@ def build_overlay_init_script() -> str:
     }},
     outcome(kind, opts = {{}}) {{
       if (!ensureMounted()) return;
+      clearErrorTimer();
       const k = (kind === 'verified' || kind === 'unverified' || kind === 'error') ? kind : 'unverified';
       lastOutcome = k;
       lastOutcomeReason = String(opts.reason || '');
@@ -801,7 +814,12 @@ def build_overlay_init_script() -> str:
       const oy = opts.y !== undefined && opts.y !== null ? Number(opts.y) : curY;
       place(ox, oy, true);
       if (k === 'error') {{
+        const returnTo = lastActionId || preBusyId || 'default';
         applyShape('not-allowed', true);
+        errorTimer = setTimeout(() => {{
+          errorTimer = 0;
+          if (!busy && activeId === 'not-allowed') applyShape(returnTo, true);
+        }}, CFG.errorResetMs);
       }}
       if (halo && halo.style.opacity === '1') {{
         const [edge, glow] = RING_TONES[k];
