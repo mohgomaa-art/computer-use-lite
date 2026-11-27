@@ -691,13 +691,15 @@ def build_overlay_init_script() -> str:
     const dx = curX - prevX, dy = curY - prevY;
     prevX = curX; prevY = curY;
     const speed = Math.hypot(dx, dy);
-    const ty = Math.max(-12, Math.min(12, dx * 0.65));
-    const tx = Math.max(-12, Math.min(12, -dy * 0.65));
+    const clampTilt = (v) => Math.max(-CFG.maxTiltDeg, Math.min(CFG.maxTiltDeg, v));
+    const ty = clampTilt(dx * 0.45);
+    const tx = clampTilt(-dy * 0.45);
     const damp = Math.pow(0.68, dt);
     const spring = Math.min(1, 0.22 * dt);
     tvx = (tvx + (tx - tiltX) * spring) * damp;
     tvy = (tvy + (ty - tiltY) * spring) * damp;
-    tiltX += tvx * dt; tiltY += tvy * dt;
+    tiltX = clampTilt(tiltX + tvx * dt);
+    tiltY = clampTilt(tiltY + tvy * dt);
     if (rig) rig.style.transform = `rotateX(${{tiltX.toFixed(2)}}deg) rotateY(${{tiltY.toFixed(2)}}deg)`;
 
     if (speed > 4 && wakeCtx) {{
