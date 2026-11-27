@@ -12,6 +12,8 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+# AI Modification Note: Added delay/reset constants and Fix A deferred busy progress
+# shape transition so short (<350ms) actions avoid flashing progress.
 """Obsidian-Chrome 3D layered overlay cursor for Windows DesktopSession (Phase B).
 
 Renders the unified Frosted Obsidian-Glass & Satin Chrome 3D cursor onto a dedicated
@@ -64,6 +66,12 @@ _CREATE_WAITABLE_TIMER_HIGH_RESOLUTION = 0x00000002
 _TIMER_ALL_ACCESS = 0x1F0003
 _FRAME_NS = 16_666_667  # 60.0 Hz exact vblank cadence
 _SPRITE_SURF_SIZE = 112
+_BUSY_SHAPE_DELAY_S = 0.35
+_ERROR_RESET_S = 0.90
+_CLICK_PULSE_GAP_S = 0.12
+_PRESS_DURATION_S = 0.06
+CUL_GREEN = "#0E9F6E"
+CUL_GREEN_RGB = (14, 159, 110)
 
 _REGISTRY_LOCK = threading.Lock()
 _ACTIVE_OVERLAYS: dict[int, "DesktopCursorOverlay"] = {}
@@ -524,6 +532,11 @@ class DesktopCursorOverlay:
             "glide_ms": 0.0,
             "press_until": 0.0,
             "busy": False,
+            "busy_since": 0.0,
+            "error_until": 0.0,
+            "error_return_cursor_id": "pointer",
+            "click_pulses_left": 0,
+            "next_pulse_at": 0.0,
             "halo_box": None,
             "halo_tone": "input",
             "halo_until": 0.0,
@@ -785,6 +798,13 @@ class DesktopCursorOverlay:
                     self._halo_surf.hide()
                 return
 
+            show_busy = bool(st["busy"] and st["busy_since"] > 0.0 and (now - st["busy_since"]) >= _BUSY_SHAPE_DELAY_S)
+            if show_busy and st["cursor_id"] != "progress":
+                if st["cursor_id"] not in ("progress", "not-allowed"):
+                    self._state["pre_busy_cursor_id"] = st["cursor_id"]
+                self._state["cursor_id"] = "progress"
+                st["cursor_id"] = "progress"
+
             animating = st["busy"]
             cx, cy = st["x"], st["y"]
             if st["glide_ms"] > 0.0 and st["glide_start"] > 0.0:
@@ -835,7 +855,8 @@ class DesktopCursorOverlay:
 
         self._update_halo_layer(halo_box, st["halo_tone"])
 
-        sprite, _, hx, hy = self._sprite_for(st["cursor_id"], pressed)
+        render_cursor_id = "progress" if show_busy else st["cursor_id"]
+        sprite, _, hx, hy = self._sprite_for(render_cursor_id, pressed)
         sw, sh = sprite.size
         base_pad = (_SPRITE_SURF_SIZE - sw) // 2
         win_l = int(round(cx)) - hx - base_pad
@@ -844,14 +865,14 @@ class DesktopCursorOverlay:
         win_h = _SPRITE_SURF_SIZE
 
         ripple_bucket = int(round(ripple_t * 30)) if ripple_t is not None else None
-        busy_deg = int((now * 360.0) % 360) if st["busy"] else 0
-        surf_key = (st["cursor_id"], pressed, ripple_bucket, busy_deg)
+        busy_deg = int((now * 360.0) % 360) if show_busy else 0
+        surf_key = (render_cursor_id, pressed, ripple_bucket, busy_deg)
 
         bgra_bytes: bytes | None = None
         if surf_key != self._cursor_surf.pixel_key or not self._cursor_surf.visible:
-            if ripple_t is None and not st["busy"]:
+            if ripple_t is None and not show_busy:
                 # Fast-path static sprite centered in fixed 112x112 surface (cached per key)
-                static_key = ("_surf", st["cursor_id"], pressed)
+                static_key = ("_surf", render_cursor_id, pressed)
                 bgra_bytes = self._sprites.get(static_key)  # type: ignore[assignment]
                 if bgra_bytes is None:
                     frame = Image.new("RGBA", (win_w, win_h), (0, 0, 0, 0))
@@ -875,7 +896,7 @@ class DesktopCursorOverlay:
                     draw = ImageDraw.Draw(frame)
                     draw.ellipse((rx - rad, ry - rad, rx + rad, ry + rad), outline=(*rgb, alpha), width=2)
                 frame.alpha_composite(sprite, dest=(base_pad, base_pad))
-                if st["busy"]:
+                if show_busy:
                     draw = ImageDraw.Draw(frame)
                     ocx = base_pad + int(round(46 * 32 / 64)) + 8
                     ocy = base_pad + int(round(46 * 32 / 64)) + 8
@@ -915,7 +936,7 @@ class DesktopCursorOverlay:
             dist = math.hypot(tx - sx, ty - sy)
             actual_ms = float(glide_ms) if (glide_ms > 0 and dist >= 1.5 and self._state["visible"]) else 0.0
             self._state["cursor_id"] = cursor_id
-            if not self._state["busy"]:
+            if cursor_id not in ("progress", "not-allowed"):
                 self._state["pre_busy_cursor_id"] = cursor_id
             self._state["start_x"] = sx
             self._state["start_y"] = sy
@@ -942,7 +963,7 @@ class DesktopCursorOverlay:
         now = time.perf_counter()
         with self._lock:
             self._state["cursor_id"] = cursor_id
-            if not self._state["busy"]:
+            if cursor_id not in ("progress", "not-allowed"):
                 self._state["pre_busy_cursor_id"] = cursor_id
             self._state["x"] = cx
             self._state["y"] = cy
@@ -999,12 +1020,14 @@ class DesktopCursorOverlay:
         now = time.perf_counter()
         with self._lock:
             if flag:
-                if not self._state["busy"] and self._state["cursor_id"] not in ("progress", "not-allowed"):
-                    self._state["pre_busy_cursor_id"] = self._state["cursor_id"]
+                if not self._state["busy"]:
+                    if self._state["cursor_id"] not in ("progress", "not-allowed"):
+                        self._state["pre_busy_cursor_id"] = self._state["cursor_id"]
+                    self._state["busy_since"] = now
                 self._state["busy"] = True
-                self._state["cursor_id"] = "progress"
             else:
                 self._state["busy"] = False
+                self._state["busy_since"] = 0.0
                 if self._state["cursor_id"] == "progress":
                     prev = self._state["pre_busy_cursor_id"]
                     self._state["cursor_id"] = "default" if prev in ("progress", "not-allowed") else prev

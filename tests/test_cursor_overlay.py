@@ -532,9 +532,11 @@ def test_browser_60fps_press_recovery_busy_restore_and_adopted_stylesheet():
             btn = next(r for r in api.resolver.records if r.get("name") == "Primary Action")
             inp = next(r for r in api.resolver.records if r.get("name") == "Note Input")
 
-            # Hover pointer -> set_cursor_busy(True) -> set_cursor_busy(False) preserves 'pointer'
+            # Hover pointer -> short set_cursor_busy(<350ms) does NOT flash progress; sustained(>350ms) shows progress & restores 'pointer'
             s.hover(btn)
             s.set_cursor_busy(True)
+            assert s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")["cursorId"] == "pointer"
+            s.page.wait_for_timeout(390)
             assert s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")["cursorId"] == "progress"
             s.set_cursor_busy(False)
             st_btn = s.page.evaluate("() => window[Symbol.for('cul.agent.cursor')].getState()")
@@ -608,8 +610,10 @@ def test_desktop_overlay_60hz_timer_halo_hwnd_and_busy_restore():
         assert rendered_frames >= 8, f"Expected >= 8 frames during 220ms 60Hz glide, got {rendered_frames} (fps={st['last_fps']})"
         assert st["last_fps"] >= 45.0, f"Expected >= 45 FPS effective pacer cadence, got {st['last_fps']}"
 
-        # set_busy preserves prior active cursor ('pointer' / 'text') instead of snapping to 'default'
+        # set_busy defers 'progress' past 350ms and preserves active cursor ('pointer' / 'text') on restore
         ov.set_busy(True)
+        assert ov.get_state()["cursor_id"] == "pointer"
+        time.sleep(0.39)
         assert ov.get_state()["cursor_id"] == "progress"
         ov.set_busy(False)
         assert ov.get_state()["cursor_id"] == "pointer"

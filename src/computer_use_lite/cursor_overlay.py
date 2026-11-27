@@ -12,6 +12,8 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+# AI Modification Note: Added OVERLAY_CONFIG constants and Fix A (350ms delayed busy progress
+# shape switching without redundant DOM glyph rebuilds).
 """Obsidian-Chrome 3D agent cursor geometry, design tokens, and CSP-safe Chromium overlay.
 
 Provides a unified 64x64 vector cursor registry (26+ OS/CSS variants locked to a fixed
@@ -48,6 +50,25 @@ DESIGN_TOKENS = {
 
 _EXTRUDE_X, _EXTRUDE_Y = DESIGN_TOKENS["extrudeOffset"]
 _RIM_W = str(DESIGN_TOKENS["outerRimPx"])
+
+CUL_GREEN = "#0E9F6E"
+
+OVERLAY_CONFIG = {
+    "culGreen": CUL_GREEN,
+    "busyDelayMs": 350,
+    "errorResetMs": 900,
+    "maxTiltDeg": 5.0,
+    "clickPulseGapMs": 120,
+    "pressMs": 60,
+    "pressScale": 0.90,
+    "morphMs": 120,
+    "glideMinMs": 120,
+    "glideMaxMs": 450,
+    "maxDtMs": 50,
+    "hiddenTabTimeoutPadMs": 250,
+    "hiddenTabTimeoutMaxMs": 700,
+    "glowPulseMs": 2400,
+}
 _BODY_GRAD = "url(#cul-obs-body)"
 _FACET_GRAD = "url(#cul-obs-facet)"
 _OUTER_RIM = "url(#cul-outer-rim)"
@@ -422,6 +443,7 @@ def build_overlay_init_script() -> str:
     specs_json = json.dumps(CURSOR_SPECS, separators=(",", ":"))
     aliases_json = json.dumps(CSS_CURSOR_ALIASES, separators=(",", ":"))
     grads_json = json.dumps(_GRADIENT_SPECS, separators=(",", ":"))
+    config_json = json.dumps(OVERLAY_CONFIG, separators=(",", ":"))
 
     return f"""(() => {{
   const SYM = Symbol.for('cul.agent.cursor');
@@ -429,6 +451,7 @@ def build_overlay_init_script() -> str:
   const SPECS = {specs_json};
   const ALIASES = {aliases_json};
   const GRADS = {grads_json};
+  const CFG = {config_json};
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const SCALE = 32;
   const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -437,7 +460,7 @@ def build_overlay_init_script() -> str:
   let hostSvg = null, shapeLayer = null, dropShadow = null, halo = null, ripples = null, wake = null, wakeCtx = null;
   let activeId = 'default', preBusyId = 'default', curX = 640, curY = 360, tiltX = 0, tiltY = 0, tvx = 0, tvy = 0;
   let prevX = 640, prevY = 360, rafId = 0, busy = false, lastTickTs = 0;
-  let pressTimer = 0, pressAnim = null, cursorSheet = null;
+  let busyTimer = 0, pressTimer = 0, pressAnim = null, cursorSheet = null;
   let lastHaloKey = '', lastHaloSize = '', lastHaloTone = '';
   let lastOutcome = null, lastOutcomeReason = '', clickCount = 0, outcomeCount = 0;
   const particles = [];
@@ -447,6 +470,13 @@ def build_overlay_init_script() -> str:
     unverified: ['rgba(245,158,11,0.92)', 'rgba(245,158,11,0.24)'],
     error: ['rgba(244,63,94,0.95)', 'rgba(244,63,94,0.26)'],
   }};
+
+  function clearBusyTimer() {{
+    if (busyTimer) {{
+      clearTimeout(busyTimer);
+      busyTimer = 0;
+    }}
+  }}
 
   function svgEl(tag, attrs) {{
     const el = document.createElementNS(SVG_NS, tag);
@@ -785,9 +815,14 @@ def build_overlay_init_script() -> str:
       const nextBusy = Boolean(flag);
       if (nextBusy === busy) return;
       busy = nextBusy;
+      clearBusyTimer();
       if (busy) {{
-        if (activeId !== 'progress' && activeId !== 'not-allowed') preBusyId = activeId;
-        applyShape('progress', true);
+        busyTimer = setTimeout(() => {{
+          busyTimer = 0;
+          if (!busy) return;
+          if (activeId !== 'progress' && activeId !== 'not-allowed') preBusyId = activeId;
+          applyShape('progress', true);
+        }}, CFG.busyDelayMs);
       }} else if (activeId === 'progress') {{
         applyShape(preBusyId || 'default', true);
       }}
