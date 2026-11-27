@@ -1,0 +1,4 @@
+{"track": "D", "env": "windows11_full_pytest", "returncode": 0, "wall_s": 106.93, "passed": 95, "failed": 0, "skipped": 0, "xfailed": 0, "tail": ["    warnings.warn(self.last_warning)", "", "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html", "95 passed, 1 warning in 105.82s (0:01:45)"]}
+{"track": "D", "env": "windows11_ci_skip_desktop", "returncode": 0, "wall_s": 87.2, "passed": 79, "failed": 0, "skipped": 0, "xfailed": 0, "tail": ["........................................................................ [ 91%]", ".......                                                                  [100%]", "79 passed, 16 deselected in 86.41s (0:01:26)"]}
+{"track": "D", "env": "simulated_linux_import", "returncode": 0, "passed": 1, "failed": 0, "stdout": "SIM_LINUX_OK", "stderr": ""}
+{"track": "D", "env": "wsl2_kali_linux_python3_import", "returncode": 0, "passed": 1, "failed": 0, "stdout": "WSL_LINUX_OK linux 3.14.7", "stderr": ""}

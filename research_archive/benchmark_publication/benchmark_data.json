@@ -1,8 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "release_version": "0.1.0a2",
+  "release_version": "0.2.0a0",
   "historical_release_version": "0.1.0a0",
   "historical_release_commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+  "fixed_engine_commit": "a33a8f261fe4e7b9ef761e1763ac5ad2f2907faf",
   "benchmark_commit": "fdc92d9ae6af00ebc38d3574501331bcfe90c2b6",
   "dataset_date": "2026-11-27",
   "browser_benchmark": {
@@ -121,22 +122,36 @@
   },
   "windows_test_suite": {
     "label": "Automated Test-Suite Execution (Not AI-Agent Success Rate)",
-    "commit": "0d19a9e",
+    "commit": "a33a8f2",
     "os": "Microsoft Windows 11 Pro (10.0.26200)",
     "python": "3.12.10",
-    "passed": 70,
+    "passed": 95,
     "failed": 0,
     "skipped": 0,
-    "total": 70,
-    "duration_seconds": 197.50,
+    "total": 95,
+    "duration_seconds": 106.93,
     "ci_non_interactive_subset": {
-      "env": "CUL_SKIP_DESKTOP=1",
-      "passed": 58,
+      "env": "CUL_SKIP_DESKTOP=1 -m 'not windows_desktop'",
+      "passed": 79,
       "failed": 0,
-      "skipped": 12,
-      "duration_seconds": 86.66
+      "skipped": 16,
+      "duration_seconds": 87.20
     },
-    "caveat": "Covers deterministic software tests in tests/; NOT an AI-agent task benchmark or proof of production security."
+    "historical_0d19a9e": {
+      "commit": "0d19a9e",
+      "passed": 70,
+      "failed": 0,
+      "skipped": 0,
+      "duration_seconds": 197.50,
+      "ci_passed": 58,
+      "ci_skipped": 12
+    },
+    "wsl2_linux_import": {
+      "env": "WSL2 kali-linux Python 3.14.7",
+      "status": "WSL_LINUX_OK",
+      "returncode": 0
+    },
+    "caveat": "Covers deterministic software tests in tests/ and WSL2 Linux portability import; NOT an AI-agent task benchmark or OS-hook proof."
   },
   "desktop_pilot_status": {
     "banner": "Unfinished Pilot — Not a Head-to-Head Comparison",
@@ -172,18 +187,18 @@
     ]
   },
   "architecture_pipeline": {
-    "title": "Semantic-First Hybrid Execution with Conditional Visual Fallback",
+    "title": "Hardened Semantic-First Execution (Pipe Default, Top-Hit Probe & Target-Bound Verify)",
     "stages": [
-      {"step": 1, "id": "ui_observation", "label": "UI Observation", "detail": "Browser DOMSnapshot + AXTree / Windows UIA CUIAutomation8"},
-      {"step": 2, "id": "semantic_discovery", "label": "Semantic Discovery", "detail": "Filter interactive nodes, IoU dedupe (0.75), format REV:N line_map (cap 60)"},
-      {"step": 3, "id": "resolution", "label": "Revision-Checked Element Resolution", "detail": "Check REV:N match, <=2 px bounds stability, occlusion probe"},
-      {"step": 4, "id": "action", "label": "Action", "detail": "CDP click/type/hover/scroll or UIA invoke/SendInput + revision bump"},
-      {"step": 5, "id": "verification", "label": "Verification", "detail": "URL/focus/title/delta heuristic returns ok & verified flags"}
+      {"step": 1, "id": "ui_observation", "label": "UI Observation", "detail": "Pipe CDP (DirectWS opt-in) & active-tab UIA"},
+      {"step": 2, "id": "semantic_discovery", "label": "Semantic Discovery", "detail": "Token filter, IoU rank & read_page / line_map"},
+      {"step": 3, "id": "resolution", "label": "Safety & Occlusion Guard", "detail": "REV:N, <=2px drift, top hit, Z-order & blocklist"},
+      {"step": 4, "id": "action", "label": "Guarded Action", "detail": "click/date/drag/hover, KeySpec & cursor"},
+      {"step": 5, "id": "verification", "label": "Target Verification", "detail": "Full text digest & target diff (noop=false)"}
     ],
     "conditional_branch": {
-      "trigger": "Opaque canvas (<canvas>) or sparse UIA (<6 controls / low_uia)",
+      "trigger": "Opaque canvas (<canvas>, Shadow cursor excluded) or sparse UIA (<6 controls / low_uia)",
       "target_label": "Targeted Visual Fallback",
-      "detail": "Export bounded blindN PNG crop via Playwright / Win32 PrintWindow + click_at"
+      "detail": "Export bounded blindN PNG crop (RTL un-mirrored PrintWindow) + click_at"
     }
   },
   "security_and_reliability_findings": [
@@ -191,73 +206,73 @@
       "id": "F-01",
       "title": "Cross-frame wrong-target clicks (iframe under fixed overlay)",
       "severity": "Critical",
-      "evidence_status": "CONFIRMED",
-      "fix_status": "NOT FIXED",
-      "source_ref": "browser_cdp.py:97,129-134",
-      "summary": "act() returns ok:true, verified:true while click lands on transparent cover (coverClicks=1, btnClicks=0)."
+      "evidence_status": "FIXED & VERIFIED",
+      "fix_status": "FIXED",
+      "source_ref": "browser_cdp.py:1860 (_verify_top_frame_hit)",
+      "summary": "Fixed in 0.2.0a0: top-frame DOM.getNodeForLocation rejects parent overlays (0 leaks in A01/A03/s03)."
     },
     {
       "id": "F-02",
       "title": "Sensitive-field redaction gaps & over-redaction",
       "severity": "High",
-      "evidence_status": "CONFIRMED",
-      "fix_status": "NOT FIXED",
-      "source_ref": "browser_cdp.py:1863,2150",
-      "summary": "Regex misses card/ccnum/ssn & autocomplete=cc-number while hiding address_shipping/opinion/spinner."
+      "evidence_status": "FIXED & VERIFIED",
+      "fix_status": "FIXED",
+      "source_ref": "state.py:44,72; browser_cdp.py:51",
+      "summary": "Fixed in 0.2.0a0: token-boundary matcher + ephemeral HMAC redacts card/ssn/iban, preserves benign tokens."
     },
     {
       "id": "F-03",
       "title": "Cursor overlay false opaque-canvas trigger",
       "severity": "High",
-      "evidence_status": "CONFIRMED",
-      "fix_status": "NOT FIXED",
-      "source_ref": "cursor_overlay.py:494,517",
-      "summary": "show_cursor=True creates Shadow DOM canvas causing full-screen 1280x720 blind0 crop on every discover."
+      "evidence_status": "FIXED & VERIFIED",
+      "fix_status": "FIXED",
+      "source_ref": "browser_cdp.py canvas_rects filter",
+      "summary": "Fixed in 0.2.0a0: excludes ShadowRoot wake canvas + fixes pulse delay/revert/tilt/hidden rAF/eval bytes."
     },
     {
       "id": "F-04",
       "title": "DNS fail-open on unresolvable hostnames & TOCTOU",
       "severity": "Medium",
-      "evidence_status": "CONFIRMED / NOT RUN",
-      "fix_status": "NOT FIXED",
-      "source_ref": "session_manager.py:141-145",
-      "summary": "Offline/nonexistent .invalid domain passes pre-check (CONFIRMED); live DNS-rebinding exploit NOT RUN."
+      "evidence_status": "MITIGATED & BOUNDED",
+      "fix_status": "MITIGATED",
+      "source_ref": "session_manager.py:82 (validate_navigation_url)",
+      "summary": "Fail-closed gaierror & IP drift fixed in Python; Chrome socket DNS TOCTOU open."
     },
     {
       "id": "F-05",
       "title": "Direct CDP loopback WebSocket without auth",
       "severity": "Medium",
-      "evidence_status": "PARTIAL (NOT RUN)",
-      "fix_status": "NOT FIXED",
-      "source_ref": "browser_cdp.py:550-555,602-608",
-      "summary": "Default DirectWS binds loopback port with no token auth; same-host origin-less exploit NOT RUN."
+      "evidence_status": "FIXED & VERIFIED",
+      "fix_status": "FIXED",
+      "source_ref": "browser_cdp.py:613 (_resolve_direct_ws)",
+      "summary": "Fixed in 0.2.0a0: disabled by default (Playwright Pipe IPC); explicit CUL_MCP_DIRECT_WS=1 opt-in retained."
     },
     {
       "id": "F-06",
       "title": "Desktop occlusion hardcoded False (occluded: False)",
       "severity": "Medium",
-      "evidence_status": "CONFIRMED",
-      "fix_status": "NOT FIXED",
-      "source_ref": "desktop_uia.py:786",
-      "summary": "verify_fresh hardcodes occluded=False; invoke_pattern acts silently on completely covered windows."
+      "evidence_status": "FIXED & VERIFIED",
+      "fix_status": "FIXED",
+      "source_ref": "desktop_uia.py:885; blind_gap.py:76",
+      "summary": "Fixed in 0.2.0a0: Z-order & DWM cloak occlusion check active + KillSwitch ensure_armed fails closed."
     },
     {
       "id": "F-07",
       "title": "File Explorer inactive-tab UIA control leakage",
       "severity": "Medium",
-      "evidence_status": "CONFIRMED",
-      "fix_status": "NOT FIXED",
-      "source_ref": "desktop_uia.py (FindAllBuildCache)",
-      "summary": "Multi-tab Explorer surfaces 4 background tab controls with offscreen:false (71 -> 85 controls)."
+      "evidence_status": "FIXED & VERIFIED",
+      "fix_status": "FIXED",
+      "source_ref": "desktop_uia.py:572 (_inactive_explorer_tab_hwnds)",
+      "summary": "Fixed in 0.2.0a0: excludes lower-Z ShellTabWindowClass subtrees, keeps tab bar."
     },
     {
       "id": "F-08",
       "title": "Win32 PrintWindow horizontal RTL mirroring",
       "severity": "Medium",
-      "evidence_status": "CONFIRMED",
-      "fix_status": "NOT FIXED",
-      "source_ref": "blind_gap.py (PrintWindow)",
-      "summary": "WS_EX_LAYOUTRTL Arabic/RTL windows capture horizontally flipped glyphs vs correct UIA rects."
+      "evidence_status": "FIXED & VERIFIED",
+      "fix_status": "FIXED",
+      "source_ref": "blind_gap.py:187 (_capture_hwnd_printwindow)",
+      "summary": "Fixed in 0.2.0a0: detects WS_EX_LAYOUTRTL (0x00400000) and applies ImageOps.mirror before rect crop."
     },
     {
       "id": "F-REF",
@@ -268,5 +283,79 @@
       "source_ref": "src/engine/*.py",
       "summary": "All 8 modules in src/engine/ are 16-line importlib aliases forwarding cleanly to computer_use_lite."
     }
-  ]
+  ],
+  "post_fix_evaluation": {
+    "protocol_id": "post-fix-v1",
+    "protocol_sha256": "c60498f1e0b854f2f88094b46a3ddff8627a06cb0e017c2da9ba4bee31067fc2",
+    "track_a_regressions": {
+      "total_checks": 32,
+      "baseline_0d19a9e_passed": 2,
+      "baseline_0d19a9e_rate_pct": 6.25,
+      "baseline_0d19a9e_wilson95_pct": [1.73, 20.15],
+      "fixed_passed": 32,
+      "fixed_rate_pct": 100.0,
+      "fixed_wilson95_pct": [89.28, 100.0],
+      "paired_wins": 30,
+      "paired_losses": 0,
+      "paired_ties_pass": 2
+    },
+    "track_b1_live_llm": {
+      "status": "NOT_RUN",
+      "tool": "codex-cli 0.166.0",
+      "returncode": 1,
+      "reason": "ChatGPT usage limit reached until Dec 26th, 2026 7:46 PM; @oai/sky, ollama, and API keys absent."
+    },
+    "track_b2_mcp_replay": {
+      "total_tasks": 18,
+      "baseline_passed": 12,
+      "baseline_rate_pct": 66.67,
+      "baseline_wilson95_pct": [43.75, 83.72],
+      "baseline_median_wall_ms": 2667.26,
+      "fixed_passed": 18,
+      "fixed_rate_pct": 100.0,
+      "fixed_wilson95_pct": [82.41, 100.0],
+      "fixed_median_wall_ms": 2656.17
+    },
+    "track_c_perf_n10": {
+      "sample_size_per_surface": 10,
+      "dense_2500_discover_p50_ms": {
+        "baseline_directws": 163.45,
+        "fixed_pipe_default": 367.09,
+        "fixed_directws_optin": 152.43
+      },
+      "dense_90_discover_p50_ms": {
+        "baseline_directws": 15.96,
+        "fixed_pipe_default": 25.26,
+        "fixed_directws_optin": 16.53
+      },
+      "standard_form_discover_p50_ms": {
+        "baseline_directws": 6.11,
+        "fixed_pipe_default": 9.46,
+        "fixed_directws_optin": 6.57
+      },
+      "oopif_isolated_discover_p50_ms": {
+        "baseline_directws": 6.08,
+        "fixed_pipe_default": 9.8,
+        "fixed_directws_optin": 5.9
+      },
+      "hover_adaptive_p50_ms": {
+        "baseline_directws": 387.39,
+        "fixed_pipe_default": 90.83,
+        "fixed_directws_optin": 94.56
+      },
+      "desktop_uia_explorer_p50_ms": {
+        "baseline_directws": 125.63,
+        "fixed_pipe_default": 126.6,
+        "fixed_directws_optin": 129.43
+      },
+      "cursor_raf": {
+        "baseline_raf_p50_ms": 16.7,
+        "fixed_raf_p50_ms": 16.7,
+        "baseline_rebuilds_3cycles": 6,
+        "fixed_rebuilds_3cycles": 1,
+        "baseline_nav_eval_bytes": 48234,
+        "fixed_nav_eval_bytes": 0
+      }
+    }
+  }
 }

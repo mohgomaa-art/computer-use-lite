@@ -2,19 +2,22 @@
 
 This is the single canonical navigation entry point for **Computer Use Lite (`computer-use-lite`)**, authored by Mohamed Gomaa ([`@mohgomaa-art`](https://github.com/mohgomaa-art/)).
 
-> **Maturity & Epistemic Rule:** Computer Use Lite is an **Experimental Public Research Preview** (`v0.1.0a2` Benchmark Research Edition built over audited runtime baseline `v0.1.0a0` / `0d19a9e`). Documents distinguish verified code (`[VERIFIED-CODE]`), measured datasets (`[MEASURED]`), partial pilots, unimplemented plans (`[PROPOSAL]`), and open runtime defects (`NOT FIXED`). See [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) and [RESEARCH_METHODOLOGY.md](RESEARCH_METHODOLOGY.md).
+> **Maturity & Epistemic Rule:** Computer Use Lite is an **Experimental Public Research Preview** (`v0.2.0a0` Security, Reliability, Portability & Cursor Hardening Edition built atop preserved immutable baseline `v0.1.0a0` / `0d19a9e`). Documents distinguish verified code (`[VERIFIED-CODE]`), measured datasets (`[MEASURED]`), post-fix verification (`FIXED + VERIFIED`), unverified hardware hooks (`NOT VERIFIED`), and unrun live LLM benchmarks (`NOT_RUN`). See [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) and [RESEARCH_METHODOLOGY.md](RESEARCH_METHODOLOGY.md).
 
 ---
 
-## Benchmark Publication & Release Dossier (`v0.1.0a2`)
+## Release & Comparative Evaluation Dossier (`v0.2.0a0`)
 
 | Document / Collection | Scope |
 | :--- | :--- |
-| [BENCHMARK_COMPARISON.md](BENCHMARK_COMPARISON.md) | `FIG-01`–`FIG-07` verified Playwright MCP vs CUL Browser MCP results, observation-size proxy (`112` vs `1,196`), Windows `70 passed` suite, and unfinished Desktop Pilot status |
-| [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) | Protocol details (`fdc92d9`, seed `2040777688`), `b11` prompt-contamination disclosure, `TOKENS_EST` vs BPE limits, and epistemic provenance |
-| [SECURITY_AND_LIMITATIONS.md](SECURITY_AND_LIMITATIONS.md) | `FIG-09` audit board (`F-01`–`F-08` unpatched runtime status + `F-REF` refuted copy), synthetic visual captures (`assets/evidence/`), and open questions |
-| [`../research_archive/benchmark_publication/`](../research_archive/benchmark_publication/benchmark_data.json) | Canonical machine-readable JSON datasets (`benchmark_data.json`, `benchmark_sources.json`) and publication briefs |
-| [`../research_visuals/benchmark_report/`](../research_visuals/benchmark_report/) | Isolated TypeScript/React/SVG package generating [`assets/benchmarks/`](assets/benchmarks/figures_manifest.json) + `CulCover.tsx` social preview |
+| [ENGINEERING_CHANGE_HISTORY.md](releases/v0.2.0a0/ENGINEERING_CHANGE_HISTORY.md) | Seven-part engineering lifecycle (`F-01`–`F-08`, `P0`–`P3`, Cursor A–G): defect, discovery, root cause, code fix, verification, benchmark delta, unresolved boundaries |
+| [`../research/audits/post-fix-v0.2.0a0/POST_FIX_AUDIT_REPORT.md`](../research/audits/post-fix-v0.2.0a0/POST_FIX_AUDIT_REPORT.md) | Independent line-verified post-fix audit on commit `a33a8f2`, including explicit `NOT VERIFIED` (`exebox`) & `NOT_RUN` (`Track B1`) boundaries |
+| [`../research/benchmarks/post-fix-v1/REPORT.md`](../research/benchmarks/post-fix-v1/REPORT.md) | Frozen protocol (`c60498f`) comparative evaluation across Tracks A (`32/32` vs `2/32`), B1 (`NOT_RUN`), B2 (`18/18` vs `12/18`), C (`N=10` transport/hover/rAF/RSS), and D (`95/95` + WSL2 `Python 3.14.7`) |
+| [BENCHMARK_COMPARISON.md](BENCHMARK_COMPARISON.md) | Historical `FIG-01`–`FIG-07` browser MCP results (`fdc92d9`), updated `FIG-06` cross-platform suite, and new `FIG-10` & `FIG-11` post-fix evaluations |
+| [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) | Protocols (`fdc92d9` seed `2040777688` + `post-fix-v1`), `b11` prompt-contamination disclosure, `TOKENS_EST` vs BPE limits, and Wilson CI formulas |
+| [SECURITY_AND_LIMITATIONS.md](SECURITY_AND_LIMITATIONS.md) | `FIG-09` post-fix security & reliability board (`F-01`–`F-08` remediations + `F-REF` refuted), historical baseline captures (`assets/evidence/`), and open limits |
+| [`../research_archive/benchmark_publication/`](../research_archive/benchmark_publication/benchmark_data.json) | Canonical machine-readable JSON datasets (`benchmark_data.json`, `benchmark_sources.json`) |
+| [`../research_visuals/benchmark_report/`](../research_visuals/benchmark_report/) | Isolated TypeScript/React/SVG package generating [`assets/benchmarks/`](assets/benchmarks/figures_manifest.json) (`FIG-01`–`FIG-11`) + `CulCover.tsx` |
 | [`assets/brand/logo.svg`](assets/brand/logo.svg) | Official owner-supplied SVG mark preserved verbatim |
 
 ---
@@ -25,8 +28,8 @@ This is the single canonical navigation entry point for **Computer Use Lite (`co
 | :--- | :--- |
 | [README.md](../README.md) | Overview, installation, quickstart examples, test/benchmark commands, and high-level maturity summary |
 | [WINDOWS_MCP_SETUP.md](WINDOWS_MCP_SETUP.md) | Windows installer and configuration guide for Codex, Antigravity, and Claude Code |
-| [SECURITY.md](../SECURITY.md) | Supported trust scope (`single-user local workstation`), `P0-4`/`P0-5` protections, open threats (DNS-rebinding TOCTOU, local DirectWS TCP exposure, `KillSwitch` init), and vulnerability reporting |
-| [CHANGELOG.md](../CHANGELOG.md) | Release log preserving `[0.1.0-alpha]` (`698861d`) and post-release Workstream A Cursor Overlay + `P0-1..P0-5` changes (`d47b4e9`) |
+| [SECURITY.md](../SECURITY.md) | Supported trust scope (`single-user local workstation`), `v0.2.0a0` P0–P2 protections, open Chromium DNS TOCTOU / hook bounds, and vulnerability reporting |
+| [CHANGELOG.md](../CHANGELOG.md) | Release log covering `[0.2.0a0]` engineering hardening plus preserved `[0.1.0a2]` / `[0.1.0a1]` / `[0.1.0a0]` (`0d19a9e`) |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Development setup, environment flags, test markers, SPDX rules, and privacy/archive rules |
 | [AUTHORS.md](../AUTHORS.md) · [LICENSE](../LICENSE) · [NOTICE](../NOTICE) · [CITATION.cff](../CITATION.cff) | Authorship, Apache-2.0 terms, third-party dependency licenses, and software citation metadata |
 

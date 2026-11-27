@@ -1,0 +1,25 @@
+{
+  "codex_bin": "C:\\Users\\mnile\\AppData\\Roaming\\npm\\codex.CMD",
+  "status": "NOT_RUN",
+  "events": [
+    {
+      "type": "thread.started",
+      "thread_id": "01a21dbf-11bc-7443-a627-f5352144db33"
+    },
+    {
+      "type": "turn.started"
+    },
+    {
+      "type": "error",
+      "message": "You\u2019ve hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Dec 26th, 2026 7:46 PM."
+    },
+    {
+      "type": "turn.failed",
+      "error": {
+        "message": "You\u2019ve hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Dec 26th, 2026 7:46 PM."
+      }
+    }
+  ],
+  "reason": "You\u2019ve hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Dec 26th, 2026 7:46 PM.",
+  "returncode": 1
+}

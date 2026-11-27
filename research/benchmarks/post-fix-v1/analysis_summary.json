@@ -1,0 +1,492 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-27T18:09:53",
+  "baseline_commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+  "fixed_commit": "a33a8f261fe4e7b9ef761e1763ac5ad2f2907faf",
+  "protocol_sha256": "c60498f1e0b854f2f88094b46a3ddff8627a06cb0e017c2da9ba4bee31067fc2",
+  "track_a_regressions": {
+    "baseline_0d19a9e": {
+      "passed": 2,
+      "total": 32,
+      "pass_rate_pct": 6.25,
+      "wilson95_pct": [
+        1.73,
+        20.15
+      ],
+      "failures": [
+        "A01_oopif_overlay_same_origin",
+        "A03_oopif_overlay_cross_origin_and_unprovable",
+        "A04_priv_sensitive_tokens_redacted",
+        "A05_priv_benign_tokens_not_redacted",
+        "A06_priv_no_raw_sha256_secret_hash",
+        "A10_verify_readonly_typing_false",
+        "A11_verify_noop_focus_only_false",
+        "A27_p3_date_input_clean_fill",
+        "A28_p3_inspect_rich_ax_metadata",
+        "A29_p3_sticky_header_safe_click",
+        "A31_p3_continuous_drag_and_read_page",
+        "A21_cursor_zero_blind_canvas",
+        "A23_cursor_error_900ms_autorevert",
+        "A22_cursor_no_progress_flash_and_single_rebuild",
+        "A24_cursor_double_click_pulses_and_ripples",
+        "A25_cursor_tilt_clamp_le_5deg",
+        "A26_cursor_hidden_tab_and_single_doc_script",
+        "A07_ssrf_dns_gaierror_fail_closed",
+        "A09_direct_cdp_ws_disabled_by_default",
+        "A12_open_desktop_sensitive_blocklist",
+        "A13_os_dangerous_hotkeys_blocked",
+        "A19_linux_import_no_windll_comtypes",
+        "A20_untrusted_ui_text_framing_sanitization",
+        "A30_p3_resolver_semantic_tiebreak",
+        "A32_p3_session_idle_ttl_eviction",
+        "A15_killswitch_cursor_pos_fail_closed",
+        "A18_pulse_screenreader_restore_hook",
+        "A14_desktop_verify_fresh_z_occlusion",
+        "A16_explorer_cabinet_inactive_tab_excluded",
+        "A17_rtl_printwindow_unmirrored"
+      ]
+    },
+    "fixed_v0_2_0a0": {
+      "passed": 32,
+      "total": 32,
+      "pass_rate_pct": 100.0,
+      "wilson95_pct": [
+        89.28,
+        100.0
+      ],
+      "failures": []
+    },
+    "paired": {
+      "fixed_wins": 30,
+      "fixed_losses": 0,
+      "ties_pass": 2,
+      "ties_fail": 0
+    }
+  },
+  "track_b_agent_and_mcp": {
+    "live_llm_agent": {
+      "codex_bin": "C:\\Users\\mnile\\AppData\\Roaming\\npm\\codex.CMD",
+      "status": "NOT_RUN",
+      "events": [
+        {
+          "type": "thread.started",
+          "thread_id": "01a21dbf-11bc-7443-a627-f5352144db33"
+        },
+        {
+          "type": "turn.started"
+        },
+        {
+          "type": "error",
+          "message": "You\u2019ve hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Dec 26th, 2026 7:46 PM."
+        },
+        {
+          "type": "turn.failed",
+          "error": {
+            "message": "You\u2019ve hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Dec 26th, 2026 7:46 PM."
+          }
+        }
+      ],
+      "reason": "You\u2019ve hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Dec 26th, 2026 7:46 PM.",
+      "returncode": 1
+    },
+    "native_cua": {
+      "status": "NOT_RUN",
+      "reason": "@oai/sky, ollama, and API keys absent"
+    },
+    "deterministic_mcp_replay": {
+      "baseline_0d19a9e": {
+        "passed": 12,
+        "total": 18,
+        "pass_rate_pct": 66.67,
+        "wilson95_pct": [
+          43.75,
+          83.72
+        ],
+        "median_wall_ms": 2667.26,
+        "p95_wall_ms": 2889.3,
+        "failures": [
+          "s01_readonly_truthful_verify",
+          "s02_noop_button_truthful_verify",
+          "s03_cross_origin_overlay_reject",
+          "s04_date_input_and_inspect_select",
+          "s05_sticky_header_click",
+          "s06_continuous_drag_and_read_page"
+        ]
+      },
+      "fixed_v0_2_0a0": {
+        "passed": 18,
+        "total": 18,
+        "pass_rate_pct": 100.0,
+        "wilson95_pct": [
+          82.41,
+          100.0
+        ],
+        "median_wall_ms": 2656.17,
+        "p95_wall_ms": 2838.52,
+        "failures": []
+      }
+    }
+  },
+  "track_c_engine_perf": {
+    "baseline_0d19a9e": {
+      "cursor_raf": {
+        "n": 10,
+        "peak_rss_mb": 63.64,
+        "raf_p50_ms": {
+          "median": 16.7,
+          "p95": 16.7,
+          "min": 16.7,
+          "max": 16.7,
+          "iqr": 0.0
+        },
+        "raf_p95_ms": {
+          "median": 16.7,
+          "p95": 16.75,
+          "min": 16.7,
+          "max": 16.8,
+          "iqr": 0.0
+        },
+        "rebuilds_3clicks": 6,
+        "nav_eval_bytes": 48234,
+        "nav_eval_count": 1
+      },
+      "dense_2500": {
+        "n": 10,
+        "peak_rss_mb": 63.55,
+        "discover_ms": {
+          "median": 163.45,
+          "p95": 182.91,
+          "min": 152.64,
+          "max": 186.02,
+          "iqr": 18.94
+        },
+        "elements": 1,
+        "chars": 80
+      },
+      "dense_90": {
+        "n": 10,
+        "peak_rss_mb": 50.89,
+        "discover_ms": {
+          "median": 15.96,
+          "p95": 17.1,
+          "min": 14.97,
+          "max": 17.48,
+          "iqr": 0.92
+        },
+        "elements": 90,
+        "chars": 2364
+      },
+      "desktop_uia_explorer": {
+        "n": 10,
+        "peak_rss_mb": 71.47,
+        "discover_ms": {
+          "median": 125.63,
+          "p95": 530.76,
+          "min": 120.04,
+          "max": 852.45,
+          "iqr": 3.78
+        },
+        "elements": 121
+      },
+      "hover_adaptive": {
+        "n": 10,
+        "peak_rss_mb": 63.6,
+        "hover_total_ms": {
+          "median": 387.39,
+          "p95": 398.19,
+          "min": 382.6,
+          "max": 399.58,
+          "iqr": 9.38
+        }
+      },
+      "oopif_isolated": {
+        "n": 10,
+        "peak_rss_mb": 63.61,
+        "discover_ms": {
+          "median": 6.08,
+          "p95": 7.09,
+          "min": 5.4,
+          "max": 7.29,
+          "iqr": 0.71
+        },
+        "act_ms": {
+          "median": 16.75,
+          "p95": 19.47,
+          "min": 15.51,
+          "max": 20.33,
+          "iqr": 1.1
+        }
+      },
+      "standard_form": {
+        "n": 10,
+        "peak_rss_mb": 49.36,
+        "discover_ms": {
+          "median": 6.11,
+          "p95": 14.41,
+          "min": 5.32,
+          "max": 20.17,
+          "iqr": 0.74
+        },
+        "elements": 12,
+        "chars": 470
+      }
+    },
+    "fixed_v0_2_0a0_directws": {
+      "cursor_raf": {
+        "n": 10,
+        "peak_rss_mb": 65.73,
+        "raf_p50_ms": {
+          "median": 16.7,
+          "p95": 16.7,
+          "min": 16.7,
+          "max": 16.7,
+          "iqr": 0.0
+        },
+        "raf_p95_ms": {
+          "median": 16.7,
+          "p95": 16.8,
+          "min": 16.7,
+          "max": 16.8,
+          "iqr": 0.07
+        },
+        "rebuilds_3clicks": 1,
+        "nav_eval_bytes": 0,
+        "nav_eval_count": 0
+      },
+      "dense_2500": {
+        "n": 10,
+        "peak_rss_mb": 65.34,
+        "discover_ms": {
+          "median": 152.43,
+          "p95": 167.09,
+          "min": 145.33,
+          "max": 174.28,
+          "iqr": 6.51
+        },
+        "elements": 1,
+        "chars": 80
+      },
+      "dense_90": {
+        "n": 10,
+        "peak_rss_mb": 50.84,
+        "discover_ms": {
+          "median": 16.53,
+          "p95": 17.83,
+          "min": 15.7,
+          "max": 18.34,
+          "iqr": 0.72
+        },
+        "elements": 90,
+        "chars": 2364
+      },
+      "desktop_uia_explorer": {
+        "n": 10,
+        "peak_rss_mb": 73.88,
+        "discover_ms": {
+          "median": 129.43,
+          "p95": 526.38,
+          "min": 120.62,
+          "max": 846.36,
+          "iqr": 5.41
+        },
+        "elements": 121
+      },
+      "hover_adaptive": {
+        "n": 10,
+        "peak_rss_mb": 65.39,
+        "hover_total_ms": {
+          "median": 94.56,
+          "p95": 103.56,
+          "min": 81.5,
+          "max": 106.4,
+          "iqr": 9.69
+        }
+      },
+      "oopif_isolated": {
+        "n": 10,
+        "peak_rss_mb": 65.41,
+        "discover_ms": {
+          "median": 5.9,
+          "p95": 7.96,
+          "min": 5.25,
+          "max": 8.25,
+          "iqr": 1.08
+        },
+        "act_ms": {
+          "median": 25.18,
+          "p95": 36.18,
+          "min": 23.17,
+          "max": 41.84,
+          "iqr": 2.92
+        }
+      },
+      "standard_form": {
+        "n": 10,
+        "peak_rss_mb": 49.82,
+        "discover_ms": {
+          "median": 6.57,
+          "p95": 9.05,
+          "min": 5.6,
+          "max": 10.51,
+          "iqr": 0.74
+        },
+        "elements": 12,
+        "chars": 470
+      }
+    },
+    "fixed_v0_2_0a0_pipe": {
+      "cursor_raf": {
+        "n": 10,
+        "peak_rss_mb": 72.4,
+        "raf_p50_ms": {
+          "median": 16.7,
+          "p95": 16.7,
+          "min": 16.7,
+          "max": 16.7,
+          "iqr": 0.0
+        },
+        "raf_p95_ms": {
+          "median": 16.7,
+          "p95": 16.8,
+          "min": 16.7,
+          "max": 16.8,
+          "iqr": 0.07
+        },
+        "rebuilds_3clicks": 1,
+        "nav_eval_bytes": 0,
+        "nav_eval_count": 0
+      },
+      "dense_2500": {
+        "n": 10,
+        "peak_rss_mb": 83.56,
+        "discover_ms": {
+          "median": 367.09,
+          "p95": 436.94,
+          "min": 312.29,
+          "max": 451.48,
+          "iqr": 54.54
+        },
+        "elements": 1,
+        "chars": 80
+      },
+      "dense_90": {
+        "n": 10,
+        "peak_rss_mb": 49.54,
+        "discover_ms": {
+          "median": 25.26,
+          "p95": 34.8,
+          "min": 23.44,
+          "max": 37.77,
+          "iqr": 2.44
+        },
+        "elements": 90,
+        "chars": 2364
+      },
+      "desktop_uia_explorer": {
+        "n": 10,
+        "peak_rss_mb": 80.22,
+        "discover_ms": {
+          "median": 126.6,
+          "p95": 524.24,
+          "min": 123.65,
+          "max": 848.01,
+          "iqr": 2.27
+        },
+        "elements": 121
+      },
+      "hover_adaptive": {
+        "n": 10,
+        "peak_rss_mb": 73.84,
+        "hover_total_ms": {
+          "median": 90.83,
+          "p95": 99.51,
+          "min": 83.41,
+          "max": 100.2,
+          "iqr": 3.8
+        }
+      },
+      "oopif_isolated": {
+        "n": 10,
+        "peak_rss_mb": 73.26,
+        "discover_ms": {
+          "median": 9.8,
+          "p95": 11.14,
+          "min": 6.91,
+          "max": 11.27,
+          "iqr": 2.31
+        },
+        "act_ms": {
+          "median": 31.37,
+          "p95": 39.05,
+          "min": 24.56,
+          "max": 40.1,
+          "iqr": 8.79
+        }
+      },
+      "standard_form": {
+        "n": 10,
+        "peak_rss_mb": 47.97,
+        "discover_ms": {
+          "median": 9.46,
+          "p95": 19.34,
+          "min": 8.98,
+          "max": 21.69,
+          "iqr": 1.67
+        },
+        "elements": 12,
+        "chars": 470
+      }
+    }
+  },
+  "track_d_portability": {
+    "windows11_full_pytest": {
+      "track": "D",
+      "env": "windows11_full_pytest",
+      "returncode": 0,
+      "wall_s": 106.93,
+      "passed": 95,
+      "failed": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "tail": [
+        "    warnings.warn(self.last_warning)",
+        "",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "95 passed, 1 warning in 105.82s (0:01:45)"
+      ]
+    },
+    "windows11_ci_skip_desktop": {
+      "track": "D",
+      "env": "windows11_ci_skip_desktop",
+      "returncode": 0,
+      "wall_s": 87.2,
+      "passed": 79,
+      "failed": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "tail": [
+        "........................................................................ [ 91%]",
+        ".......                                                                  [100%]",
+        "79 passed, 16 deselected in 86.41s (0:01:26)"
+      ]
+    },
+    "simulated_linux_import": {
+      "track": "D",
+      "env": "simulated_linux_import",
+      "returncode": 0,
+      "passed": 1,
+      "failed": 0,
+      "stdout": "SIM_LINUX_OK",
+      "stderr": ""
+    },
+    "wsl2_kali_linux_python3_import": {
+      "track": "D",
+      "env": "wsl2_kali_linux_python3_import",
+      "returncode": 0,
+      "passed": 1,
+      "failed": 0,
+      "stdout": "WSL_LINUX_OK linux 3.14.7",
+      "stderr": ""
+    }
+  }
+}

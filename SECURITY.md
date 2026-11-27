@@ -1,6 +1,6 @@
 # Security Policy
 
-**Project:** Computer Use Lite (`v0.1.0-alpha` + `main` through `d47b4e9`)  
+**Project:** Computer Use Lite (`v0.2.0a0`, historical baseline [`v0.1.0a0`](https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0))  
 **Release Classification:** `Public Research Preview — Experimental — Not Production Ready`  
 **Creator & Lead Developer:** Mohamed Gomaa ([`@mohgomaa-art`](https://github.com/mohgomaa-art/))
 
@@ -10,36 +10,34 @@
 
 | Baseline | Security Support Scope |
 | :--- | :--- |
-| `0.1.0-alpha` -> `main` (`d47b4e9`) | Experimental research preview — **single-user trusted local workstation only**. Not hardened for untrusted multi-tenant hosts, arbitrary untrusted web browsing, or unisolated production automation. |
+| `0.2.0a0` (latest preview) | Hardened single-user research release — **single-user local workstation / controlled testbed**. Resolves all P0–P3 & Windows UIA findings from `0d19a9e`, with documented browser socket DNS TOCTOU and OS hook caveats below. |
+| `0.1.0a0` – `0.1.0a2` | Preserved historical baselines (unpatched `0d19a9e` engine; do not use on untrusted targets). |
 
 ---
 
-## 2. Implemented Safeguards (`HEAD` `d47b4e9`)
+## 2. Implemented Safeguards (`v0.2.0a0`)
 
-- **Initial URL Validation & IP Normalization (`session_manager.validate_navigation_url`):** MCP `open_browser` and `navigate` reject `file://` (unless `CUL_MCP_ALLOW_FILE_URLS=1`), `javascript:`, `data:`, `chrome://`, plus IPv4/IPv6 loopback, private RFC1918, CGNAT (`100.64.0.0/10`), cloud metadata link-local hosts (`169.254.169.254`, `metadata.google.internal`), obfuscated numeric/octal/hex hosts (`2130706433`, `0177.0.0.1`, `0x7f000001`), `.local`/`.localhost`, trailing-dot `localhost.`, IPv4-mapped IPv6 (`::ffff:127.0.0.1`), 6to4, Teredo, and NAT64 (`64:ff9b::/96`, `64:ff9b:1::/48`) unless `CUL_MCP_ALLOW_PRIVATE_URLS=1` is explicitly set.
-- **CDP `Fetch` Redirect & Sub-Request SSRF Interception (`P0-4`, `965eb66`):** When a `url_validator` is attached (all MCP `BrowserSession` instances), `browser_cdp.BrowserSession` installs a browser-wide CDP `Fetch` interceptor (`_install_browser_fetch_guard`, falling back to per-page `Fetch` sessions if needed) inspecting both `Request` and `3xx` `Response` `Location` headers and failing disallowed targets with `BlockedByClient` / `PermissionDenied` (unit-tested in `tests/test_audit_fixes.py::test_p0_4_*`; live external proxy/redirect stress testing remains unrun).
-- **Exact-Port CDP Origin Restriction & `DirectWS` Gate (`P0-5`, `a3291b3`):** Self-launched Chromium instances using `DirectCdpClient` bind `--remote-debugging-address=127.0.0.1` alongside exact-port `--remote-allow-origins=http://127.0.0.1:<port>`, and callers can disable the TCP debugging port completely by setting `CUL_MCP_DIRECT_WS=0` (or `direct_ws=False` in Python), falling back to Playwright's internal `CDPSession` adapter.
-- **CSP / Trusted-Types Safe Cursor Overlay (`7c7b9b4`, `e3d0bd5`):** Chromium's cursor overlay (`cursor_overlay.py`) injects vector SVG nodes cleanly via DOM creation APIs without inline string HTML sinks (`innerHTML` safe under strict CSP / Trusted Types), and desktop overlay capture uses `_WDA_EXCLUDEFROMCAPTURE` (`0x00000011`) on `desktop_cursor_overlay.py` while keeping `WS_EX_NOACTIVATE | WS_EX_TRANSPARENT`.
-- **Value Redaction in Persistence (`state.py`):** `TaskState.record_action()` strips all non-`None` action `"value"` payloads to `{value_length, value_sha256, value_redacted: true}`, and `inspect_element()` returns `"[REDACTED]"` for password fields.
-- **Blocked Dangerous OS Hotkeys (`desktop_uia.py`):** `press_key()` refuses `Win`, `LWin`, `RWin`, `Meta`, `Super`, `Command`, and `Cmd` (alone or inside hotkey chords).
-- **Bounded Inputs (`session_manager.py` / `browser_cdp.py`):** Viewports clamped to `[200..3840] x [200..2160]`, `limit` clamped to `[1..200]`, `max_elements` clamped to `[1..300]`, and `click_coordinate` rejects coordinates outside active viewport bounds.
+- **SSRF Fail-Closed DNS & Redirect Interception (`session_manager.validate_navigation_url`, `browser_cdp.py`):** Rejects `file://` (unless `CUL_MCP_ALLOW_FILE_URLS=1`), `javascript:`, `data:`, `chrome://`, private/loopback/CGNAT/link-local/IPv6-mapped/NAT64/Teredo/6to4 ranges (`CUL_MCP_ALLOW_PRIVATE_URLS=1` opt-in), **fails closed (`PermissionError`) on `socket.gaierror` / empty resolution**, detects IP drift across repeated resolves, and intercepts `3xx` redirects & sub-requests via CDP `Fetch`.
+- **Loopback CDP Port Disabled by Default (`CUL_MCP_DIRECT_WS=0`, `browser_cdp._resolve_direct_ws`):** Self-launched Chromium runs over Playwright's internal Pipe IPC with **zero open TCP debugging port** by default; setting `CUL_MCP_DIRECT_WS=1` is explicit opt-in (`--remote-debugging-address=127.0.0.1 --remote-allow-origins=http://127.0.0.1:<port>`).
+- **Cross-Frame Overlay Hit Verification (`browser_cdp._verify_top_frame_hit`):** Checks top-level `DOM.getNodeForLocation` before dispatching frame/iframe actions; parent overlays raise `StaleElementError`, and unprovable cross-origin targets fail truthful verification (`verified=False, verification_scope="cross_origin_unprovable"`).
+- **Desktop Process Blocklist & Safe Shortcuts (`state.py`, `session_manager.py`, `desktop_uia.py`):** `open_desktop` refuses terminals (`powershell.exe`, `pwsh.exe`, `cmd.exe`, `windowsterminal.exe`), password managers (`1password.exe`, `bitwarden.exe`, `keepass.exe`), `CredentialUIBroker.exe`, `Taskmgr.exe`, `regedit.exe`, `mmc.exe`, and sensitive classes unless overridden (`CUL_DESKTOP_ALLOW_SENSITIVE=1` / `CUL_DESKTOP_ALLOW_PROCESSES`). `validate_key_spec` blocks `Win/Meta`, `Alt+Tab`, `Alt+F4`, `Alt+Esc`, `Ctrl+Esc`, `Ctrl+Shift+Esc`, and `Ctrl+Alt+Del` (`CUL_ALLOW_SYSTEM_SHORTCUTS=1` override).
+- **Fail-Closed `KillSwitch` & Z-Order Occlusion (`desktop_uia.py`, `blind_gap.py`):** `KillSwitch.ensure_armed()` fails closed (`RuntimeError`) if `GetCursorPos()` errors, and `DesktopSession.verify_fresh()` verifies both Win32 Z-order occlusion and DWM cloaking before dispatching input.
+- **Word-Boundary Secret Redaction & Keyed HMAC (`state.py`, `browser_cdp.py`):** Tokenized secret classifier covers `card`/`ccnum`/`ssn`/`iban`/`otp`/`autocomplete=cc-number`, keeps benign words unredacted, and hashes secret deltas only with per-process ephemeral HMAC (`hmac:...`).
+- **Untrusted UI Prompt Boundary (`state.sanitize_ui_text`, `mcp_server.py`):** Strips control chars, newlines, `|`, and `[UNTRUSTED_...]` lookalikes from UI strings and wraps titles/names/`DIALOG_ALERT:` payloads in `[UNTRUSTED_UI_TEXT]` framing.
+- **CSP / Trusted-Types Cursor Overlay & Bounded Inputs (`cursor_overlay.py`, `desktop_cursor_overlay.py`):** Avoids `opaque_canvas` false positives, omits DOM string HTML sinks, clamps viewports/limits/coordinates, and enforces `SessionManager` idle TTL reaping (`CUL_SESSION_IDLE_TTL_S=1800`).
 
 ---
 
-## 3. Known Open Security Limitations (`HEAD` `d47b4e9`)
+## 3. Known Open Security Boundaries (`v0.2.0a0`)
 
-The following boundaries remain **explicitly open** and are documented intentionally:
-
-1. **DNS-Rebinding TOCTOU & Offline DNS Fallthrough (`OPEN`):**  
-   `validate_navigation_url()` explicitly warns in its docstring that pre-connection URL/redirect validation does **not** eliminate OS-level DNS-rebinding time-of-check-to-time-of-use (TOCTOU) races between Python `socket.getaddrinfo()` checks and Chromium's own network socket connection. Offline `socket.gaierror` lookups also do not block entry validation on their own.
-2. **Local Host TCP CDP Endpoint When `DirectWS` Is Active (`OPEN on Localhost`):**  
-   When `DirectCdpClient` is enabled (`CUL_MCP_DIRECT_WS != 0`, default), Chromium listens on `127.0.0.1:<free_port>` without per-connection token authentication; while browser tabs carrying external `Origin` headers are blocked by `--remote-allow-origins=http://127.0.0.1:<port>`, other local OS processes on the same machine sending HTTP or origin-less WebSocket connections to that loopback port can read `/json/version` or send CDP commands. Set `CUL_MCP_DIRECT_WS=0` in stricter environments.
+1. **Chromium Socket-Level DNS Rebinding TOCTOU (`OPEN BOUNDARY`):**  
+   While Python `validate_navigation_url()` fails closed on `gaierror` and catches IP drift across Python resolution calls, Chromium's internal C++ network stack still resolves DNS independently when opening TCP sockets unless an external DNS-pinning proxy/firewall enforces policy at socket connect time.
+2. **Explicit `CUL_MCP_DIRECT_WS=1` Opt-In (`OPT-IN TRADEOFF`):**  
+   Safe default (`Pipe` IPC) eliminates the unauthenticated loopback port. When a user explicitly enables `CUL_MCP_DIRECT_WS=1` for extreme `>2,500`-node latency optimization, loopback `--remote-debugging-port` exposure applies on localhost for that session.
 3. **Direct Python `BrowserSession` Outside MCP (`BY DESIGN`):**  
-   Calling `BrowserSession(url=...)` directly in Python omits `url_validator` by default so local test fixtures (`file://`, `127.0.0.1`) operate without env overrides; callers building custom orchestrators over `BrowserSession` must pass `url_validator=validate_navigation_url` explicitly if untrusted URLs are possible.
-4. **`KillSwitch` First-Sample Initialization Nuance (`OPEN`):**  
-   `desktop_uia.move_mouse()` silently ignores an `OSError` during the initial `GetCursorPos()` read rather than failing closed immediately, which can leave mouse injection unguarded if pointer polling fails in restricted desktop contexts.
-5. **Untrusted Desktop Context Isolation:**  
-   `DesktopSession` relies on Win32 foreground checks and UIA `AutoSetFocus=0`; no OS-level sandboxing prevents malicious local desktop windows from racing UI focus changes between discovery and dispatch.
+   Constructing `BrowserSession(url=...)` directly in Python omits `url_validator` unless passed explicitly (`url_validator=validate_navigation_url`).
+4. **Hardware Hook Verification Scope (`NOT VERIFIED` in `exebox`):**  
+   OS-level `GetCursorInfo()` pointer behavior and global `WH_KEYBOARD_LL` physical `Esc` interrupt paths cannot run under isolated `exebox` (`ERROR_ACCESS_DENIED`). Do not rely on `CUL_TAKEOVER_GLOW` interrupts as a hard security boundary on untrusted desktops.
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "release_version": "0.1.0a2",
+  "release_version": "0.2.0a0",
   "generated_by": "research_visuals/benchmark_report/scripts/export_figures.tsx",
   "figures": [
     {
@@ -12,7 +12,7 @@
       "svg_path": "docs/assets/benchmarks/fig-01-browser-success.svg",
       "png_path": "docs/assets/benchmarks/fig-01-browser-success.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "9cc375163588a24af832aa472b8e15f8ba72e5c8037c8d88b3b6b28ea1844b94"
+      "svg_sha256": "268785fb01aaf1d7b5b34d66a7859c53e24396a7e8a8855da990c9275cf23b38"
     },
     {
       "id": "FIG-02",
@@ -23,7 +23,7 @@
       "svg_path": "docs/assets/benchmarks/fig-02-wall-time.svg",
       "png_path": "docs/assets/benchmarks/fig-02-wall-time.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "59ef2fad46c9b8307ed5ac28881a83da7fb93da88eb8372b3108fdc4f46d722e"
+      "svg_sha256": "50982293e5a08c4e7e3ffae9fa715a2b4047d4402d3c32fca0689405a4f118a3"
     },
     {
       "id": "FIG-03",
@@ -34,7 +34,7 @@
       "svg_path": "docs/assets/benchmarks/fig-03-token-estimates.svg",
       "png_path": "docs/assets/benchmarks/fig-03-token-estimates.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "29f0c1f6e72959bf05197438f7331a1e76faa475c52abae9ce1023969f7abb45"
+      "svg_sha256": "d5598b2adedaa26c5b77d445850a144f158ee7b985bbaf6a8e2182f6c0eb2599"
     },
     {
       "id": "FIG-04",
@@ -45,7 +45,7 @@
       "svg_path": "docs/assets/benchmarks/fig-04-interaction-steps.svg",
       "png_path": "docs/assets/benchmarks/fig-04-interaction-steps.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#browser_benchmark",
-      "svg_sha256": "99f0d0b68c8dfb055cb0e776d5cf41785b6d265ea1dc502bc6b73ecefb5f0f7a"
+      "svg_sha256": "b93af0f5a2791ff4ae680c3763a0c7aa0fc7f314594c81dc67f65af5bd8c750b"
     },
     {
       "id": "FIG-05",
@@ -56,18 +56,18 @@
       "svg_path": "docs/assets/benchmarks/fig-05-observation-size.svg",
       "png_path": "docs/assets/benchmarks/fig-05-observation-size.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#observation_size_comparison",
-      "svg_sha256": "89f1387668d34c384192244481f5b27ae6f0de7b42caad12caedfcb7ec066db7"
+      "svg_sha256": "2ccacf4fad45d7c2cfd6a80eb4a72b5f5ac36a6a6d62e1d904fc3ba79f29a26e"
     },
     {
       "id": "FIG-06",
-      "title": "Windows 11 Automated Test Suite Execution",
+      "title": "Cross-Platform & Automated Test Suite Execution",
       "units": "tests & seconds",
-      "sample_size": "70 pytest tests",
+      "sample_size": "95 pytest tests + WSL2 Python 3.14.7",
       "source_tsx": "research_visuals/benchmark_report/src/figures/Fig06WindowsTests.tsx",
       "svg_path": "docs/assets/benchmarks/fig-06-windows-tests.svg",
       "png_path": "docs/assets/benchmarks/fig-06-windows-tests.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#windows_test_suite",
-      "svg_sha256": "9148cd8efa6599b47f1e27090ca20dfc0586ad10d5233d0b80f5a63442648a21"
+      "svg_sha256": "3b9112169e693ebfd686cbac15ac3c6cbe36be3a01ed2b3cf050a6289fca7417"
     },
     {
       "id": "FIG-07",
@@ -78,7 +78,7 @@
       "svg_path": "docs/assets/benchmarks/fig-07-desktop-pilot-status.svg",
       "png_path": "docs/assets/benchmarks/fig-07-desktop-pilot-status.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#desktop_pilot_status",
-      "svg_sha256": "1cbe3326cd6bb0a954befab2eb7c2b9ec02fbc2480003e96191f15be7c498b0b"
+      "svg_sha256": "c1307a4f07ffe1bdaa7112fb613f0b16020aedd47ec77a730d25f973fe71dee1"
     },
     {
       "id": "FIG-08",
@@ -89,18 +89,40 @@
       "svg_path": "docs/assets/benchmarks/fig-08-architecture.svg",
       "png_path": "docs/assets/benchmarks/fig-08-architecture.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#architecture_pipeline",
-      "svg_sha256": "ce16c758dbe9d46fa8f18d5fcdadfa9ca773897bdf05742ff74d96de7a2cc2db"
+      "svg_sha256": "990bb5f4ee2caf0d673bfca65bf4abcea98cfddef129955a4465b8a130ac2ab0"
     },
     {
       "id": "FIG-09",
-      "title": "Security & Reliability Findings (@ 0d19a9e)",
+      "title": "Security & Reliability Findings (0d19a9e -> v0.2.0a0)",
       "units": "findings",
       "sample_size": "9 audited items",
       "source_tsx": "research_visuals/benchmark_report/src/figures/Fig09SecurityFindings.tsx",
       "svg_path": "docs/assets/benchmarks/fig-09-security-findings.svg",
       "png_path": "docs/assets/benchmarks/fig-09-security-findings.png",
       "data_source": "research_archive/benchmark_publication/benchmark_data.json#security_and_reliability_findings",
-      "svg_sha256": "c484fed679b5238eb8393b6bde6685ce9e43c6a85a9ac8f3fdbbd81e4ac9c87f"
+      "svg_sha256": "5647bf4919d2d3b47e85e3b014b6e14745fa0762636f45b8b8311f9c0852b61b"
+    },
+    {
+      "id": "FIG-10",
+      "title": "Post-Fix Regression Checks & Stdio MCP Replay",
+      "units": "% pass rate",
+      "sample_size": "n=32 paired checks; n=18 MCP replay tasks",
+      "source_tsx": "research_visuals/benchmark_report/src/figures/Fig10PostFixRegressionAndMcp.tsx",
+      "svg_path": "docs/assets/benchmarks/fig-10-post-fix-regression-mcp.svg",
+      "png_path": "docs/assets/benchmarks/fig-10-post-fix-regression-mcp.png",
+      "data_source": "research_archive/benchmark_publication/benchmark_data.json#post_fix_evaluation",
+      "svg_sha256": "36876e047b626cf3ed37eaad11e2ffbffaf219c91e72dd5bc57171a6ec373751"
+    },
+    {
+      "id": "FIG-11",
+      "title": "Engine Latency, Transport Tradeoff & Cursor rAF Profile",
+      "units": "ms & rebuilds",
+      "sample_size": "N=10 per condition",
+      "source_tsx": "research_visuals/benchmark_report/src/figures/Fig11PostFixEnginePerf.tsx",
+      "svg_path": "docs/assets/benchmarks/fig-11-post-fix-engine-perf.svg",
+      "png_path": "docs/assets/benchmarks/fig-11-post-fix-engine-perf.png",
+      "data_source": "research_archive/benchmark_publication/benchmark_data.json#post_fix_evaluation.track_c_perf_n10",
+      "svg_sha256": "a242a4868ae9d96542c96b89a600dda42b2883c4f4c5892a14905df5e73a3eed"
     }
   ]
 }

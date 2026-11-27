@@ -35,15 +35,15 @@ export const Fig08Architecture: React.FC = () => {
       subtitle={arch.title}
       units="pipeline stages"
       sampleSize="5 core stages + visual fallback branch"
-      methodologyNote="Derived directly from src/computer_use_lite/{api,browser_cdp,desktop_uia,resolver,blind_gap,state}.py at commit 0d19a9e."
+      methodologyNote="Derived directly from src/computer_use_lite/{api,browser_cdp,desktop_uia,resolver,blind_gap,state,session_manager}.py at commit a33a8f2."
       sourceRef="benchmark_data.json -> architecture_pipeline | docs/ARCHITECTURE.md"
-      caveatText="show_cursor=True triggers false opaque_canvas fallback (F-03); cross-frame overlays bypass elementFromPoint (F-01)."
+      caveatText="Default Pipe transport disables loopback WS exposure (CUL_MCP_DIRECT_WS=1 opt-in); Chromium socket DNS TOCTOU & OS cursor hooks in exebox stay documented."
       legend={[
         { label: "Semantic primary path", color: PALETTE.cul },
         { label: "Conditional visual fallback (opaque/sparse regions)", color: PALETTE.warnAccent },
       ]}
       width={960}
-      height={520}
+      height={540}
     >
       <defs>
         <marker id="fig08-arrow-cul" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">

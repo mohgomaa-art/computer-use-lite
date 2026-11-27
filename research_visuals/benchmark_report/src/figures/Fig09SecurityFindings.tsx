@@ -26,7 +26,7 @@ function severityStyle(sev: string) {
 
 function evidenceStyle(status: string) {
   if (status === "REFUTED") return { bg: PALETTE.infoTint, stroke: PALETTE.infoRule, text: PALETTE.infoText };
-  if (status.includes("PARTIAL") || status.includes("NOT RUN")) {
+  if (status.includes("MITIGATED") || status.includes("PARTIAL") || status.includes("NOT RUN")) {
     return { bg: PALETTE.warnTint, stroke: PALETTE.warnRule, text: PALETTE.warnText };
   }
   return { bg: PALETTE.culTint, stroke: PALETTE.culRule, text: PALETTE.culDark };
@@ -39,18 +39,17 @@ export const Fig09SecurityFindings: React.FC = () => {
   return (
     <FigureFrame
       figureNumber="FIG-09"
-      title="Security & Reliability Findings (@ 0d19a9e)"
-      subtitle={`Verified audit status board — unpatched defects remain open in v${ver} documentation release`}
+      title={`Security & Reliability Findings (0d19a9e -> v${ver})`}
+      subtitle={`Post-fix verification board — F-01–F-08 remediated or bounded in v${ver}; F-REF refuted`}
       units="findings & verification labels"
       sampleSize={`${findings.length} audited items`}
-      methodologyNote={`Verified via Windows 11 probes (B5-B14) and Linux audit (L/V). Release ${ver} documents findings without modifying runtime code.`}
+      methodologyNote={`Tracks A/B2/D & pytest verified on commit a33a8f2 against historical 0d19a9e baseline. See research/audits/post-fix-v0.2.0a0/.`}
       sourceRef="benchmark_data.json -> security_and_reliability_findings | docs/SECURITY_AND_LIMITATIONS.md"
-      caveatText={`NOT FIXED labels reflect actual runtime code at 0d19a9e / ${ver}; DNS-rebinding TOCTOU and local CDP hijack remain NOT RUN.`}
+      caveatText="F-04 closes gaierror & rebind drift in Python while Chromium internal socket DNS TOCTOU stays open; exebox hardware OS hooks remain NOT VERIFIED."
       legend={[
-        { label: "CONFIRMED", color: PALETTE.cul },
-        { label: "PARTIAL / NOT RUN", color: PALETTE.warnAccent },
-        { label: "NOT FIXED", color: PALETTE.dangerText },
-        { label: "REFUTED", color: PALETTE.infoText },
+        { label: "FIXED & VERIFIED", color: PALETTE.cul },
+        { label: "MITIGATED / BOUNDED", color: PALETTE.warnAccent },
+        { label: "NO DEFECT (REFUTED)", color: PALETTE.infoText },
       ]}
       width={960}
       height={772}
@@ -59,9 +58,9 @@ export const Fig09SecurityFindings: React.FC = () => {
       <g transform="translate(32, 126)" fontFamily={FONTS.mono} fontSize={10.8} fontWeight={700}>
         <rect width={896} height={24} rx={4} fill={PALETTE.surfaceSubtle} />
         <text x={14} y={16} fill={PALETTE.textSecondary}>ID</text>
-        <text x={68} y={16} fill={PALETTE.textSecondary}>FINDING &amp; SOURCE SUMMARY</text>
+        <text x={68} y={16} fill={PALETTE.textSecondary}>FINDING &amp; REMEDIATION SUMMARY</text>
         <text x={556} y={16} textAnchor="middle" fill={PALETTE.textSecondary}>SEVERITY</text>
-        <text x={686} y={16} textAnchor="middle" fill={PALETTE.textSecondary}>EVIDENCE</text>
+        <text x={686} y={16} textAnchor="middle" fill={PALETTE.textSecondary}>VERIFICATION</text>
         <text x={832} y={16} textAnchor="middle" fill={PALETTE.textSecondary}>CODE STATE</text>
       </g>
 
@@ -70,11 +69,13 @@ export const Fig09SecurityFindings: React.FC = () => {
         const y = 156 + idx * 54;
         const sev = severityStyle(item.severity);
         const ev = evidenceStyle(item.evidence_status);
-        const fixIsOpen = item.fix_status === "NOT FIXED";
-        const fixTone = fixIsOpen
-          ? { bg: PALETTE.dangerTint, stroke: PALETTE.dangerRule, text: PALETTE.dangerText }
-          : { bg: PALETTE.infoTint, stroke: PALETTE.infoRule, text: PALETTE.infoText };
-        const summaryLines = wrapText(`${item.source_ref} — ${item.summary}`, 74, 2);
+        const fixTone =
+          item.fix_status === "FIXED"
+            ? { bg: PALETTE.culTint, stroke: PALETTE.culRule, text: PALETTE.culDark }
+            : item.fix_status === "MITIGATED"
+              ? { bg: PALETTE.warnTint, stroke: PALETTE.warnRule, text: PALETTE.warnText }
+              : { bg: PALETTE.infoTint, stroke: PALETTE.infoRule, text: PALETTE.infoText };
+        const summaryLines = wrapText(`${item.source_ref} — ${item.summary}`, 80, 2);
 
         return (
           <g key={item.id} transform={`translate(32, ${y})`}>

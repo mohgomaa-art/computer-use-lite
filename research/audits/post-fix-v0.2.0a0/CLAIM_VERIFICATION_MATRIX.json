@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "release_candidate": "0.2.0a0",
+  "audited_commit": "a33a8f261fe4e7b9ef761e1763ac5ad2f2907faf",
+  "baseline_commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+  "previous_release_commit": "de27b49",
+  "track_a_summary": {
+    "baseline_passed": 2,
+    "fixed_passed": 32,
+    "total": 32
+  },
+  "track_b1_live_llm": {
+    "status": "NOT_RUN",
+    "reason": "codex-cli 0.166.0 exited 1 with ChatGPT usage limit until Dec 26th, 2026 7:46 PM; @oai/sky, ollama, and cloud API keys absent"
+  },
+  "track_b2_mcp_replay": {
+    "baseline_passed": 12,
+    "fixed_passed": 18,
+    "total": 18
+  },
+  "track_d_suites": {
+    "windows11_full_pytest": {"passed": 95, "failed": 0, "wall_s": 106.93},
+    "windows11_ci_skip_desktop": {"passed": 79, "deselected": 16, "failed": 0, "wall_s": 87.2},
+    "simulated_linux_import": {"returncode": 0, "status": "SIM_LINUX_OK"},
+    "wsl2_kali_linux_python3_import": {"returncode": 0, "python": "3.14.7", "status": "WSL_LINUX_OK"}
+  },
+  "not_verified_or_excluded": [
+    "CUL-CUR-008: OS cursor GetCursorInfo() under live desktop SendInput (blocked ERROR_ACCESS_DENIED in exebox)",
+    "CUL-CUR-010: Physical WH_KEYBOARD_LL Esc interrupt hook (blocked outside unlocked interactive WinSta0\\Default)",
+    "Track B1: Live LLM multi-turn agent reasoning (@oai/sky / codex-cli usage quota limit)",
+    "Track Desktop T2: End-to-end Store Calculator workflow",
+    "Chromium internal socket-level DNS rebinding TOCTOU after Python validate_navigation_url() pre-check"
+  ]
+}

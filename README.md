@@ -9,13 +9,13 @@
 </p>
 
 <p align="center">
-  <strong>Version:</strong> <code>0.1.0a2</code> (Benchmark Research Edition; Historical Baseline: <a href="https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0"><code>v0.1.0a0</code> @ <code>0d19a9e</code></a>) ·
+  <strong>Version:</strong> <code>0.2.0a0</code> (Security, Reliability, Portability &amp; Cursor Hardening Edition; Historical Baseline: <a href="https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0"><code>v0.1.0a0</code> @ <code>0d19a9e</code></a>) ·
   <strong>License:</strong> <a href="LICENSE">Apache-2.0</a> ·
   <strong>Author:</strong> Mohamed Gomaa (<a href="https://github.com/mohgomaa-art/"><code>@mohgomaa-art</code></a>)
 </p>
 
-> [!WARNING]
-> **Experimental Research Preview — Not Production Ready (`v0.1.0a2`):** This release adds canonical benchmark data, reproducible TypeScript/SVG visual figures, official branding, Windows MCP setup tooling, and security documentation over runtime baseline `0d19a9e`. **Core runtime engine bugs remain NOT FIXED in this release** — including cross-frame overlay click-through (`Critical`), sensitive-field redaction gaps (`High`), cursor-overlay false `opaque_canvas` detection (`High`), DNS fail-open / TOCTOU (`Medium`), and unauthenticated loopback CDP (`CUL_MCP_DIRECT_WS` enabled by default). **Do not deploy against untrusted hosts or arbitrary public browsing.** See [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md) and [SECURITY.md](SECURITY.md).
+> [!NOTE]
+> **Experimental Research Preview (`v0.2.0a0`):** Remediates all verified `P0`–`P3`, Windows Desktop UIA, Linux portability, and Cursor Overlay findings audited against preserved immutable baseline [`v0.1.0a0`](https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0) (`0d19a9e`), improving Track A checks **`2/32 -> 32/32`** and deterministic stdio MCP replay **`12/18 -> 18/18`**. Live LLM runs (`Track B1`) stay strictly **`NOT_RUN`** (Codex CLI quota exhausted until Dec 26, 2026; `@oai/sky` absent), `exebox` OS hooks are **`NOT VERIFIED`**, and Chromium socket-level DNS TOCTOU remains open ([SECURITY.md](SECURITY.md)). See [Engineering Change History](docs/releases/v0.2.0a0/ENGINEERING_CHANGE_HISTORY.md) and [Post-Fix Audit Report](research/audits/post-fix-v0.2.0a0/POST_FIX_AUDIT_REPORT.md).
 
 ---
 
@@ -90,45 +90,70 @@ Evaluated across **`72` randomized runs** (`12` synthetic local HTML tasks × `3
 
 ---
 
-## 5. Windows Automated Test Coverage (`FIG-06`)
+## 5. Cross-Platform & Automated Test Coverage (`FIG-06`)
 
 <p align="center">
-  <img src="docs/assets/benchmarks/fig-06-windows-tests.svg" alt="FIG-06 Windows 11 Automated Test Suite Execution" width="900" />
+  <img src="docs/assets/benchmarks/fig-06-windows-tests.svg" alt="FIG-06 Cross-Platform and Automated Test Suite Execution" width="900" />
 </p>
 
 *FIG-06 Source TSX: [`Fig06WindowsTests.tsx`](research_visuals/benchmark_report/src/figures/Fig06WindowsTests.tsx) · Provenance: [benchmark_sources.json](research_archive/benchmark_publication/benchmark_sources.json)*
 
-Measured on Windows 11 Pro (`10.0.26200`) at commit `0d19a9e`: **`70 passed, 0 failed, 0 skipped` in `197.50s`** (`58 passed, 12 skipped` in `86.66s` with `CUL_SKIP_DESKTOP=1`). This measures deterministic suite health, not AI-agent success.
+Measured on Windows 11 Pro (`10.0.26200`) at commit `a33a8f2`: **`95 passed, 0 failed, 0 skipped` in `106.93s`** (`79 passed, 16 deselected` in `87.20s` with `CUL_SKIP_DESKTOP=1 -m "not windows_desktop"`) plus clean import on real **WSL2 `kali-linux` (`Python 3.14.7`)** (`0d19a9e` baseline passed `70/70` in `197.50s`). This validates deterministic software invariants, not AI-agent success.
 
 ---
 
-## 6. Desktop Pilot Status (`FIG-07`)
+## 6. Post-Fix Comparative Evaluation & Engine Latency (`FIG-10` & `FIG-11`)
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-10-post-fix-regression-mcp.svg" alt="FIG-10 Post-Fix Verification and MCP Replay" width="900" />
+</p>
+
+*FIG-10 Source TSX: [`Fig10PostFixRegressionAndMcp.tsx`](research_visuals/benchmark_report/src/figures/Fig10PostFixRegressionAndMcp.tsx) · Report: [`post-fix-v1/REPORT.md`](research/benchmarks/post-fix-v1/REPORT.md)*
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-11-post-fix-engine-perf.svg" alt="FIG-11 Engine Latency and Transport Tradeoff" width="900" />
+</p>
+
+*FIG-11 Source TSX: [`Fig11PostFixEnginePerf.tsx`](research_visuals/benchmark_report/src/figures/Fig11PostFixEnginePerf.tsx) · Full Analysis: [`post-fix-v1/analysis_summary.json`](research/benchmarks/post-fix-v1/analysis_summary.json)*
+
+| Track (`0d19a9e` vs `v0.2.0a0`) | Baseline `0d19a9e` | Fixed `v0.2.0a0` (`a33a8f2`) | Disclosure / Notes |
+|---|---:|---:|---|
+| **Track A paired checks (`n=32`)** | `2/32` (`6.25%`) | **`32/32` (`100.0%`)** | `+30` fixed wins, `0` losses, `2` pass ties |
+| **Track B1 live LLM (`codex-cli` / `@oai/sky`)** | `—` | **`NOT_RUN`** | Codex quota exhausted (`Dec 26, 2026`); `@oai/sky` absent |
+| **Track B2 scripted stdio MCP (`n=18`)** | `12/18` (`66.67%`) | **`18/18` (`100.0%`)** | Pipe default; baseline failed `s01`–`s06` |
+| **`hover_adaptive` settle (`p50`)** | `387.39 ms` | **`90.83 ms`** | **4.3x faster** adaptive polling |
+| **`dense_2500` discover (`p50`)** | `163.45 ms` (DirectWS) | `367.09 ms` (Pipe) / **`152.43 ms`** (Opt-in DirectWS) | Pipe default eliminates unauthenticated localhost CDP port |
+| **Cursor busy cycles & nav `eval`** | `6` rebuilds / `48,234 B` | **`1` rebuild / `0 B`** | `16.7 ms` `rAF` p50 preserved (`addScriptToEvaluateOnNewDocument`) |
+
+---
+
+## 7. Historical Desktop Pilot Status (`FIG-07`)
 
 <p align="center">
   <img src="docs/assets/benchmarks/fig-07-desktop-pilot-status.svg" alt="FIG-07 Desktop Pilot Status Board" width="900" />
 </p>
 
-*FIG-07 Source TSX: [`Fig07DesktopPilotStatus.tsx`](research_visuals/benchmark_report/src/figures/Fig07DesktopPilotStatus.tsx) · Details: [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md#4-desktop-pilot-status-fig-07)*
+*FIG-07 Source TSX: [`Fig07DesktopPilotStatus.tsx`](research_visuals/benchmark_report/src/figures/Fig07DesktopPilotStatus.tsx) · Details: [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md#4-historical-desktop-pilot-status-fig-07)*
 
-Supervised desktop benchmarking remains **incomplete**: `CUL T1` passed `2/2` runs with SHA-256 fixture checks, **`CUL T2` remained incomplete**, and the **Native (`@oai/sky`) vs CUL head-to-head comparison was not completed**.
+Historical supervised desktop benchmarking (`0d19a9e` pilot) remains **incomplete**: `CUL T1` passed `2/2` runs with SHA-256 fixture checks, **`CUL T2` remained incomplete**, and **Native (`@oai/sky`) vs CUL desktop comparison was never completed**.
 
 ---
 
-## 7. Verified Security & Reliability Findings (`FIG-09`)
+## 8. Verified Security & Reliability Remediation Board (`FIG-09`)
 
 <p align="center">
   <img src="docs/assets/benchmarks/fig-09-security-findings.svg" alt="FIG-09 Security and Reliability Findings Status Board" width="900" />
 </p>
 
-*FIG-09 Source TSX: [`Fig09SecurityFindings.tsx`](research_visuals/benchmark_report/src/figures/Fig09SecurityFindings.tsx) · Full Security Dossier & Evidence Captures: [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)*
+*FIG-09 Source TSX: [`Fig09SecurityFindings.tsx`](research_visuals/benchmark_report/src/figures/Fig09SecurityFindings.tsx) · Full Security Dossier & Lifecycle: [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md) · [docs/releases/v0.2.0a0/ENGINEERING_CHANGE_HISTORY.md](docs/releases/v0.2.0a0/ENGINEERING_CHANGE_HISTORY.md)*
 
-All runtime issues (`F-01`–`F-08`) verified on `0d19a9e` remain **unfixed** in `0.1.0a2`; the stale `src/engine/` copy claim was **`REFUTED`** (`16`-line `importlib` aliases).
+Runtime findings `F-01`–`F-03` & `F-05`–`F-08` from `0d19a9e` are **`FIXED & VERIFIED`**, `F-04` is **`MITIGATED & BOUNDED`** (fail-closed `gaierror` + IP drift resolved in Python; Chromium internal socket DNS TOCTOU remains documented), and `F-REF` was **`REFUTED`** (`16`-line `importlib` aliases in `src/engine/`).
 
 ---
 
-## 8. Installation & Quick Start
+## 9. Installation & Quick Start
 
-**Requirements:** Windows 10/11 (`desktop_uia.py`, `snapshot.py`, and `desktop_cursor_overlay.py` bind Windows Win32/COM libraries on import) and Python `>=3.10`.
+**Requirements:** Python `>=3.10`. Browser MCP runs cross-platform (Windows 10/11 and Linux, verified on **WSL2 `kali-linux` Python `3.14.7`**); native desktop `DesktopSession` automation (`uiautomation`/`comtypes`) requires Windows 10/11.
 
 ### Option A — Guided Windows MCP Setup (`Codex`, `Antigravity`, `Claude Code`)
 
@@ -148,7 +173,7 @@ python -m pip install -e ".[dev,benchmarks]"
 python -m playwright install chromium
 ```
 
-> Note: Installing extras `.[dev]` alone omits `psutil` needed by benchmark tests; use `".[dev,benchmarks]"` for full benchmark/test execution or `".[setup]"` when running [`scripts/configure_mcp.py`](scripts/configure_mcp.py).
+> Note: `.[dev]` now includes `psutil>=6.0` (pinned dependencies in [`requirements-lock.txt`](requirements-lock.txt)). Add `".[benchmarks]"` for benchmark scripts or `".[setup]"` when running [`scripts/configure_mcp.py`](scripts/configure_mcp.py).
 
 ### Python API (Browser) & MCP Server (`stdio`)
 
@@ -189,10 +214,11 @@ npm run export
 
 ---
 
-## 9. Documentation, Version History & Citation
+## 10. Documentation, Version History & Citation
 
+- **Engineering Change History (`v0.2.0a0`):** [docs/releases/v0.2.0a0/ENGINEERING_CHANGE_HISTORY.md](docs/releases/v0.2.0a0/ENGINEERING_CHANGE_HISTORY.md) · **Independent Post-Fix Audit:** [research/audits/post-fix-v0.2.0a0/POST_FIX_AUDIT_REPORT.md](research/audits/post-fix-v0.2.0a0/POST_FIX_AUDIT_REPORT.md)
 - **Documentation Hub:** [docs/INDEX.md](docs/INDEX.md)
 - **Research Publication Docs:** [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md) · [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md) · [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)
 - **Historical & Audit Archive:** [research_archive/INDEX.md](research_archive/INDEX.md) · [research_archive/benchmark_publication/benchmark_data.json](research_archive/benchmark_publication/benchmark_data.json)
-- **Version History:** See [CHANGELOG.md](CHANGELOG.md) (`v0.1.0a2` Benchmark Research Edition, intermediate `v0.1.0a1`, and immutable historical release [`v0.1.0a0`](https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0) at `0d19a9e`).
-- **Citation:** See [CITATION.cff](CITATION.cff) (`version: "0.1.0a2"`), [AUTHORS.md](AUTHORS.md), [LICENSE](LICENSE), and [NOTICE](NOTICE).
+- **Version History:** See [CHANGELOG.md](CHANGELOG.md) (`v0.2.0a0` Security/Reliability/Portability/Cursor Edition, `v0.1.0a2` / `v0.1.0a1` Benchmark Research Editions, and immutable historical release [`v0.1.0a0`](https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0) at `0d19a9e`).
+- **Citation:** See [CITATION.cff](CITATION.cff) (`version: "0.2.0a0"`), [AUTHORS.md](AUTHORS.md), [LICENSE](LICENSE), and [NOTICE](NOTICE).

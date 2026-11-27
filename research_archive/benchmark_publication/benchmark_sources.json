@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "publication_version": "0.1.0a2",
+  "publication_version": "0.2.0a0",
   "historical_baseline": {
     "tag": "v0.1.0a0",
     "commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",
@@ -59,6 +59,33 @@
         {"file": "T2-20261126T234621819Z-095bb954.json", "task": "T2", "sha256": "8ba31d365e5e29df34e0a8b7a6637d91c0b1d48550644705e47da7eda23b8e7d", "bytes": 23}
       ],
       "note": "Two supervised CUL T1 trials reported passing with SHA-256 oracle verification (VerifyT1 stdout not saved separately); T2 incomplete; Native vs CUL head-to-head comparison not completed."
+    },
+    {
+      "id": "src-post-fix-v1",
+      "title": "Post-Fix Comparative Evaluation Suite (Tracks A-D, Baseline 0d19a9e vs Fixed a33a8f2)",
+      "kind": "measured_paired_comparative_evaluation",
+      "commit_or_ref": "a33a8f261fe4e7b9ef761e1763ac5ad2f2907faf",
+      "baseline_commit": "0d19a9e12527ed12f5020709ea660c169b23e76d",
+      "environment": "Microsoft Windows 11 Pro (10.0.26200), Python 3.12.10, WSL2 kali-linux (Python 3.14.7)",
+      "artifacts": {
+        "protocol_md": "research/benchmarks/post-fix-v1/PROTOCOL.md",
+        "protocol_sha256": "c60498f1e0b854f2f88094b46a3ddff8627a06cb0e017c2da9ba4bee31067fc2",
+        "analysis_summary": "research/benchmarks/post-fix-v1/analysis_summary.json",
+        "report_md": "research/benchmarks/post-fix-v1/REPORT.md",
+        "sha256_manifest": "research/benchmarks/post-fix-v1/SHA256_MANIFEST.txt"
+      },
+      "note": "Track A (32/32 vs 2/32), Track B2 stdio MCP replay (18/18 vs 12/18), Track C N=10 perf/transport/rAF/UIA/RSS, Track D (95/95 full Win11, 79 CI skip-desktop, WSL2 kali-linux Python 3.14.7 import). Track B1 live LLM recorded strictly as NOT_RUN (Codex CLI usage limit reached)."
+    },
+    {
+      "id": "src-post-fix-audit",
+      "title": "Independent Post-Fix Audit Report (v0.2.0a0 candidate @ a33a8f2)",
+      "kind": "post_fix_independent_audit",
+      "commit_or_ref": "a33a8f261fe4e7b9ef761e1763ac5ad2f2907faf",
+      "artifacts": {
+        "audit_report": "research/audits/post-fix-v0.2.0a0/POST_FIX_AUDIT_REPORT.md",
+        "verification_matrix": "research/audits/post-fix-v0.2.0a0/CLAIM_VERIFICATION_MATRIX.json"
+      },
+      "note": "Maps all P0-P3 & Cursor A-G findings to verified code pointers and surfaces NOT VERIFIED exebox hook limits cleanly."
     }
   ]
 }

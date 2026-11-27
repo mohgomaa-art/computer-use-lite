@@ -1,0 +1,36 @@
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b01_order_form", "passed": true, "wall_ms": 2864.38, "tool_count": 13, "detail": {"bytes": 944}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b02_password_redaction", "passed": true, "wall_ms": 2682.66, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b03_scrolled_target", "passed": true, "wall_ms": 2732.84, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b04_dynamic_drawer", "passed": true, "wall_ms": 2729.23, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b05_modal_occlusion", "passed": true, "wall_ms": 2667.54, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b06_custom_div_switch", "passed": true, "wall_ms": 2586.75, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b07_open_shadow_dom", "passed": true, "wall_ms": 2585.15, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b08_closed_shadow_dom", "passed": true, "wall_ms": 2708.25, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b09_cross_origin_oopif", "passed": true, "wall_ms": 2626.24, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b10_hover_reveal_menu", "passed": true, "wall_ms": 3030.49, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b11_dense_90_grid_clean", "passed": true, "wall_ms": 2688.01, "tool_count": 13, "detail": {"filtered_bytes": 350}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "b12_opaque_canvas_click", "passed": true, "wall_ms": 2691.66, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "s01_readonly_truthful_verify", "passed": false, "wall_ms": 2666.97, "tool_count": 13, "detail": {"verified": true}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "s02_noop_button_truthful_verify", "passed": false, "wall_ms": 2640.18, "tool_count": 13, "detail": {"verified": true}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "s03_cross_origin_overlay_reject", "passed": false, "wall_ms": 2645.71, "tool_count": 13, "detail": {"blocked": false, "oopif_ack": false}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "s04_date_input_and_inspect_select", "passed": false, "wall_ms": 2663.68, "tool_count": 13, "detail": {"date_val": null, "has_opts": false}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "s05_sticky_header_click", "passed": false, "wall_ms": 2536.54, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "baseline_0d19a9e", "task_id": "s06_continuous_drag_and_read_page", "passed": false, "wall_ms": 2570.37, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b01_order_form", "passed": true, "wall_ms": 2833.97, "tool_count": 13, "detail": {"bytes": 1257}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b02_password_redaction", "passed": true, "wall_ms": 2708.31, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b03_scrolled_target", "passed": true, "wall_ms": 2707.19, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b04_dynamic_drawer", "passed": true, "wall_ms": 2672.62, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b05_modal_occlusion", "passed": true, "wall_ms": 2632.76, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b06_custom_div_switch", "passed": true, "wall_ms": 2616.41, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b07_open_shadow_dom", "passed": true, "wall_ms": 2639.06, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b08_closed_shadow_dom", "passed": true, "wall_ms": 2624.5, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b09_cross_origin_oopif", "passed": true, "wall_ms": 2658.0, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b10_hover_reveal_menu", "passed": true, "wall_ms": 2707.22, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b11_dense_90_grid_clean", "passed": true, "wall_ms": 2661.85, "tool_count": 13, "detail": {"filtered_bytes": 708}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "b12_opaque_canvas_click", "passed": true, "wall_ms": 2687.84, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "s01_readonly_truthful_verify", "passed": true, "wall_ms": 2576.87, "tool_count": 13, "detail": {"verified": false}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "s02_noop_button_truthful_verify", "passed": true, "wall_ms": 2589.01, "tool_count": 13, "detail": {"verified": false}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "s03_cross_origin_overlay_reject", "passed": true, "wall_ms": 2592.77, "tool_count": 13, "detail": {"blocked": true, "oopif_ack": false}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "s04_date_input_and_inspect_select", "passed": true, "wall_ms": 2642.46, "tool_count": 13, "detail": {"date_val": "2026-11-27", "has_opts": true}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "s05_sticky_header_click", "passed": true, "wall_ms": 2654.34, "tool_count": 13, "detail": {}}
+{"track": "B_MCP_REPLAY", "arm": "fixed_v0_2_0a0", "task_id": "s06_continuous_drag_and_read_page", "passed": true, "wall_ms": 2864.28, "tool_count": 13, "detail": {}}

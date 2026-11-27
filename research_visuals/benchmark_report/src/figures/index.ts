@@ -22,6 +22,8 @@ import { Fig06WindowsTests } from "./Fig06WindowsTests";
 import { Fig07DesktopPilotStatus } from "./Fig07DesktopPilotStatus";
 import { Fig08Architecture } from "./Fig08Architecture";
 import { Fig09SecurityFindings } from "./Fig09SecurityFindings";
+import { Fig10PostFixRegressionAndMcp } from "./Fig10PostFixRegressionAndMcp";
+import { Fig11PostFixEnginePerf } from "./Fig11PostFixEnginePerf";
 
 export interface FigureSpec {
   id: string;
@@ -96,9 +98,9 @@ export const FIGURE_SPECS: FigureSpec[] = [
     svgFilename: "fig-06-windows-tests.svg",
     pngFilename: "fig-06-windows-tests.png",
     sourceTsx: "research_visuals/benchmark_report/src/figures/Fig06WindowsTests.tsx",
-    title: "Windows 11 Automated Test Suite Execution",
+    title: "Cross-Platform & Automated Test Suite Execution",
     units: "tests & seconds",
-    sampleSize: "70 pytest tests",
+    sampleSize: "95 pytest tests + WSL2 Python 3.14.7",
     dataSourcePointer: "research_archive/benchmark_publication/benchmark_data.json#windows_test_suite",
     component: Fig06WindowsTests,
   },
@@ -129,10 +131,32 @@ export const FIGURE_SPECS: FigureSpec[] = [
     svgFilename: "fig-09-security-findings.svg",
     pngFilename: "fig-09-security-findings.png",
     sourceTsx: "research_visuals/benchmark_report/src/figures/Fig09SecurityFindings.tsx",
-    title: "Security & Reliability Findings (@ 0d19a9e)",
+    title: "Security & Reliability Findings (0d19a9e -> v0.2.0a0)",
     units: "findings",
     sampleSize: "9 audited items",
     dataSourcePointer: "research_archive/benchmark_publication/benchmark_data.json#security_and_reliability_findings",
     component: Fig09SecurityFindings,
+  },
+  {
+    id: "FIG-10",
+    svgFilename: "fig-10-post-fix-regression-mcp.svg",
+    pngFilename: "fig-10-post-fix-regression-mcp.png",
+    sourceTsx: "research_visuals/benchmark_report/src/figures/Fig10PostFixRegressionAndMcp.tsx",
+    title: "Post-Fix Regression Checks & Stdio MCP Replay",
+    units: "% pass rate",
+    sampleSize: "n=32 paired checks; n=18 MCP replay tasks",
+    dataSourcePointer: "research_archive/benchmark_publication/benchmark_data.json#post_fix_evaluation",
+    component: Fig10PostFixRegressionAndMcp,
+  },
+  {
+    id: "FIG-11",
+    svgFilename: "fig-11-post-fix-engine-perf.svg",
+    pngFilename: "fig-11-post-fix-engine-perf.png",
+    sourceTsx: "research_visuals/benchmark_report/src/figures/Fig11PostFixEnginePerf.tsx",
+    title: "Engine Latency, Transport Tradeoff & Cursor rAF Profile",
+    units: "ms & rebuilds",
+    sampleSize: "N=10 per condition",
+    dataSourcePointer: "research_archive/benchmark_publication/benchmark_data.json#post_fix_evaluation.track_c_perf_n10",
+    component: Fig11PostFixEnginePerf,
   },
 ];

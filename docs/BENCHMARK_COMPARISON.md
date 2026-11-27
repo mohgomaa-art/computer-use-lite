@@ -1,7 +1,7 @@
-# Computer Use Lite — Benchmark Comparison (`v0.1.0a2`)
+# Computer Use Lite — Benchmark Comparison (`v0.2.0a0`)
 
 > [!IMPORTANT]
-> **Comparison Boundary:** The paired browser study compared **two semantic browser MCP tools** (`@playwright/mcp@0.0.86` accessibility snapshots vs **CUL Browser MCP** at commit `fdc92d9` under `CUL_MCP_BROWSER_ONLY=1`). It is **NOT** a Native OpenAI Computer Use (`@oai/sky`) vs CUL comparison, and it is **NOT** an evaluation of Windows Desktop UIA. Every figure below is generated from [../research_archive/benchmark_publication/benchmark_data.json](../research_archive/benchmark_publication/benchmark_data.json).
+> **Comparison Boundary:** Section 1 preserves the historical paired **semantic-vs-semantic browser MCP study** (`@playwright/mcp@0.0.86` vs CUL Browser MCP at `fdc92d9`, NOT Native OpenAI Computer Use `@oai/sky`). Sections 5–6 add the frozen `post-fix-v1` evaluation comparing preserved baseline `v0.1.0a0` (`0d19a9e`) against repaired `v0.2.0a0` (`a33a8f2`). Every chart is rendered directly from [../research_archive/benchmark_publication/benchmark_data.json](../research_archive/benchmark_publication/benchmark_data.json).
 
 ---
 
@@ -55,18 +55,39 @@ Notable task divergence: Playwright MCP failed `b08_closed_shadow_dom` (`0/3`) a
 
 ---
 
-## 3. Windows Automated Test Coverage (`FIG-06`)
+## 3. Cross-Platform & Automated Test Coverage (`FIG-06`)
 
-![FIG-06 Windows Automated Test Suite](assets/benchmarks/fig-06-windows-tests.svg)
+![FIG-06 Cross-Platform & Automated Test Suite](assets/benchmarks/fig-06-windows-tests.svg)
 
 - **TSX Source:** [`Fig06WindowsTests.tsx`](../research_visuals/benchmark_report/src/figures/Fig06WindowsTests.tsx) · **PNG Preview:** [`fig-06-windows-tests.png`](assets/benchmarks/fig-06-windows-tests.png)
-- Recorded on Windows 11 Pro (`10.0.26200`) at commit `0d19a9e`: `70 passed, 0 failed, 0 skipped` in `197.50s` (`58 passed, 12 skipped` in `86.66s` under `CUL_SKIP_DESKTOP=1`). This measures deterministic test coverage, **not** AI-agent performance.
+- Recorded on Windows 11 Pro (`10.0.26200`) at commit `a33a8f2`: **`95 passed, 0 failed, 0 skipped` in `106.93s`** (`79 passed, 16 deselected` in `87.20s` under `CUL_SKIP_DESKTOP=1 -m "not windows_desktop"`), plus verified non-Windows import on real **WSL2 `kali-linux` (`Python 3.14.7`)**. Historical baseline at `0d19a9e` passed `70/70` (`197.50s`).
 
 ---
 
-## 4. Desktop Pilot Status (`FIG-07`)
+## 4. Historical Desktop Pilot Status (`FIG-07`)
 
 ![FIG-07 Desktop Pilot Status](assets/benchmarks/fig-07-desktop-pilot-status.svg)
 
 - **TSX Source:** [`Fig07DesktopPilotStatus.tsx`](../research_visuals/benchmark_report/src/figures/Fig07DesktopPilotStatus.tsx) · **PNG Preview:** [`fig-07-desktop-pilot-status.png`](assets/benchmarks/fig-07-desktop-pilot-status.png)
 - **Status:** `CUL T1` passed `2/2` supervised runs with fixture SHA-256 checks; `CUL T2` remained **incomplete**; and the **Native vs CUL desktop comparison was never completed**. A standalone pre-pilot Native Calculator smoke check is not a comparative benchmark.
+
+---
+
+## 5. Post-Fix Comparative Regression & MCP Replay (`FIG-10`, `0d19a9e` vs `v0.2.0a0`)
+
+![FIG-10 Post-Fix Verification & MCP Replay](assets/benchmarks/fig-10-post-fix-regression-mcp.svg)
+
+- **TSX Source:** [`Fig10PostFixRegressionAndMcp.tsx`](../research_visuals/benchmark_report/src/figures/Fig10PostFixRegressionAndMcp.tsx) · **PNG Preview:** [`fig-10-post-fix-regression-mcp.png`](assets/benchmarks/fig-10-post-fix-regression-mcp.png)
+- **Track A Paired Checks (`n = 32`):** Baseline `0d19a9e` passed **`2/32` (`6.25%`, 95% Wilson CI `[1.73%, 20.15%]`)**; fixed `v0.2.0a0` passed **`32/32` (`100.0%`, 95% Wilson CI `[89.28%, 100.0%]`)** (`+30` fixed wins, `0` losses, `2` ties).
+- **Track B2 Deterministic Stdio MCP Replay (`n = 18` scripted tasks — NOT LLM reasoning):** Baseline `0d19a9e` passed **`12/18` (`66.67%`, failing `s01`–`s06`)**; fixed `v0.2.0a0` (`Pipe` default) passed **`18/18` (`100.0%`, median wall `2656.17 ms`)**.
+- **Track B1 Live LLM Benchmarks (`codex-cli 0.166.0` / Native `@oai/sky`):** Strictly **`NOT_RUN`** — Codex CLI pre-flight hit usage quota (`returncode=1` until Dec 26, 2026); `@oai/sky`, `ollama`, and API keys are absent.
+
+---
+
+## 6. Engine Latency, Transport Tradeoff & Cursor `rAF` (`FIG-11`, Track C `N = 10`)
+
+![FIG-11 Engine Latency & Transport Tradeoff](assets/benchmarks/fig-11-post-fix-engine-perf.svg)
+
+- **TSX Source:** [`Fig11PostFixEnginePerf.tsx`](../research_visuals/benchmark_report/src/figures/Fig11PostFixEnginePerf.tsx) · **PNG Preview:** [`fig-11-post-fix-engine-perf.png`](assets/benchmarks/fig-11-post-fix-engine-perf.png)
+- **Transport Tradeoff (`CUL-SEC-002`):** Switching default transport to Pipe eliminates unauthenticated localhost CDP TCP exposure while raising `dense_2500` discovery `p50` (`163.45 ms -> 367.09 ms`). Setting `CUL_MCP_DIRECT_WS=1` recovers **`152.43 ms` `p50`**, while standard forms (`9.46 ms`) and `dense_90` (`25.26 ms`) remain fast over Pipe.
+- **Adaptive Hover & Cursor Overlay:** Adaptive settle cuts `hover_adaptive` `p50` **4.3x (`387.39 ms -> 90.83 ms`)**; cursor busy-delay (`350ms`) + `addScriptToEvaluateOnNewDocument` cuts rapid busy DOM rebuilds **`6 -> 1`** and navigation `eval` injection **`48,234 B -> 0 B`** at locked **`16.7 ms`** (60 FPS).

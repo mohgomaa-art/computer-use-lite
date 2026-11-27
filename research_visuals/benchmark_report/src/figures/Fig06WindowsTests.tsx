@@ -20,12 +20,14 @@ import { FigureFrame } from "../components/FigureFrame";
 export const Fig06WindowsTests: React.FC = () => {
   const suite = benchmarkData.windows_test_suite;
   const ci = suite.ci_non_interactive_subset;
+  const hist = suite.historical_0d19a9e;
+  const wsl = suite.wsl2_linux_import;
 
   const cards = [
-    { label: "PASSED", value: `${suite.passed}`, sub: `100% of ${suite.total}`, fill: PALETTE.culTint, stroke: PALETTE.culRule, text: PALETTE.culDark },
-    { label: "FAILED", value: `${suite.failed}`, sub: "Zero test failures", fill: PALETTE.surface, stroke: PALETTE.rule, text: PALETTE.text },
-    { label: "SKIPPED", value: `${suite.skipped}`, sub: "Interactive Win11 run", fill: PALETTE.surface, stroke: PALETTE.rule, text: PALETTE.text },
-    { label: "DURATION", value: `${suite.duration_seconds.toFixed(2)}s`, sub: `commit ${suite.commit}`, fill: PALETTE.infoTint, stroke: PALETTE.infoRule, text: PALETTE.infoText },
+    { label: "WIN11 FULL", value: `${suite.passed}/${suite.total}`, sub: `0 failed (${suite.duration_seconds.toFixed(1)}s)`, fill: PALETTE.culTint, stroke: PALETTE.culRule, text: PALETTE.culDark },
+    { label: "CI HEADLESS", value: `${ci.passed}/${suite.total}`, sub: `${ci.skipped} desktop deselected`, fill: PALETTE.infoTint, stroke: PALETTE.infoRule, text: PALETTE.infoText },
+    { label: "LINUX WSL2", value: "OK", sub: wsl.env, fill: PALETTE.culTint, stroke: PALETTE.culRule, text: PALETTE.culDark },
+    { label: "BASELINE 0d19", value: `${hist.passed}`, sub: `Historical Win11 (${hist.duration_seconds.toFixed(1)}s)`, fill: PALETTE.surface, stroke: PALETTE.rule, text: PALETTE.textSecondary },
   ];
 
   const barW = 436;
@@ -33,19 +35,20 @@ export const Fig06WindowsTests: React.FC = () => {
   return (
     <FigureFrame
       figureNumber="FIG-06"
-      title="Windows 11 Automated Test Suite Execution"
-      subtitle={`${suite.label} — Windows 11 Pro, Python ${suite.python}`}
+      title="Cross-Platform & Automated Test Suite Execution"
+      subtitle={`${suite.label} — Windows 11 + CI + WSL2 Python 3.14.7`}
       units="test cases & seconds"
-      sampleSize={`${suite.total} pytest tests`}
-      methodologyNote={`Executed full pytest suite on ${suite.os} without CUL_SKIP_DESKTOP; CI run (${ci.env}) passed ${ci.passed}, skipped ${ci.skipped} in ${ci.duration_seconds}s.`}
-      sourceRef="benchmark_data.json -> windows_test_suite | audit_2026-11-27 b2_pytest_full.txt"
+      sampleSize={`${suite.total} pytest tests + WSL2 Linux import`}
+      methodologyNote={`Full suite on ${suite.os} (@ ${suite.commit}) plus CI subset (${ci.env}) and real WSL2 kali-linux import; compared against historical 0d19a9e (${hist.passed} tests).`}
+      sourceRef="benchmark_data.json -> windows_test_suite | research/benchmarks/post-fix-v1/raw/track_d_results.jsonl"
       caveatText={suite.caveat}
       legend={[
-        { label: "Full interactive Windows run (70 passed)", color: PALETTE.cul },
-        { label: "CI headless subset (58 passed, 12 skipped)", color: PALETTE.infoText },
+        { label: `Fixed v${benchmarkData.release_version} Full Windows (${suite.passed} passed)`, color: PALETTE.cul },
+        { label: `CI Subset (${ci.passed} passed, ${ci.skipped} deselected)`, color: PALETTE.infoText },
+        { label: `Baseline 0d19a9e (${hist.passed} passed)`, color: PALETTE.baseline },
       ]}
       width={960}
-      height={470}
+      height={540}
     >
       {/* Top 4 clean summary cards */}
       {cards.map((card, i) => {
@@ -56,10 +59,10 @@ export const Fig06WindowsTests: React.FC = () => {
             <text x={16} y={24} fill={PALETTE.textMuted} fontFamily={FONTS.mono} fontSize={11} fontWeight={700}>
               {card.label}
             </text>
-            <text x={16} y={60} fill={card.text} fontFamily={FONTS.mono} fontSize={28} fontWeight={800}>
+            <text x={16} y={60} fill={card.text} fontFamily={FONTS.mono} fontSize={26} fontWeight={800}>
               {card.value}
             </text>
-            <text x={16} y={80} fill={PALETTE.textSecondary} fontSize={11.5}>
+            <text x={16} y={80} fill={PALETTE.textSecondary} fontSize={11}>
               {card.sub}
             </text>
           </g>
@@ -70,24 +73,24 @@ export const Fig06WindowsTests: React.FC = () => {
       <g transform="translate(36, 246)">
         <line x1={0} y1={0} x2={888} y2={0} stroke={PALETTE.rule} strokeWidth={1} />
         <text x={0} y={24} fill={PALETTE.text} fontSize={13.5} fontWeight={700}>
-          Suite Partition Comparison (70 Collected Tests)
+          Suite Partition Comparison (95 Tests Fixed vs 70 Historical Baseline)
         </text>
 
-        <text x={0} y={58} fill={PALETTE.text} fontSize={12.5} fontFamily={FONTS.mono}>
-          Full Windows Run
+        <text x={0} y={56} fill={PALETTE.text} fontSize={12} fontFamily={FONTS.mono}>
+          v0.2.0a0 Win11 Full
         </text>
-        <rect x={200} y={42} width={barW} height={22} rx={3} fill={PALETTE.cul} />
-        <text x={652} y={58} fill={PALETTE.culDark} fontSize={12.5} fontFamily={FONTS.mono} fontWeight={700}>
-          {`${suite.passed} passed, 0 skipped (${suite.duration_seconds.toFixed(2)}s)`}
+        <rect x={200} y={40} width={barW} height={22} rx={3} fill={PALETTE.cul} />
+        <text x={650} y={56} fill={PALETTE.culDark} fontSize={12} fontFamily={FONTS.mono} fontWeight={700}>
+          {`${suite.passed} passed, 0 failed (${suite.duration_seconds.toFixed(2)}s)`}
         </text>
 
-        <text x={0} y={96} fill={PALETTE.text} fontSize={12.5} fontFamily={FONTS.mono}>
-          CI Mode (SKIP_DESKTOP)
+        <text x={0} y={92} fill={PALETTE.text} fontSize={12} fontFamily={FONTS.mono}>
+          CI (SKIP_DESKTOP=1)
         </text>
-        <rect x={200} y={80} width={(ci.passed / suite.total) * barW} height={22} rx={3} fill={PALETTE.infoText} />
+        <rect x={200} y={76} width={(ci.passed / suite.total) * barW} height={22} rx={3} fill={PALETTE.infoText} />
         <rect
           x={200 + (ci.passed / suite.total) * barW}
-          y={80}
+          y={76}
           width={(ci.skipped / suite.total) * barW}
           height={22}
           rx={3}
@@ -95,12 +98,20 @@ export const Fig06WindowsTests: React.FC = () => {
           stroke={PALETTE.axis}
           strokeWidth={1}
         />
-        <text x={652} y={96} fill={PALETTE.textSecondary} fontSize={12.5} fontFamily={FONTS.mono}>
-          {`${ci.passed} passed, ${ci.skipped} skipped (${ci.duration_seconds.toFixed(2)}s)`}
+        <text x={650} y={92} fill={PALETTE.textSecondary} fontSize={12} fontFamily={FONTS.mono}>
+          {`${ci.passed} passed, ${ci.skipped} deselected (${ci.duration_seconds.toFixed(2)}s)`}
         </text>
 
-        <text x={0} y={128} fill={PALETTE.warnText} fontSize={11.5} fontWeight={600}>
-          Note: Automated tests validate local code invariants only; audited runtime defects (FIG-09) remain unfixed.
+        <text x={0} y={128} fill={PALETTE.textSecondary} fontSize={12} fontFamily={FONTS.mono}>
+          0d19a9e Historical
+        </text>
+        <rect x={200} y={112} width={(hist.passed / suite.total) * barW} height={22} rx={3} fill={PALETTE.baseline} />
+        <text x={650} y={128} fill={PALETTE.textSecondary} fontSize={12} fontFamily={FONTS.mono}>
+          {`${hist.passed} passed (${hist.duration_seconds.toFixed(2)}s)`}
+        </text>
+
+        <text x={0} y={158} fill={PALETTE.culDark} fontSize={11.5} fontWeight={600}>
+          {`Added 25 targeted P0–P3 regression tests + Linux/WSL2 portability verified (${wsl.status} on Python 3.14.7).`}
         </text>
       </g>
     </FigureFrame>

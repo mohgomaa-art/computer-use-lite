@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-06/schema",
+  "title": "Post-Fix Multi-Track Benchmark Summary Schema",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "baseline_commit",
+    "fixed_commit",
+    "protocol_sha256",
+    "track_a_regressions",
+    "track_b_agent_and_mcp",
+    "track_c_engine_perf",
+    "track_d_portability"
+  ]
+}
