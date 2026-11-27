@@ -22,6 +22,7 @@ Trusted-Types / strict-CSP safe DOM+SVG overlay bridge for Chromium agent visual
 """
 from __future__ import annotations
 
+from functools import lru_cache
 import json
 import os
 
@@ -438,6 +439,7 @@ _GRADIENT_SPECS = [
 ]
 
 
+@lru_cache(maxsize=1)
 def build_overlay_init_script() -> str:
     """Return a CSP-safe, Trusted-Types-safe JS controller mounting the 3D cursor overlay."""
     specs_json = json.dumps(CURSOR_SPECS, separators=(",", ":"))

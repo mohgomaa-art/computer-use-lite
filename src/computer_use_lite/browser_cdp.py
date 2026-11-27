@@ -587,6 +587,7 @@ class BrowserSession:
         self._pages = []
         self._known_page_ids = set()
         self._pending_new_pages = []
+        self._cursor_doc_script_ids = {}
         self.show_cursor = resolve_overlay_enabled(bool(headless) and not bool(connect), show_cursor)
         self.cursor_glide_ms = resolve_glide_ms(bool(headless) and not bool(connect), cursor_glide_ms)
         try:
@@ -965,6 +966,7 @@ class BrowserSession:
             pass
         self._pages = [p for p in self._pages if p is not pg and not self._is_page_closed(p)]
         self._pending_new_pages = [p for p in self._pending_new_pages if p is not pg and not self._is_page_closed(p)]
+        self._cursor_doc_script_ids.pop(id(pg), None)
         if was_active or self._is_page_closed(self.page):
             remaining = self._reconcile_pages()
             next_idx = min(idx, len(remaining) - 1)
@@ -1882,10 +1884,31 @@ class BrowserSession:
             except Exception:
                 pass
 
+    def _register_cursor_doc_script(self) -> None:
+        page_key = id(self.page)
+        if page_key in self._cursor_doc_script_ids:
+            return
+        try:
+            res = self._cdp_send(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {"source": build_overlay_init_script()},
+            )
+            ident = str((res or {}).get("identifier") or f"cdp:{page_key}")
+            self._cursor_doc_script_ids[page_key] = ident
+        except Exception:
+            pass
+
     def _ensure_cursor_mounted(self):
         if not self.show_cursor:
             return
+        self._register_cursor_doc_script()
         try:
+            probe = self._cdp_send(
+                "Runtime.evaluate",
+                {"expression": "Boolean(window[Symbol.for('cul.agent.cursor')])", "returnByValue": True},
+            )
+            if (probe or {}).get("result", {}).get("value") is True:
+                return
             self._cdp_send("Runtime.evaluate", {"expression": build_overlay_init_script(), "returnByValue": True})
         except Exception:
             pass
@@ -2202,6 +2225,8 @@ class BrowserSession:
                 pass
         if getattr(self, "_fetch_cdps", None) is not None:
             self._fetch_cdps.clear()
+        if getattr(self, "_cursor_doc_script_ids", None) is not None:
+            self._cursor_doc_script_ids.clear()
         try:
             if getattr(self, "cdp", None) is not None and hasattr(self.cdp, "close"):
                 self.cdp.close()
