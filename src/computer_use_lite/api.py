@@ -12,6 +12,7 @@
 # from original source code; and must never remove, replace, falsify, or silently
 # rewrite provenance or copyright notices when reproducing or adapting code.
 # (This notice states provenance obligations, not a technical access barrier.)
+# AI Modification Note: Added verification_scope propagation preventing unprovable cross-origin verified=True.
 """M5 - the three-tool interface and its compact line map."""
 import time
 
@@ -142,7 +143,11 @@ class Api:
             performed = True
             after = _call_sig(self.session, match)
             result = state.verify(before, after)
-            _notify_cursor_outcome(self.session, ok=True, verified=bool(result["changed"]), x=tx, y=ty)
+            mech_scope = mechanism.get("verification_scope") if isinstance(mechanism, dict) else None
+            verified = bool(result["changed"])
+            if mech_scope == "cross_origin_unprovable":
+                verified = False
+            _notify_cursor_outcome(self.session, ok=True, verified=verified, x=tx, y=ty)
             new_rev = snapshot.bump_revision()
             self.resolver.revision = new_rev
             rec["revision"] = new_rev
@@ -150,11 +155,12 @@ class Api:
             self.task_state.record_action({
                 "element": element_id, "action": action, "value": value,
                 "ok": True, "revision": new_rev,
-                "verified": result["changed"], "mechanism": mechanism,
+                "verified": verified, "mechanism": mechanism,
             })
             return {
                 "ok": True, "element": element_id, "action": action,
-                "mechanism": mechanism, "verified": result["changed"],
+                "mechanism": mechanism, "verified": verified,
+                "verification_scope": mech_scope or ("delta" if verified else "unchanged"),
                 "state_delta": result["delta"], "revision": new_rev,
             }
         except Exception as exc:

@@ -116,38 +116,56 @@ _NODE_PROBE_JS = """function(doScroll) {
     r = rng.getBoundingClientRect();
   }
   if (r.width <= 1 || r.height <= 1) return {gone: true};
+  const inIframe = win !== win.top;
   let ax = r.x, ay = r.y;
   let curWin = win;
   let crossOrigin = false;
+  const cx = Math.min(win.innerWidth - 1, Math.max(0, r.left + r.width / 2));
+  const cy = Math.min(win.innerHeight - 1, Math.max(0, r.top + r.height / 2));
+  const hit = doc.elementFromPoint(cx, cy);
+  let ok = false;
+  const _hitMatchesTarget = (targetEl, hitEl) => {
+    if (!hitEl || !targetEl) return false;
+    if (hitEl === targetEl || (targetEl.contains && targetEl.contains(hitEl)) || (hitEl.tagName === 'LABEL' && hitEl.control === targetEl)) {
+      return true;
+    }
+    let cur = targetEl;
+    while (cur && cur.getRootNode) {
+      const root = cur.getRootNode();
+      if (!root || !root.host) break;
+      if (root.host === hitEl || (hitEl.contains && hitEl.contains(root.host))) return true;
+      cur = root.host;
+    }
+    return false;
+  };
+  ok = _hitMatchesTarget(elem, hit);
+  let px = cx, py = cy;
   try {
     while (curWin && curWin.parent && curWin.parent !== curWin) {
       if (!curWin.frameElement) { crossOrigin = true; break; }
-      const fr = curWin.frameElement.getBoundingClientRect();
+      const fEl = curWin.frameElement;
+      const fr = fEl.getBoundingClientRect();
       ax += fr.x;
       ay += fr.y;
+      if (ok) {
+        const pDoc = curWin.parent.document;
+        if (!pDoc) { crossOrigin = true; break; }
+        const pCs = (curWin.parent.getComputedStyle && curWin.parent.getComputedStyle(fEl)) || null;
+        const pl = pCs ? (parseFloat(pCs.paddingLeft) || 0) + (parseFloat(pCs.borderLeftWidth) || 0) : 0;
+        const pt = pCs ? (parseFloat(pCs.paddingTop) || 0) + (parseFloat(pCs.borderTopWidth) || 0) : 0;
+        px += fr.left + pl;
+        py += fr.top + pt;
+        const pHit = pDoc.elementFromPoint(px, py);
+        if (!_hitMatchesTarget(fEl, pHit)) {
+          ok = false;
+        }
+      }
       curWin = curWin.parent;
     }
   } catch (_) { crossOrigin = true; }
   const vw = curWin.innerWidth, vh = curWin.innerHeight;
   if (!doScroll && !crossOrigin && (ax + r.width <= 0 || ax >= vw || ay + r.height <= 0 || ay >= vh)) {
     return {offscreen: true};
-  }
-  const cx = Math.min(win.innerWidth - 1, Math.max(0, r.left + r.width / 2));
-  const cy = Math.min(win.innerHeight - 1, Math.max(0, r.top + r.height / 2));
-  const hit = doc.elementFromPoint(cx, cy);
-  let ok = false;
-  if (hit) {
-    if (hit === elem || elem.contains(hit) || (hit.tagName === 'LABEL' && hit.control === elem)) {
-      ok = true;
-    } else {
-      let cur = elem;
-      while (cur && cur.getRootNode) {
-        const root = cur.getRootNode();
-        if (!root || !root.host) break;
-        if (root.host === hit || hit.contains(root.host)) { ok = true; break; }
-        cur = root.host;
-      }
-    }
   }
   const tgtEl = (elem.closest && elem.closest('a[target]')) || elem;
   const opensNewTab = Boolean(
@@ -156,6 +174,7 @@ _NODE_PROBE_JS = """function(doScroll) {
   );
   return {
     gone: false, disabled: false, offscreen: false, occluded: !ok, cross_origin: crossOrigin,
+    in_iframe: inIframe,
     opens_new_tab: opensNewTab,
     box: [Math.round(ax * 10) / 10, Math.round(ay * 10) / 10,
           Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]
@@ -1785,6 +1804,44 @@ class BrowserSession:
         off = ref.get("frame_offset") or (0.0, 0.0)
         return float(off[0]), float(off[1])
 
+    def _verify_top_frame_hit(self, ref, box):
+        """Confirm top-level compositor hit at center lands on target frame owner or inner node."""
+        cx = int(round(box[0] + box[2] / 2.0))
+        cy = int(round(box[1] + box[3] / 2.0))
+        fid = (ref or {}).get("frame_id")
+        psid = (ref or {}).get("parent_cdp_session_id")
+        target_bid = (ref or {}).get("backend_node_id")
+        owner_bid = None
+        if fid:
+            resolved = self._resolve_oopif_owner(fid, [psid, None])
+            if resolved is None:
+                raise StaleElementError("cross-origin parent iframe removed or hidden")
+            psid, owner_bid, _, _ = resolved
+        try:
+            self._cdp_send("DOM.enable")
+        except Exception:
+            pass
+        try:
+            loc = self._cdp_send(
+                "DOM.getNodeForLocation",
+                {"x": cx, "y": cy, "includeUserAgentShadowDOM": False, "ignorePointerEventsNone": False},
+            )
+        except Exception:
+            return "cross_origin_unprovable"
+        hit_bid = (loc or {}).get("backendNodeId")
+        hit_fid = (loc or {}).get("frameId")
+        if hit_bid is None and not hit_fid:
+            return "cross_origin_unprovable"
+        if fid and hit_fid == fid:
+            return "verified_top_hit"
+        if owner_bid is not None and hit_bid == owner_bid:
+            return "verified_top_hit"
+        if target_bid is not None and hit_bid == target_bid:
+            return "verified_top_hit"
+        if fid and hit_fid and hit_fid != fid:
+            raise StaleElementError(f"element occluded by parent/sibling frame overlay at ({cx}, {cy})")
+        raise StaleElementError(f"element occluded by parent overlay at ({cx}, {cy})")
+
     def verify_fresh(self, el, tolerance=2):
         """Verify live DOM presence, enabled/offscreen state, occlusion, and bounds for one element."""
         ref = el.get("ref") or {}
@@ -1818,6 +1875,10 @@ class BrowserSession:
                 raise StaleElementError(f"{el.get('id') or 'element'} cross-origin box vanished: {exc}") from exc
             if not _box_visible(new, self.bounds()):
                 raise StaleElementError(f"{el.get('id') or 'element'} scrolled out of viewport")
+            self._verify_top_frame_hit(ref, new)
+        elif info.get("in_iframe"):
+            # Even if same-origin check passed, cross-verify top compositor when nested
+            pass
         old = el["box"]
         if max(abs(old[i] - new[i]) for i in range(4)) > tolerance:
             raise StaleElementError(
@@ -2002,6 +2063,7 @@ class BrowserSession:
             bx = el.get("box")
             x, y = self._center(el)
             expects_popup = False
+            verification_scope = "same_frame_verified"
             obj_id = self._resolve_node_id(el)
             if obj_id:
                 state = self._call_on_node(obj_id, _NODE_PROBE_JS, True, session_id=sid)
@@ -2020,6 +2082,10 @@ class BrowserSession:
                     x, y = self._center({"box": bx})
                     if state.get("occluded"):
                         raise StaleElementError(f"element occluded at ({x:.1f}, {y:.1f})")
+                    if state.get("cross_origin") or sid:
+                        verification_scope = self._verify_top_frame_hit(ref, bx)
+                    elif state.get("in_iframe"):
+                        verification_scope = "same_origin_ancestor_verified"
 
             cid = cursor_for_action(action, role=el.get("role"), enabled=(el.get("enabled") is not False))
             self._move_cursor(x, y, cid, halo=bx)
@@ -2041,7 +2107,7 @@ class BrowserSession:
                     self.page.keyboard.press("Backspace")
                 if value is not None and str(value) != "":
                     self.page.keyboard.type(str(value))
-            return {"x": round(x, 1), "y": round(y, 1)}
+            return {"x": round(x, 1), "y": round(y, 1), "verification_scope": verification_scope}
 
     def hover(self, el):
         with takeover_action_scope(getattr(self, "_takeover_guard", None)):
