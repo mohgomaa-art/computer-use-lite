@@ -1,66 +1,134 @@
-# Computer Use Lite (CUL)
+<p align="center">
+  <img src="docs/assets/brand/logo.svg" alt="Computer Use Lite official logo" width="84" height="84" />
+</p>
 
-**Author:** Mohamed Gomaa ([`@mohgomaa-art`](https://github.com/mohgomaa-art/) · [AUTHORS.md](AUTHORS.md))  
-**Version Baseline:** `0.1.0-alpha` + post-`0.1.0-alpha` P0 & Cursor Overlay work on `main` (`d47b4e9`)  
-**Release Classification:** `Public Research Preview — Experimental — Not Production Ready`  
-**License:** [Apache-2.0](LICENSE) ([NOTICE](NOTICE), [CITATION.cff](CITATION.cff))
+<h1 align="center">Computer Use Lite (CUL)</h1>
+
+<p align="center">
+  <strong>Semantic-first browser (CDP) and Windows desktop (UIA) interaction engine for AI agents — with targeted visual fallback only where structure is unavailable.</strong>
+</p>
+
+<p align="center">
+  <strong>Version:</strong> <code>0.1.0a1</code> (Benchmark Research Edition; Historical Baseline: <a href="https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0"><code>v0.1.0a0</code> @ <code>0d19a9e</code></a>) ·
+  <strong>License:</strong> <a href="LICENSE">Apache-2.0</a> ·
+  <strong>Author:</strong> Mohamed Gomaa (<a href="https://github.com/mohgomaa-art/"><code>@mohgomaa-art</code></a>)
+</p>
 
 > [!WARNING]
-> **Experimental Research Preview:** Computer Use Lite is an open research project exploring hybrid semantic UI perception, targeted visual fallbacks, and live visual cursor feedback for AI agents. Verified security boundaries, unrun live VLM evaluations, and open platform limits remain explicitly documented in [SECURITY.md](SECURITY.md) and [Known Limitations](docs/KNOWN_LIMITATIONS.md). **Do not deploy against untrusted multi-tenant hosts or arbitrary untrusted web navigation.**
+> **Experimental Research Preview — Not Production Ready (`v0.1.0a1`):** This release adds canonical benchmark data, reproducible TypeScript/SVG visual figures, official branding, and security documentation over runtime baseline `0d19a9e`. **Core runtime engine bugs remain NOT FIXED in this release** — including cross-frame overlay click-through (`Critical`), sensitive-field redaction gaps (`High`), cursor-overlay false `opaque_canvas` detection (`High`), DNS fail-open / TOCTOU (`Medium`), and unauthenticated loopback CDP (`CUL_MCP_DIRECT_WS` enabled by default). **Do not deploy against untrusted hosts or arbitrary public browsing.** See [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md) and [SECURITY.md](SECURITY.md).
 
 ---
 
-## 1. Overview & Research Problem
+## 1. Overview & Status
 
-Purely vision-based computer-use agents that attach full-resolution screenshots on every step incur recurring token, latency, and coordinate-grounding costs even when interacting with structured web DOM forms or native Windows controls.
+**Computer Use Lite (`computer-use-lite`)** reduces repetitive per-step screenshot capture on structured UIs by discovering interactive elements directly from Chromium DevTools Protocol (`DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree`) and scoped Windows UI Automation (`CUIAutomation8` COM MTA), binding actions to short `eN` identifiers validated against monotonic `REV:N` revisions and bounds stability checks before dispatching input, and invoking cropped PNG screenshots (`blindN`) only for unmapped `<canvas>` or sparse-UIA (`low_uia`) surfaces.
 
-**Computer Use Lite (CUL)** investigates a local-first hybrid alternative:
-
-1. **Semantic-first discovery:** Extract interactive controls via Chromium CDP (`DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree`) and scoped Windows UI Automation (`CUIAutomation8` COM MTA), formatting output as a compact `REV:N` `line_map` (`eN|role|name|x,y,w,h|actions`).
-2. **Revision-checked element resolution:** Bind actions to short element IDs (`e1`, `e2`, ...) validated against monotonic revisions (`REV:N`), `<= 2` px geometry stability, and viewport occlusion/hit-test checks (`StaleElementError`) before clicking or typing.
-3. **Targeted visual fallback:** Export inline PNG crops (`blindN`) **only** when `blind_gap` detects an unmapped opaque `<canvas>` or a sparse-UIA desktop surface (`low_uia`).
-4. **Non-interfering Cursor Overlay:** Render an optional Frosted Obsidian-Glass & Satin Chrome 3D cursor overlay in headful Chromium (CSP-safe DOM+SVG) and Windows desktop sessions (`60 Hz` click-through `WS_EX_LAYERED` HWND excluded from screen capture) without shifting discovery results or tripping pointer safety guards.
-
-This repository preserves **positive benchmarks, negative/abandoned hypotheses, audit trails, and open security constraints together** so external researchers and engineers can verify every conclusion from raw artifacts. See [docs/INDEX.md](docs/INDEX.md) for the complete documentation map.
+- **Canonical Benchmark Dataset:** [research_archive/benchmark_publication/benchmark_data.json](research_archive/benchmark_publication/benchmark_data.json)
+- **Visual Source Code (TSX/React):** [research_visuals/benchmark_report/](research_visuals/benchmark_report/) (isolated from Python dependencies)
+- **Publication Documentation:** [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md) · [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md) · [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md) · [docs/INDEX.md](docs/INDEX.md)
 
 ---
 
-## 2. Implemented Capabilities (`HEAD` `d47b4e9`)
+## 2. Architecture Overview (`FIG-08`)
 
-| Layer | Modules ([src/computer_use_lite/](src/computer_use_lite/)) | Current Scope & Status |
-| :--- | :--- | :--- |
-| **Browser CDP Engine** | [`browser_cdp.py`](src/computer_use_lite/browser_cdp.py), [`hover.py`](src/computer_use_lite/hover.py) | Persistent `DirectCdpClient` WebSocket (`websockets`) + Playwright Chromium lifecycle (`direct_ws` optional via `CUL_MCP_DIRECT_WS=0`), 2-call `DOMSnapshot` + `AXTree`, paint-order & ancestor `overflow` clipping, multi-tab context tracking (`list_tabs`, `switch_tab`, `close_tab`), `--site-per-process` multi-doc fixture extraction, hover delta tracking, `elementFromPoint` freshness check, CDP `Fetch` SSRF redirect/sub-request guard |
-| **Windows Desktop UIA** | [`desktop_uia.py`](src/computer_use_lite/desktop_uia.py) | **Windows-only:** dedicated COM MTA worker (`CUIAutomation8`, `AutoSetFocus=0`, transient init `COMError` retry), single-HWND `FindAllBuildCache`, UIA pattern invocation -> `SendInput` fallback, Win32 `#32770` Save As text commit (`_commit_dialog_text`) + `DIALOG_ALERT:` static text extraction, foreground enforcement, 5 px cursor `KillSwitch` |
-| **3D Cursor Overlay** | [`cursor_overlay.py`](src/computer_use_lite/cursor_overlay.py), [`desktop_cursor_overlay.py`](src/computer_use_lite/desktop_cursor_overlay.py) | `64x64` vector cursor registry, CSP/Trusted-Types-safe browser overlay, dedicated `60.0 Hz` Win32 `WS_EX_LAYERED \| WS_EX_TRANSPARENT \| WS_EX_TOPMOST \| WS_EX_NOACTIVATE` desktop overlay (`_WDA_EXCLUDEFROMCAPTURE`, zero `SendInput` animation glide), `CUL_AGENT_CURSOR`, `CUL_AGENT_CURSOR_GLIDE_MS`, `CUL_MCP_HEADFUL` |
-| **Semantic API & Guards** | [`api.py`](src/computer_use_lite/api.py), [`resolver.py`](src/computer_use_lite/resolver.py), [`snapshot.py`](src/computer_use_lite/snapshot.py) | Unified `Api` (`discover_interactables`, `inspect_element`, `execute_action`, `hover_element`, `line_map`), `60`-element default cap with `filter_query`, `searchbox` `read_value()` + password redaction, action outcome cursor cues (`ok` vs `verified`) |
-| **Visual Gap Fallback** | [`blind_gap.py`](src/computer_use_lite/blind_gap.py) | Crops bounded regions only for `opaque_canvas`, `small_opaque_canvas`, or desktop `low_uia` (`< 6` controls); prioritizes Win32 `PrintWindow` over `ImageGrab` when target windows are covered, minimized, or cloaked |
-| **State & Redaction** | [`state.py`](src/computer_use_lite/state.py) | Atomic temp-file `TaskState` persistence (`fsync=False` option for disposable MCP scratch sessions); strips non-`None` action `"value"` payloads to `{value_length, value_sha256, value_redacted: true}` |
-| **MCP Server (`stdio`)** | [`mcp_server.py`](src/computer_use_lite/mcp_server.py), [`session_manager.py`](src/computer_use_lite/session_manager.py) | `FastMCP` `stdio` server exposing `13` tools with per-session thread isolation (`MAX_SESSIONS=16`), SSRF host/scheme/IP normalization checks (`CUL_MCP_ALLOW_PRIVATE_URLS`, `CUL_MCP_ALLOW_FILE_URLS`), `HEADLESS:`/`CURSOR:` headers, bounded inputs, blocked OS Win/Meta hotkeys |
-| **Compatibility Shims** | [`src/engine/`](src/engine/) | Backwards-compatible `importlib` module aliases re-exporting core engine symbols |
+![FIG-08 CUL Architecture](docs/assets/benchmarks/fig-08-architecture.svg)
+
+*Source TSX: [`Fig08Architecture.tsx`](research_visuals/benchmark_report/src/figures/Fig08Architecture.tsx) · Deep Dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)*
 
 ---
 
-## 3. Documentation & Repository Structure
+## 3. Browser Agent Benchmark Comparison (`FIG-01` – `FIG-04`)
 
-- **Documentation Hub:** [docs/INDEX.md](docs/INDEX.md)
-  - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Engine components, discovery/action lifecycle, Cursor Overlay, and MCP/security flows
-  - [docs/ARCHITECTURE_DECISION.md](docs/ARCHITECTURE_DECISION.md) — Architectural Decision Records & `KEEP`/`DROP`/`HOLD` empirical scorecard
-  - [docs/RESEARCH_FINDINGS.md](docs/RESEARCH_FINDINGS.md) — Consolidated empirical conclusions (positive, negative, and live-probe results)
-  - [docs/RESEARCH_METHODOLOGY.md](docs/RESEARCH_METHODOLOGY.md) — Epistemic tags, proxy metrics (`TOKENS_EST`, `1,229` baseline), and confounds
-  - [docs/BENCHMARKS.md](docs/BENCHMARKS.md) — Test suites, `benchmarks_real`, `perf_study` Exps `1–9`, `20`-task oracle harness, and unrun gaps
-  - [docs/OPTIMIZATION_ROADMAP.md](docs/OPTIMIZATION_ROADMAP.md) — `P0` completed/fixture-verified fixes vs unimplemented `P1`/`P2` proposals
-  - [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — Verified platform, discovery, security, and benchmark boundaries
-  - [docs/RESEARCH_HISTORY.md](docs/RESEARCH_HISTORY.md) — Chronological evolution across all development waves
-- **Historical Archive:** [research_archive/INDEX.md](research_archive/INDEX.md) — Preserved audit reports, stale-process stress runs, skill validation dossiers, release-prep snapshots, and links to anchored raw experiment data ([results/](results/), [archive/](archive/), [experiments/](experiments/)).
-- **Code & Suites:** [src/computer_use_lite/](src/computer_use_lite/), [tests/](tests/), [benchmarks/](benchmarks/), [experiments/](experiments/).
+Evaluated across **`72` randomized runs** (`12` synthetic local HTML tasks × `3` repetitions × `2` arms, seed `2040777688`, Codex CLI `0.166.0`, requested model `gpt-6-luna`) comparing **`@playwright/mcp@0.0.86`** against **CUL Browser MCP** at commit `fdc92d9` (`CUL_MCP_BROWSER_ONLY=1`). **This is a semantic-vs-semantic browser MCP comparison, NOT Native OpenAI Computer Use (`@oai/sky`) vs CUL.**
+
+| Metric | Playwright MCP (`n=36`) | CUL Browser MCP (`fdc92d9`, `n=36`) | Delta / Caveat |
+|---|---:|---:|---|
+| **Successful runs** | `31/36` (`86.11%`) | `36/36` (`100.0%`) | `+5` CUL wins on `b08` (`0/3 -> 3/3`) & `b12` (`1/3 -> 3/3`); `b11` shared prompt leaked `filter_query` |
+| **Median total tokens** | `126,087` | `176,506` | **CUL `+40.0%` higher** (`7` wins / `29` losses) |
+| **Median steps** | `3.0` | `4.5` | **CUL `+50.0%` more tool calls** (`152` vs `116` total) |
+| **Median wall time** | `26.48s` | `26.87s` | **CUL `+1.5%` slower median** (`26,869.85 ms` vs `26,480.53 ms`) |
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-01-browser-success.svg" alt="FIG-01 Browser Task Success Rate" width="900" />
+</p>
+
+*FIG-01 Source TSX: [`Fig01BrowserSuccess.tsx`](research_visuals/benchmark_report/src/figures/Fig01BrowserSuccess.tsx) · Methodology: [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md)*
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-02-wall-time.svg" alt="FIG-02 Median End-to-End Task Wall Time" width="900" />
+</p>
+
+*FIG-02 Source TSX: [`Fig02WallTime.tsx`](research_visuals/benchmark_report/src/figures/Fig02WallTime.tsx) · Methodology: [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md)*
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-03-token-estimates.svg" alt="FIG-03 Median Total Conversation Tokens" width="900" />
+</p>
+
+*FIG-03 Source TSX: [`Fig03TokenEstimates.tsx`](research_visuals/benchmark_report/src/figures/Fig03TokenEstimates.tsx) · Methodology: [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md)*
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-04-interaction-steps.svg" alt="FIG-04 Median Agent Interaction Steps" width="900" />
+</p>
+
+*FIG-04 Source TSX: [`Fig04InteractionSteps.tsx`](research_visuals/benchmark_report/src/figures/Fig04InteractionSteps.tsx) · Full Breakdown: [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md)*
+
+> [!NOTE]
+> **Disclosed Confounds:** (1) `b11_dense_90_grid_filter` shared goal text exposed CUL's `filter_query` parameter name to both arms; (2) Playwright MCP invoked `browser_run_code_unsafe` once on `b12_opaque_canvas_click` run 1; (3) CUL Browser MCP ran on benchmark worktree commit `fdc92d9`; (4) tasks were synthetic local fixtures and do not establish general CUL superiority.
 
 ---
 
-## 4. Installation
+## 4. Observation-Size Proxy Comparison (`FIG-05`)
 
-**Requirements:**
-- **OS:** Windows 10/11 required at runtime (`desktop_uia.py` and `snapshot.py` bind `ctypes.WinDLL("user32")` on module import; see [Known Limitations](docs/KNOWN_LIMITATIONS.md)).
-- **Python:** `>=3.10` (tested in CI and benchmarks on Python `3.12`).
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-05-observation-size.svg" alt="FIG-05 Estimated Observation Size — Not Actual API Token Usage" width="900" />
+</p>
+
+*FIG-05 Source TSX: [`Fig05ObservationSize.tsx`](research_visuals/benchmark_report/src/figures/Fig05ObservationSize.tsx) · Methodology: [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md#3-observation-size-proxy-fig-05)*
+
+> [!CAUTION]
+> **Estimated Observation Size — Not Actual API Token Usage:** `112` estimated tokens (`round(text_length / 4)`) vs `1,196` `28×28`-patch tokens (`1280×720`) reflects single-step payload estimates on synthetic browser tasks, **not** provider BPE billing or a `10.7x` reduction in total task cost (cf. `FIG-03`, where total multi-turn Codex tokens were `+40%` higher, and uncapped File Explorer UIA at `1,611.0` est. tokens).
+
+---
+
+## 5. Windows Automated Test Coverage (`FIG-06`)
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-06-windows-tests.svg" alt="FIG-06 Windows 11 Automated Test Suite Execution" width="900" />
+</p>
+
+*FIG-06 Source TSX: [`Fig06WindowsTests.tsx`](research_visuals/benchmark_report/src/figures/Fig06WindowsTests.tsx) · Provenance: [benchmark_sources.json](research_archive/benchmark_publication/benchmark_sources.json)*
+
+Measured on Windows 11 Pro (`10.0.26200`) at commit `0d19a9e`: **`70 passed, 0 failed, 0 skipped` in `197.50s`** (`58 passed, 12 skipped` in `86.66s` with `CUL_SKIP_DESKTOP=1`). This measures deterministic suite health, not AI-agent success.
+
+---
+
+## 6. Desktop Pilot Status (`FIG-07`)
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-07-desktop-pilot-status.svg" alt="FIG-07 Desktop Pilot Status Board" width="900" />
+</p>
+
+*FIG-07 Source TSX: [`Fig07DesktopPilotStatus.tsx`](research_visuals/benchmark_report/src/figures/Fig07DesktopPilotStatus.tsx) · Details: [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md#4-desktop-pilot-status-fig-07)*
+
+Supervised desktop benchmarking remains **incomplete**: `CUL T1` passed `2/2` runs with SHA-256 fixture checks, **`CUL T2` remained incomplete**, and the **Native (`@oai/sky`) vs CUL head-to-head comparison was not completed**.
+
+---
+
+## 7. Verified Security & Reliability Findings (`FIG-09`)
+
+<p align="center">
+  <img src="docs/assets/benchmarks/fig-09-security-findings.svg" alt="FIG-09 Security and Reliability Findings Status Board" width="900" />
+</p>
+
+*FIG-09 Source TSX: [`Fig09SecurityFindings.tsx`](research_visuals/benchmark_report/src/figures/Fig09SecurityFindings.tsx) · Full Security Dossier & Evidence Captures: [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)*
+
+All runtime issues (`F-01`–`F-08`) verified on `0d19a9e` remain **unfixed** in `0.1.0a1`; the stale `src/engine/` copy claim was **`REFUTED`** (`16`-line `importlib` aliases).
+
+---
+
+## 8. Installation & Quick Start
+
+**Requirements:** Windows 10/11 (`desktop_uia.py`, `snapshot.py`, and `desktop_cursor_overlay.py` bind Windows Win32/COM libraries on import) and Python `>=3.10`.
 
 ```powershell
 git clone https://github.com/mohgomaa-art/computer-use-lite.git
@@ -70,137 +138,51 @@ python -m pip install -e ".[dev,benchmarks]"
 python -m playwright install chromium
 ```
 
-Dependencies declared in [`pyproject.toml`](pyproject.toml): `playwright>=1.40`, `pillow>=10.0`, `websockets>=14.0`, `mcp>=1.25.0,<2`, plus Windows dependencies `uiautomation>=2.0.29` and `comtypes>=1.5.0` (see [NOTICE](NOTICE)).
+> Note: Installing extras `.[dev]` alone omits `psutil` needed by benchmark tests; use `".[dev,benchmarks]"` as shown.
 
----
-
-## 5. Quick Start
-
-### Python API (Browser)
+### Python API (Browser) & MCP Server (`stdio`)
 
 ```python
 from pathlib import Path
-from computer_use_lite import Api, BrowserSession
+from computer_use_lite import Api, BrowserSession, __version__
 
-session = BrowserSession(
-    url="https://example.com",
-    headless=True,
-    viewport=(1280, 720),
-)
-try:
-    api = Api(
-        session,
-        state_path=Path("./runtime/task_state.json"),
-        crops_dir=Path("./runtime/crops"),
-    )
-    line_map = api.discover_interactables(max_elements=60)
-    print(line_map)
-    # Example output:
-    # REV:1 | WIN:Example Domain | ELEMENTS:1 | BLIND_REGIONS:0
-    # e1|link|More information...|...,...,...,...|click
-
-    # Execute against explicit element ID + revision:
-    result = api.execute_action("e1", "click", revision=1)
-    print(result)
-finally:
-    session.close()
+print("computer-use-lite:", __version__)
+with BrowserSession(url="https://example.com", headless=True, viewport=(1280, 720)) as session:
+    api = Api(session, state_path=Path("./runtime/task_state.json"), crops_dir=Path("./runtime/crops"))
+    print(api.discover_interactables(max_elements=60))
+    print(api.execute_action("e1", "click", revision=1))
 ```
 
-### Windows Desktop Session (`DesktopSession`)
-
-```python
-from computer_use_lite import Api, DesktopSession
-from computer_use_lite.desktop_uia import list_windows
-
-windows = list_windows(title_contains="Notepad")
-if windows:
-    session = DesktopSession(windows[0]["hwnd"])
-    try:
-        api = Api(session)
-        print(api.discover_interactables(max_elements=40))
-    finally:
-        session.close()
-```
-
-### MCP Server (`stdio`)
-
-Launch via console script or module entrypoint:
+Launch the `13`-tool MCP server (`stdio`):
 
 ```powershell
 computer-use-lite-mcp
-# or
+# or:
 python -u -m computer_use_lite.mcp_server
 ```
 
-Example MCP client snippet:
-
-```json
-{
-  "mcpServers": {
-    "computer-use-lite": {
-      "command": "python",
-      "args": ["-u", "-m", "computer_use_lite.mcp_server"],
-      "env": {}
-    }
-  }
-}
-```
-
-Relevant MCP environment toggles verified in source:
-- `CUL_MCP_HEADFUL=1`: launch `open_browser` headful by default when `headless` is omitted.
-- `CUL_AGENT_CURSOR=0|1`: disable or force the Obsidian-Chrome 3D cursor overlay.
-- `CUL_AGENT_CURSOR_GLIDE_MS=140`: smooth visual glide duration (`0..600` ms).
-- `CUL_MCP_ALLOW_PRIVATE_URLS=1` / `CUL_MCP_ALLOW_FILE_URLS=1`: opt-in overrides for local fixture testing only.
-- `CUL_MCP_DIRECT_WS=0`: disable `--remote-debugging-port` TCP socket and force Playwright's internal `CDPSession` adapter.
-
-**Exposed `13` MCP tools:**  
-`open_browser`, `list_desktop_windows`, `open_desktop`, `close_session`, `list_sessions`, `discover`, `inspect`, `act`, `hover`, `navigate` (`goto`, `back`, `list_tabs`, `switch_tab`, `close_tab`), `scroll`, `press_key`, `click_at`.
-
----
-
-## 6. Verification & Benchmark Commands
+Run tests (`CUL_SKIP_DESKTOP=1` matches CI; omit only on an interactive unlocked Windows desktop):
 
 ```powershell
-# Headless browser, security, audit-fix, MCP stdio & benchmark-contract tests
 $env:CUL_SKIP_DESKTOP = "1"
-pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
-
-# Full Windows suite including @pytest.mark.windows_desktop E2E & overlay tests
-# (requires an interactive unlocked Windows user desktop)
-pytest -v -rs -W error::pytest.PytestReturnNotNoneWarning
-
-# Compile sanity check + benchmark runners
-python -m compileall -q src experiments benchmarks tests
-python -m benchmarks.benchmark_real
-python -m benchmarks.run_all --exp all
-python -m benchmarks.bench_agent_20tasks --dry-run-oracle
+pytest -v -rs --strict-markers -W error::pytest.PytestReturnNotNoneWarning
 ```
 
-- **Test Provenance Disclosure:** On the `v0.1.0-alpha` release-prep baseline (`698861d`), the full Windows suite recorded `52 passed in 68.86s`. Subsequent commits added `11` tests in `tests/test_cursor_overlay.py` (`7c7b9b4..4f9bcef`, currently modified locally) and `5` `P0-*` regression tests in `tests/test_audit_fixes.py` (`77cd171..a3291b3`). **No full-suite `pytest` re-run was executed during this documentation-only pass (`HEAD` `d47b4e9`), so post-`698861d` full-suite aggregate counts remain unverified here.**
+Reproduce TSX/SVG chart generation independently (requires Node `>=20`, zero Python runtime impact):
+
+```powershell
+cd research_visuals/benchmark_report
+npm install
+npm run build
+npm run export
+```
 
 ---
 
-## 7. Key Findings & Honest Limitations
+## 9. Documentation, Version History & Citation
 
-Detailed datasets and confounds live in [docs/RESEARCH_FINDINGS.md](docs/RESEARCH_FINDINGS.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), and [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md):
-
-- **Compact maps & low discovery latency on structured UIs (`[MEASURED]` pre-P0 baselines):** Dual-origin corpus fixtures reached `recall=1.0, precision=1.0`, `P-01` cut `2,500`-cell Python occlusion CPU `p50` from `824.40 ms -> 19.32 ms`, COM `MTA` + `AutoSetFocus=0` eliminated `446–861 ms` cold `STA` and `~2,000 ms` per-action stalls, and `DirectCdpClient` saved `-98.21 ms` `p50` on GitHub Trending (`1.1 MB` Snapshot+AX payloads).
-- **Documented rejections (`DROP`):** Browser and desktop cursor probing (`H1` `29.46 s`, `H1b` `14.93 s` / `34.4%` pipelined, `H2 2B` invalidated `(0, 87)` px origin, `H3` not built), `CoreAutomationRemoteOperation` UIA subtree walking (`Exp 5`), single-frame JS extraction (`Exp 6`), and top-frame `MutationObserver` (`Exp 9`).
-- **Unverified / open scope:**
-  - `benchmarks/bench_agent_20tasks.py` has **`20/20` deterministic oracle validation (`0` live VLM API calls executed)** — there is **no** comparative end-to-end live VLM win-rate claim over screenshot baselines.
-  - `P0-1` OOPIF support passes deterministic `--site-per-process` unit fixtures, while live third-party cross-origin embeds (e.g., `youtube.com/embed`) remain unverified on restarted MCP.
-  - `P1` and `P2` items (AX `checked`/`value`/`slider`/`readonly` metadata extraction, unified sticky-header clamping, `WS_EX_LAYOUTRTL` un-mirroring, Explorer inactive-tab filtering, Linux/macOS import decoupling, mouse drag-and-drop) remain **unimplemented proposals** ([docs/OPTIMIZATION_ROADMAP.md](docs/OPTIMIZATION_ROADMAP.md)).
-  - `validate_navigation_url` + CDP `Fetch` interception blocks HTTP `3xx` redirect SSRF hops (`P0-4`), **but** OS-level DNS-rebinding TOCTOU between Python pre-check and Chromium socket connect remains open ([SECURITY.md](SECURITY.md)).
-
----
-
-## 8. Contributing & Citation
-
-- **Contributions:** See [CONTRIBUTING.md](CONTRIBUTING.md) and `.github/` templates.
-- **Security Reports:** See [SECURITY.md](SECURITY.md).
-- **Citation:** See [CITATION.cff](CITATION.cff).
-
-```text
-Computer Use Lite — Copyright 2026 Mohamed Gomaa (@mohgomaa-art)
-Licensed under the Apache License, Version 2.0 (LICENSE / NOTICE)
-```
+- **Documentation Hub:** [docs/INDEX.md](docs/INDEX.md)
+- **Research Publication Docs:** [docs/BENCHMARK_COMPARISON.md](docs/BENCHMARK_COMPARISON.md) · [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md) · [docs/SECURITY_AND_LIMITATIONS.md](docs/SECURITY_AND_LIMITATIONS.md)
+- **Historical & Audit Archive:** [research_archive/INDEX.md](research_archive/INDEX.md) · [research_archive/benchmark_publication/benchmark_data.json](research_archive/benchmark_publication/benchmark_data.json)
+- **Version History:** See [CHANGELOG.md](CHANGELOG.md) (`v0.1.0a1` Benchmark Research Edition and immutable historical release [`v0.1.0a0`](https://github.com/mohgomaa-art/computer-use-lite/releases/tag/v0.1.0a0) at `0d19a9e`).
+- **Citation:** See [CITATION.cff](CITATION.cff) (`version: "0.1.0a1"`), [AUTHORS.md](AUTHORS.md), [LICENSE](LICENSE), and [NOTICE](NOTICE).

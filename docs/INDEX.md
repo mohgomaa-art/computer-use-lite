@@ -2,7 +2,20 @@
 
 This is the single canonical navigation entry point for **Computer Use Lite (`computer-use-lite`)**, authored by Mohamed Gomaa ([`@mohgomaa-art`](https://github.com/mohgomaa-art/)).
 
-> **Maturity & Epistemic Rule:** Computer Use Lite is an **Experimental Public Research Preview** (`HEAD` `d47b4e9`). Documents clearly distinguish implemented facts (`[VERIFIED-CODE]`), measured experiments (`[MEASURED]`), prior run reports (`[REPORTED]`), unimplemented plans (`[PROPOSAL]`), and unrun evaluations (`[UNVERIFIED]`). See [RESEARCH_METHODOLOGY.md](RESEARCH_METHODOLOGY.md).
+> **Maturity & Epistemic Rule:** Computer Use Lite is an **Experimental Public Research Preview** (`v0.1.0a1` Benchmark Research Edition built over audited runtime baseline `v0.1.0a0` / `0d19a9e`). Documents distinguish verified code (`[VERIFIED-CODE]`), measured datasets (`[MEASURED]`), partial pilots, unimplemented plans (`[PROPOSAL]`), and open runtime defects (`NOT FIXED`). See [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) and [RESEARCH_METHODOLOGY.md](RESEARCH_METHODOLOGY.md).
+
+---
+
+## Benchmark Publication & Release Dossier (`v0.1.0a1`)
+
+| Document / Collection | Scope |
+| :--- | :--- |
+| [BENCHMARK_COMPARISON.md](BENCHMARK_COMPARISON.md) | `FIG-01`–`FIG-07` verified Playwright MCP vs CUL Browser MCP results, observation-size proxy (`112` vs `1,196`), Windows `70 passed` suite, and unfinished Desktop Pilot status |
+| [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) | Protocol details (`fdc92d9`, seed `2040777688`), `b11` prompt-contamination disclosure, `TOKENS_EST` vs BPE limits, and epistemic provenance |
+| [SECURITY_AND_LIMITATIONS.md](SECURITY_AND_LIMITATIONS.md) | `FIG-09` audit board (`F-01`–`F-08` unpatched runtime status + `F-REF` refuted copy), synthetic visual captures (`assets/evidence/`), and open questions |
+| [`../research_archive/benchmark_publication/`](../research_archive/benchmark_publication/benchmark_data.json) | Canonical machine-readable JSON datasets (`benchmark_data.json`, `benchmark_sources.json`) and publication briefs |
+| [`../research_visuals/benchmark_report/`](../research_visuals/benchmark_report/) | Isolated TypeScript/React/SVG package generating [`assets/benchmarks/`](assets/benchmarks/figures_manifest.json) + `CulCover.tsx` social preview |
+| [`assets/brand/logo.svg`](assets/brand/logo.svg) | Official owner-supplied SVG mark preserved verbatim |
 
 ---
 
