@@ -140,8 +140,16 @@ def validate_navigation_url(url: str) -> str:
         else:
             try:
                 infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
-            except socket.gaierror:
-                infos = []
+            except socket.gaierror as exc:
+                raise PermissionError(
+                    f"Blocked navigation to unresolved host {host!r}: DNS lookup failed ({exc}); "
+                    "fail-closed SSRF protection (set CUL_MCP_ALLOW_PRIVATE_URLS=1 to override)."
+                ) from exc
+            if not infos:
+                raise PermissionError(
+                    f"Blocked navigation to unresolved host {host!r}: DNS returned no addresses; "
+                    "fail-closed SSRF protection (set CUL_MCP_ALLOW_PRIVATE_URLS=1 to override)."
+                )
             for _fam, _type, _proto, _canon, sockaddr in infos:
                 addr_str = sockaddr[0].split("%", 1)[0]
                 try:
